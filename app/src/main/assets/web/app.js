@@ -1,4 +1,4 @@
-(function () {
+﻿(function () {
   const android = window.AndroidApp || null;
   const MOBILE_UA = "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/124 Mobile Safari/537.36";
   const PC_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124 Safari/537.36";
@@ -1393,14 +1393,14 @@
       } else if (lazyOutput && typeof lazyOutput === "object") {
         candidate = {
           url: lazyOutput.url || initialUrl,
-          header: mergeHeaders(getPlayHeaders(rule), lazyOutput.header || {}),
+          header: mergeHeaders(getPlayHeaders(rule), lazyOutput.header || lazyOutput.headers || {}),
           parse: Number(lazyOutput.parse || 0),
           jx: Number(lazyOutput.jx || 0),
         };
       }
     }
 
-    candidate.url = absoluteUrl(candidate.url, rule.host);
+    candidate.url = decodeMediaUrlCandidate(candidate.url, rule.host);
     if (shouldSniffPlaybackCandidate(candidate)) {
       const sniffed = sniffPlaybackCandidate(candidate);
       if (sniffed && sniffed.url) {
@@ -1451,8 +1451,12 @@
       const patterns = [
         /(?:url|playurl|video_url|src)\s*[:=]\s*["']([^"'<>]+?(?:m3u8|mp4|m4v|flv|mpd|webm)[^"']*)["']/ig,
         /(?:player_aaaa|player_data|__PLAYER__|MacPlayerConfig)\s*=\s*\{[\s\S]*?(?:url|src|video_url)\s*[:=]\s*["']([^"'<>]+)["'][\s\S]*?\}/ig,
+        /(?:thisUrl|video_src|videoUrl)\s*[:=]\s*["']([^"'<>]+)["']/ig,
+        /src\s*:\s*["']([^"'<>]+)["']/ig,
+        /["']((?:https?:\/\/|https?:\\\/\\\/|\/\/|\/)[^"']+?(?:player|parse|api)[^"']*)["']/ig,
         /["'](https?:\/\/[^"']+?(?:m3u8|mp4|m4v|flv|mpd|webm)[^"']*)["']/ig,
         /["'](https?:\\\/\\\/[^"']+?(?:m3u8|mp4|m4v|flv|mpd|webm)[^"']*)["']/ig,
+        /["'](%[0-9a-f]{2}[^"']*(?:%6d%33%75%38|%6d%70%34)[^"']*)["']/ig,
       ];
       for (let i = 0; i < patterns.length; i += 1) {
         let match;
@@ -1508,6 +1512,63 @@
       .replace(/^\/\//, "https://")
       .replace(/&amp;/g, "&");
     return absoluteUrl(normalized, host);
+  }
+
+  function decodeMediaUrlCandidate(value, host) {
+    const queue = [String(value || "").trim()];
+    const seen = new Set();
+
+    while (queue.length) {
+      const current = String(queue.shift() || "").trim();
+      if (!current || seen.has(current)) {
+        continue;
+      }
+      seen.add(current);
+
+      const normalized = normalizeEmbeddedMediaUrl(current, host);
+      if (normalized && (isDirectPlayableUrl(normalized) || /^https?:\/\//i.test(normalized))) {
+        return normalized;
+      }
+
+      const encodedUrlMatch = current.match(/(?:url|playurl|src|video_url)=([^&]+)/i);
+      if (encodedUrlMatch && encodedUrlMatch[1]) {
+        queue.push(encodedUrlMatch[1]);
+      }
+
+      if (/^\{[\s\S]+\}$/.test(current)) {
+        const parsed = safeJsonParse(current, null);
+        if (parsed && typeof parsed === "object") {
+          ["url", "src", "video_url", "playurl"].forEach((key) => {
+            if (parsed[key]) {
+              queue.push(parsed[key]);
+            }
+          });
+        }
+      }
+
+      if (/%[0-9a-f]{2}/i.test(current)) {
+        try {
+          queue.push(decodeURIComponent(current));
+        } catch (error) {
+          console.warn(error);
+        }
+      }
+
+      if (!/^https?:\/\//i.test(current) && /^[A-Za-z0-9+/=_-]{16,}$/.test(current)) {
+        try {
+          queue.push(atob(current.replace(/-/g, "+").replace(/_/g, "/")));
+        } catch (error) {
+          console.warn(error);
+        }
+      }
+
+      const escapedHttpMatch = current.match(/https?:\\\/\\\/[^"'\\s<>]+/i);
+      if (escapedHttpMatch && escapedHttpMatch[0]) {
+        queue.push(escapedHttpMatch[0]);
+      }
+    }
+
+    return absoluteUrl(String(value || "").trim(), host);
   }
 
   function normalizeItems(items) {
@@ -1847,6 +1908,90 @@
     return token === "Text" || /^[a-zA-Z0-9:_-]+$/.test(token);
   }
 
+  function parseSelectorFeatures(selector) {
+    let working = String(selector || "").trim();
+    const containsTexts = [];
+    const hasSelectors = [];
+
+    while (true) {
+      const hasToken = stripPseudoSelector(working, ":has(");
+      if (!hasToken) {
+        break;
+      }
+      hasSelectors.push(hasToken.content.trim());
+      working = hasToken.selector;
+    }
+
+    while (true) {
+      const containsToken = stripPseudoSelector(working, ":contains(");
+      if (!containsToken) {
+        break;
+      }
+      containsTexts.push(unquotePseudoContent(containsToken.content));
+      working = containsToken.selector;
+    }
+
+    working = working.replace(/\s+/g, " ").trim();
+    return {
+      selector: working || "*",
+      containsTexts: containsTexts.filter(Boolean),
+      hasSelectors: hasSelectors.filter(Boolean),
+    };
+  }
+
+  function stripPseudoSelector(selector, pseudoPrefix) {
+    const index = selector.indexOf(pseudoPrefix);
+    if (index < 0) {
+      return null;
+    }
+    let depth = 1;
+    let cursor = index + pseudoPrefix.length;
+    while (cursor < selector.length && depth > 0) {
+      const char = selector.charAt(cursor);
+      if (char === "(") {
+        depth += 1;
+      } else if (char === ")") {
+        depth -= 1;
+      }
+      cursor += 1;
+    }
+    if (depth !== 0) {
+      return null;
+    }
+    return {
+      selector: (selector.slice(0, index) + selector.slice(cursor)).trim(),
+      content: selector.slice(index + pseudoPrefix.length, cursor - 1),
+    };
+  }
+
+  function unquotePseudoContent(value) {
+    const text = String(value || "").trim();
+    if ((text.startsWith("\"") && text.endsWith("\"")) || (text.startsWith("'") && text.endsWith("'"))) {
+      return text.slice(1, -1);
+    }
+    return text;
+  }
+
+  function filterSelectorMatches(nodes, features) {
+    return nodes.filter((node) => {
+      if (!(node instanceof Element)) {
+        return false;
+      }
+      if (features.containsTexts.length) {
+        const text = normalizeText(node.textContent || "");
+        if (!features.containsTexts.every((part) => text.includes(part))) {
+          return false;
+        }
+      }
+      if (features.hasSelectors.length) {
+        if (!features.hasSelectors.every((selector) => selectEnhanced(node, selector).length > 0)) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }
+
   function selectEnhanced(root, selector) {
     return String(selector || "").split("&&").reduce((nodes, step) => {
       return nodes.flatMap((node) => selectOneStep(node, step));
@@ -1874,7 +2019,8 @@
     if (rawSelector === "body") {
       return [normalizedRoot.body || normalizedRoot];
     }
-    return queryAllWithSelf(normalizedRoot, rawSelector);
+    const features = parseSelectorFeatures(rawSelector);
+    return filterSelectorMatches(queryAllWithSelf(normalizedRoot, features.selector), features);
   }
 
   function queryAllWithSelf(root, selector) {
