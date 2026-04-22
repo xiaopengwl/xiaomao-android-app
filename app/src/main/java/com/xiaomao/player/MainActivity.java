@@ -59,7 +59,7 @@ import java.util.zip.GZIPInputStream;
 import javax.net.ssl.HttpsURLConnection;
 
 public class MainActivity extends AppCompatActivity {
-    private static final int DEFAULT_SNIFF_MAX_DEPTH = 2;
+    private static final int DEFAULT_SNIFF_MAX_DEPTH = 3;
     private WebView webView;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private AudioManager audioManager;
@@ -590,7 +590,7 @@ public class MainActivity extends AppCompatActivity {
                 public void onPageFinished(WebView view, String url) {
                     mainHandler.removeCallbacks(pageIdleHolder[0]);
                     String js = "(function(){try{var out=[];var pages=[];var seen={};var seenPages={};"
-                            + "function add(u){if(!u||seen[u])return;seen[u]=1;out.push(u);}"
+                            + "function add(u){u=String(u||'').trim();if(!u||seen[u])return;seen[u]=1;out.push(u);try{if(/%[0-9a-f]{2}/i.test(u)){var du=decodeURIComponent(u);if(du&&!seen[du]){seen[du]=1;out.push(du);}}}catch(e){}}"
                             + "function addPage(u){if(!u||seenPages[u])return;seenPages[u]=1;pages.push(u);}"
                             + "var nodes=document.querySelectorAll('video,source,audio,iframe,embed');"
                             + "for(var i=0;i<nodes.length;i++){"
@@ -608,10 +608,13 @@ public class MainActivity extends AppCompatActivity {
                             + "/(?:url|playurl|video_url|video|src)\\\\s*[:=]\\\\s*[\\\"']([^\\\"'<>\\\\s]+)[\\\"']/ig,"
                             + "/(?:player_?[a-z0-9]*)\\\\s*=\\\\s*\\\\{[\\\\s\\\\S]*?(?:url|src)\\\\s*[:=]\\\\s*[\\\"']([^\\\"']+)[\\\"'][\\\\s\\\\S]*?\\\\}/ig,"
                             + "/(?:player_aaaa|player_data|__PLAYER__|MacPlayerConfig)\\\\s*=\\\\s*\\\\{[\\\\s\\\\S]*?(?:url|src|link_next|parse|parse_api)\\\\s*[:=]\\\\s*[\\\"']([^\\\"']+)[\\\"'][\\\\s\\\\S]*?\\\\}/ig,"
+                            + "/(?:thisUrl|video_src|videoUrl)\\\\s*[:=]\\\\s*[\\\"']([^\\\"']+)[\\\"']/ig,"
+                            + "/src\\\\s*:\\\\s*[\\\"']([^\\\"']+)[\\\"']/ig,"
                             + "/[\\\"'](https?:\\\\/\\\\/[^\\\"']+?(?:m3u8|mp4|m4v|flv|mpd|webm)[^\\\"']*)[\\\"']/ig,"
                             + "/[\\\"']((?:https?:)?\\\\/\\\\/[^\\\"']+?(?:player|parse|api|iframe)[^\\\"']*)[\\\"']/ig,"
                             + "/[\\\"']((?:\\\\/|\\.\\\\/|\\.\\.\\\\/)[^\\\"']+?(?:player|parse|api)[^\\\"']*)[\\\"']/ig,"
-                            + "/[\\\"'](https?:\\\\\\\\/\\\\\\\\/[^\\\"']+?(?:m3u8|mp4|m4v|flv|mpd|webm|player|parse)[^\\\"']*)[\\\"']/ig"
+                            + "/[\\\"'](https?:\\\\\\\\/\\\\\\\\/[^\\\"']+?(?:m3u8|mp4|m4v|flv|mpd|webm|player|parse)[^\\\"']*)[\\\"']/ig,"
+                            + "/[\\\"'](%[0-9a-f]{2}[^\\\"']*(?:%6d%33%75%38|%6d%70%34)[^\\\"']*)[\\\"']/ig"
                             + "];"
                             + "for(var p=0;p<patterns.length;p++){var match;while((match=patterns[p].exec(html))){add(match[1]);addPage(match[1]);}}"
                             + "var framePattern=/<iframe[^>]+(?:src|data-src)=[\\\"']([^\\\"']+)[\\\"']/ig;var frameMatch;"
@@ -769,6 +772,15 @@ public class MainActivity extends AppCompatActivity {
         }
         if (candidate.startsWith("http://") || candidate.startsWith("https://") || candidate.startsWith("blob:")) {
             return candidate;
+        }
+        if (candidate.contains("%")) {
+            try {
+                String decoded = java.net.URLDecoder.decode(candidate, "UTF-8");
+                if (!TextUtils.isEmpty(decoded)) {
+                    candidate = decoded;
+                }
+            } catch (Exception ignored) {
+            }
         }
         if (candidate.startsWith("/") && !TextUtils.isEmpty(baseUrl)) {
             try {
