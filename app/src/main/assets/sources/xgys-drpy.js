@@ -22,7 +22,7 @@ var rule = {
     desc: '.desc--span&&Text',
     content: '.detail-sketch&&Text',
     tabs: 'ul.nav-tabs li a',
-    lists: 'ul.stui-content__playlist:eq(#id).li a',
+    lists: 'ul.stui-content__playlist:eq(#id)&&li a',
     tab_text: 'a&&Text',
     list_text: 'a&&Text',
     list_url: 'a&&href'
