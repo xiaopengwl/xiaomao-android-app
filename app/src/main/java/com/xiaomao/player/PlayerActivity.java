@@ -130,9 +130,21 @@ public class PlayerActivity extends AppCompatActivity {
     }
 
     @Override
+    protected void onResume() {
+        super.onResume();
+        tryInvokeJzvd("goOnPlayOnResume");
+    }
+
+    @Override
     protected void onPause() {
         super.onPause();
         Jzvd.releaseAllVideos();
+    }
+
+    @Override
+    protected void onDestroy() {
+        Jzvd.releaseAllVideos();
+        super.onDestroy();
     }
 
     private Map<String, String> parseHeaders(String rawJson) {
@@ -157,5 +169,13 @@ public class PlayerActivity extends AppCompatActivity {
 
     private String safe(String value) {
         return value == null ? "" : value.trim();
+    }
+
+    private void tryInvokeJzvd(String methodName) {
+        try {
+            Method method = Jzvd.class.getMethod(methodName);
+            method.invoke(null);
+        } catch (Throwable ignored) {
+        }
     }
 }
