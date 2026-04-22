@@ -1,6 +1,8 @@
 (function () {
   const android = window.AndroidApp || null;
   const MOBILE_UA = "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/124 Mobile Safari/537.36";
+  const PC_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124 Safari/537.36";
+  const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
   const RULE_KEYS = {
     preprocess: ["\u9884\u5904\u7406"],
     recommend: ["\u63a8\u8350"],
@@ -22,7 +24,6 @@
     "video/tos",
     "/playlist/",
     "/stream/",
-    "/play/",
     "playurl",
     "vurl=",
     "url=",
@@ -58,6 +59,60 @@
     "\\.ass(\\?|$)",
     "\\.vtt(\\?|$)",
   ];
+  const SITE_SNIFFER_PROFILES = [
+    {
+      test: /(vip|jx|parse|parser|analysis|player)/i,
+      matchRules: ["getm3u8", "url=", "playurl", "vurl=", "vod=", "player_aaaa", "application/vnd.apple.mpegurl"],
+      excludeRules: ["favicon", "logo", "ads?", "analytics", "tracker"],
+      maxDepth: 4,
+    },
+    {
+      test: /(bfzy|ffzy|lz|wolong|dbzy|yzzy|360zy|ukzy|heimuer)/i,
+      matchRules: ["index.m3u8", "playlist", "/obj/tos", "m3u8\\?pt=", "video/tos"],
+      excludeRules: ["cover", "poster", "thumb", "\\/upload\\/"],
+      maxDepth: 4,
+    },
+    {
+      test: /(ali|alipan|aliyundrive|quark|uc)/i,
+      matchRules: ["download", "play", "preview", "x-oss-process", "x-pan-token"],
+      excludeRules: ["iconfont", "avatar", "qrcode"],
+      maxDepth: 2,
+    },
+    {
+      test: /(555k7|555dy|bestpipe|dongkadi|kkys|yxxq|sszzyy|gqck|madou8|bttwo|4kvm|chigua|band\.)/i,
+      matchRules: [
+        "player\\.html\\?v=",
+        "iframe",
+        "/api\\.php",
+        "/player/",
+        "/static/player/",
+        "__PLAYER__",
+        "player_data",
+        "player_aaaa",
+        "now=play",
+        "url=",
+        "vkey=",
+        "vid=",
+      ],
+      excludeRules: [
+        "share",
+        "comment",
+        "forum",
+        "rank",
+        "topic",
+        "avatar",
+        "banner",
+        "notice",
+      ],
+      maxDepth: 4,
+    },
+    {
+      test: /(madou|mdsp|porn|91|xvideos|phncdn|hanime|missav)/i,
+      matchRules: ["master.m3u8", "index.m3u8", ".mp4", "playlist", "stream"],
+      excludeRules: ["preview", "sample", "sprite", "storyboard", "poster", "thumb"],
+      maxDepth: 2,
+    },
+  ];
 
   const state = {
     page: "home",
@@ -92,6 +147,9 @@
     activeModeStat: document.getElementById("activeModeStat"),
     resultCountStat: document.getElementById("resultCountStat"),
     homeSummaryText: document.getElementById("homeSummaryText"),
+    homeContinueRail: document.getElementById("homeContinueRail"),
+    homeHotRail: document.getElementById("homeHotRail"),
+    homeCategoryRail: document.getElementById("homeCategoryRail"),
     homeGrid: document.getElementById("homeGrid"),
     categoryList: document.getElementById("categoryList"),
     exploreSummaryText: document.getElementById("exploreSummaryText"),
@@ -126,9 +184,15 @@
     closeDetailButton: document.getElementById("closeDetailButton"),
     detailOpenExternalButton: document.getElementById("detailOpenExternalButton"),
     playerModal: document.getElementById("playerModal"),
+    playerBackdrop: document.getElementById("playerBackdrop"),
+    playerSourceChip: document.getElementById("playerSourceChip"),
+    playerModeChip: document.getElementById("playerModeChip"),
     playerTitleText: document.getElementById("playerTitleText"),
     playerMetaText: document.getElementById("playerMetaText"),
+    playerSummaryText: document.getElementById("playerSummaryText"),
     playerUrlText: document.getElementById("playerUrlText"),
+    playerEpisodeRail: document.getElementById("playerEpisodeRail"),
+    playerRecommendRail: document.getElementById("playerRecommendRail"),
     playerQueue: document.getElementById("playerQueue"),
     artplayerMount: document.getElementById("artplayerMount"),
     playerFullscreenButton: document.getElementById("playerFullscreenButton"),
@@ -372,6 +436,9 @@
     state.featuredItem = items[0] || null;
     state.currentMode = "首页推荐";
     renderHome();
+    renderHomeContinueRail(items);
+    renderHomeHotRail(items);
+    renderHomeCategoryRail();
     renderExplore(state.exploreItems, "最新推荐", "已加载 " + items.length + " 条推荐内容。");
     renderChrome();
     setStatus("推荐加载完成", "已加载 " + items.length + " 条推荐内容。");
@@ -441,12 +508,14 @@
   function openPlayer(playback) {
     state.currentPlayback = playback;
     closeDetail();
+    renderPlayerExperience(playback);
     dom.playerTitleText.textContent = playback.title || "未命名剧集";
     dom.playerMetaText.textContent =
       (playback.detail && playback.detail.vod_name ? playback.detail.vod_name : state.currentSource.title) +
       " · " + (playback.groupName || "默认线路");
     dom.playerUrlText.textContent = shorten(playback.url, 180);
     renderPlayerQueue();
+    renderHomeContinueRail(state.homeItems);
     renderChrome();
     mountArtPlayer(playback);
     dom.playerModal.classList.remove("hidden");
@@ -589,6 +658,76 @@
     renderCardGrid(dom.homeGrid, items, "当前片源没有返回首页推荐内容。");
   }
 
+  function renderHomeContinueRail(items) {
+    const continueItems = [];
+    if (state.currentPlayback && state.detail) {
+      continueItems.push({
+        vod_id: state.detail.vod_id || state.currentPlayback.url,
+        vod_name: state.detail.vod_name || state.currentPlayback.title,
+        vod_pic: state.detail.vod_pic || "",
+        vod_remarks: "继续播放 · " + (state.currentPlayback.title || "当前剧集"),
+        _resumePlayback: true,
+      });
+    }
+    ensureArray(items).slice(0, 5).forEach((item) => {
+      if (!continueItems.some((entry) => (entry.vod_id || entry.vod_name) === (item.vod_id || item.vod_name))) {
+        continueItems.push(item);
+      }
+    });
+    renderHomeRail(dom.homeContinueRail, continueItems.slice(0, 6), "继续观看会显示在这里。", "continue");
+  }
+
+  function renderHomeHotRail(items) {
+    renderHomeRail(dom.homeHotRail, ensureArray(items).slice(0, 8), "片源返回推荐后，这里会展示热播速览。", "hot");
+  }
+
+  function renderHomeCategoryRail() {
+    if (!state.categories.length) {
+      dom.homeCategoryRail.innerHTML = '<div class="empty-card">当前片源没有返回分类信息。</div>';
+      return;
+    }
+
+    dom.homeCategoryRail.innerHTML = "";
+    state.categories.slice(0, 10).forEach((category) => {
+      const button = document.createElement("button");
+      button.className = "home-category-chip";
+      button.textContent = category.name;
+      button.addEventListener("click", async () => {
+        await loadCategory(state.currentSource, category, 1);
+        renderCategories(category.id);
+      });
+      dom.homeCategoryRail.appendChild(button);
+    });
+  }
+
+  function renderHomeRail(target, items, emptyText, variant) {
+    const list = ensureArray(items);
+    if (!list.length) {
+      target.innerHTML = '<div class="empty-card">' + escapeHtml(emptyText) + "</div>";
+      return;
+    }
+
+    target.innerHTML = "";
+    list.forEach((item) => {
+      const button = document.createElement("button");
+      button.className = "home-rail-card " + (variant === "continue" ? "continue" : "hot");
+      button.innerHTML =
+        '<img src="' + escapeAttr(item.vod_pic || item.img || "") + '" alt="">' +
+        '<div class="home-rail-overlay">' +
+        '<div class="home-rail-title">' + escapeHtml(item.vod_name || item.title || "未命名内容") + "</div>" +
+        '<div class="home-rail-desc">' + escapeHtml(item.vod_remarks || item.desc || "点开查看详情") + "</div>" +
+        "</div>";
+      button.addEventListener("click", async () => {
+        if (item._resumePlayback && state.currentPlayback) {
+          openPlayer(state.currentPlayback);
+          return;
+        }
+        await openDetail(item);
+      });
+      target.appendChild(button);
+    });
+  }
+
   function renderExplore(items, title, summary) {
     dom.exploreTitle.textContent = title;
     dom.exploreSummaryText.textContent = summary;
@@ -717,6 +856,106 @@
     });
   }
 
+  function renderPlayerExperience(playback) {
+    const detail = playback && playback.detail ? playback.detail : state.detail;
+    const seriesTitle = detail && detail.vod_name ? detail.vod_name : (state.currentSource ? state.currentSource.title : "当前片源");
+    const lineName = playback && playback.groupName ? playback.groupName : "默认线路";
+    const summary = detail && (detail.vod_content || detail.vod_remarks)
+      ? (detail.vod_content || detail.vod_remarks)
+      : "当前视频已进入播放页，可以切换剧集、线路，或从相关推荐继续探索。";
+
+    dom.playerTitleText.textContent = playback.title || "未命名剧集";
+    dom.playerMetaText.textContent = seriesTitle + " · " + lineName;
+    dom.playerSummaryText.textContent = summary;
+    dom.playerUrlText.textContent = shorten(playback.url, 180);
+    dom.playerSourceChip.textContent = state.currentSource ? state.currentSource.title : "当前片源";
+    dom.playerModeChip.textContent = lineName;
+    dom.playerBackdrop.style.background =
+      "linear-gradient(180deg, rgba(4, 8, 18, 0.2), rgba(4, 8, 18, 0.92)), url('" +
+      escapeCssUrl(detail && detail.vod_pic ? detail.vod_pic : "") +
+      "') center/cover no-repeat";
+
+    renderPlayerEpisodeRail(detail, playback);
+    renderPlayerRecommendRail(detail);
+  }
+
+  function renderPlayerEpisodeRail(detail, playback) {
+    dom.playerEpisodeRail.innerHTML = "";
+    if (!detail || !detail.playGroups || !detail.playGroups.length) {
+      dom.playerEpisodeRail.innerHTML = '<div class="empty-card">解析到详情后，这里会展示可横向切换的剧集。</div>';
+      return;
+    }
+
+    detail.playGroups.forEach((group) => {
+      const shelf = document.createElement("section");
+      shelf.className = "player-rail-group";
+
+      const label = document.createElement("div");
+      label.className = "player-rail-title";
+      label.textContent = group.name;
+      shelf.appendChild(label);
+
+      const rail = document.createElement("div");
+      rail.className = "episode-rail";
+
+      group.items.forEach((episode) => {
+        const button = document.createElement("button");
+        button.className = "episode-pill";
+        if (playback && (playback.title === episode.name || playback.url === episode.url)) {
+          button.classList.add("active");
+        }
+        button.textContent = episode.name;
+        button.addEventListener("click", async () => {
+          await playEpisode(group.name, episode);
+        });
+        rail.appendChild(button);
+      });
+
+      shelf.appendChild(rail);
+      dom.playerEpisodeRail.appendChild(shelf);
+    });
+  }
+
+  function renderPlayerRecommendRail(detail) {
+    const detailId = detail ? (detail.vod_id || detail.vod_name) : "";
+    const pool = []
+      .concat(ensureArray(state.homeItems))
+      .concat(ensureArray(state.exploreItems))
+      .concat(ensureArray(state.searchItems))
+      .filter((item) => item && (item.vod_id || item.vod_name));
+    const unique = [];
+    const seen = {};
+    pool.forEach((item) => {
+      const key = item.vod_id || item.vod_name;
+      if (!key || key === detailId || seen[key]) {
+        return;
+      }
+      seen[key] = true;
+      unique.push(item);
+    });
+
+    if (!unique.length) {
+      dom.playerRecommendRail.innerHTML = '<div class="empty-card">推荐内容会跟随当前片源和浏览结果自动更新。</div>';
+      return;
+    }
+
+    dom.playerRecommendRail.innerHTML = "";
+    unique.slice(0, 8).forEach((item) => {
+      const button = document.createElement("button");
+      button.className = "player-recommend-card";
+      button.innerHTML =
+        '<img src="' + escapeAttr(item.vod_pic || item.img || "") + '" alt="">' +
+        '<div class="player-recommend-copy">' +
+        '<strong>' + escapeHtml(item.vod_name || item.title || "未命名内容") + '</strong>' +
+        '<span>' + escapeHtml(item.vod_remarks || item.desc || "点击查看详情") + "</span>" +
+        "</div>";
+      button.addEventListener("click", async () => {
+        await openDetail(item);
+      });
+      dom.playerRecommendRail.appendChild(button);
+    });
+  }
+
   function renderCardGrid(target, items, emptyText) {
     const list = ensureArray(items);
     if (!list.length) {
@@ -757,10 +996,7 @@
       source.custom = custom;
       source.content = content;
       source.title = source.title || name;
-      source.headers = source.headers || {};
-      if (source.headers["User-Agent"] === "MOBILE_UA") {
-        source.headers["User-Agent"] = MOBILE_UA;
-      }
+      source.headers = normalizeRuleHeaders(source.headers || {});
       if (source.host && !source.headers.Referer) {
         source.headers.Referer = normalizeBaseUrl(source.host);
       }
@@ -784,11 +1020,12 @@
     const factory = new Function(
       "HOST",
       "MOBILE_UA",
+      "PC_UA",
       "$js",
       "CryptoJS",
       content + "\nreturn typeof rule !== 'undefined' ? rule : null;"
     );
-    return factory(guessedHost, MOBILE_UA, $js, window.CryptoJS);
+    return factory(guessedHost, MOBILE_UA, PC_UA, $js, window.CryptoJS);
   }
 
   function guessHost(content) {
@@ -893,7 +1130,7 @@
     const initialUrl = absoluteUrl(inputUrl, rule.host);
     let candidate = {
       url: initialUrl,
-      header: rule.headers || {},
+      header: getPlayHeaders(rule),
       parse: 0,
       jx: 0,
     };
@@ -901,19 +1138,20 @@
     if (typeof lazy === "string" && lazy.startsWith("js:")) {
       const context = createExecContext(rule, initialUrl);
       await executeJsRule(lazy, context);
-      if (typeof context.input === "string") {
+      const lazyOutput = context.input !== initialUrl ? context.input : (context.result || context.input);
+      if (typeof lazyOutput === "string") {
         candidate = {
-          url: context.input,
-          header: rule.headers || {},
+          url: lazyOutput,
+          header: getPlayHeaders(rule),
           parse: 0,
           jx: 0,
         };
-      } else if (context.input && typeof context.input === "object") {
+      } else if (lazyOutput && typeof lazyOutput === "object") {
         candidate = {
-          url: context.input.url || initialUrl,
-          header: context.input.header || rule.headers || {},
-          parse: Number(context.input.parse || 0),
-          jx: Number(context.input.jx || 0),
+          url: lazyOutput.url || initialUrl,
+          header: mergeHeaders(getPlayHeaders(rule), lazyOutput.header || {}),
+          parse: Number(lazyOutput.parse || 0),
+          jx: Number(lazyOutput.jx || 0),
         };
       }
     }
@@ -992,6 +1230,7 @@
   }
 
   function createExecContext(rule, input) {
+    const fetchParams = {};
     const context = {
       rule: clone(rule),
       input: input,
@@ -1002,7 +1241,7 @@
       MY_TOTAL: 1,
     };
 
-    context.request = function (url, options) {
+    context.requestRaw = function (url, options) {
       const opts = options || {};
       const finalUrl = absoluteUrl(url, context.rule.host || rule.host);
       const response = nativeRequest({
@@ -1015,10 +1254,24 @@
       if (!response.ok && !response.body) {
         throw new Error(response.error || "请求失败");
       }
-      return response.body || "";
+      return response;
+    };
+
+    context.request = function (url, options) {
+      const opts = options || {};
+      const response = context.requestRaw(url, opts);
+      return opts.withHeaders || opts.returnObj ? response : (response.body || "");
     };
 
     context.fetch = context.request;
+    context.req = context.request;
+    context.post = function (url, body, headers) {
+      return context.request(url, {
+        method: "POST",
+        body: typeof body === "string" ? body : JSON.stringify(body || ""),
+        headers: headers || {},
+      });
+    };
     context.setResult = function (value) {
       context.result = value;
     };
@@ -1040,12 +1293,44 @@
     context.pd = function (html, expr, host) {
       return absoluteUrl(extractByRule(parseHtmlFragment(html), expr, host || context.rule.host), host || context.rule.host);
     };
+    context.urljoin = function (base, relative) {
+      if (relative == null) {
+        return absoluteUrl(base, context.rule.host || rule.host);
+      }
+      return absoluteUrl(relative, base || context.rule.host || rule.host);
+    };
+    context.buildUrl = context.urljoin;
+    context.base64Encode = function (value) {
+      return window.btoa(unescape(encodeURIComponent(String(value == null ? "" : value))));
+    };
+    context.base64Decode = function (value) {
+      try {
+        return decodeURIComponent(escape(window.atob(String(value || ""))));
+      } catch (error) {
+        return "";
+      }
+    };
+    context.md5 = function (value) {
+      return window.CryptoJS ? String(window.CryptoJS.MD5(String(value || ""))) : "";
+    };
+    context.sha1 = function (value) {
+      return window.CryptoJS ? String(window.CryptoJS.SHA1(String(value || ""))) : "";
+    };
+    context.stringify = function (value) {
+      return JSON.stringify(value);
+    };
+    context.jsonParse = function (value, fallback) {
+      return safeJsonParse(value, fallback || {});
+    };
+    context.fetch_params = fetchParams;
     context.log = function () {
       if (android) {
         android.log(Array.from(arguments).map(String).join(" "));
       }
     };
     context.MOBILE_UA = MOBILE_UA;
+    context.PC_UA = PC_UA;
+    context.UA = context.rule.headers && context.rule.headers["User-Agent"] ? context.rule.headers["User-Agent"] : MOBILE_UA;
     context.HOST = context.rule.host || rule.host || "";
     context.CryptoJS = window.CryptoJS;
     return context;
@@ -1053,7 +1338,7 @@
 
   async function executeJsRule(jsRule, context) {
     const code = String(jsRule).replace(/^js:/, "");
-    const runner = new Function(
+    const runner = new AsyncFunction(
       "ctx",
       `
       var rule = ctx.rule;
@@ -1062,8 +1347,11 @@
       var MY_PAGE = ctx.MY_PAGE;
       var MY_PAGECOUNT = ctx.MY_PAGECOUNT;
       var MY_TOTAL = ctx.MY_TOTAL;
+      var requestRaw = ctx.requestRaw;
       var request = ctx.request;
       var fetch = ctx.fetch;
+      var req = ctx.req;
+      var post = ctx.post;
       var setResult = ctx.setResult;
       var getItem = ctx.getItem;
       var setItem = ctx.setItem;
@@ -1071,8 +1359,19 @@
       var pdfa = ctx.pdfa;
       var pdfh = ctx.pdfh;
       var pd = ctx.pd;
+      var urljoin = ctx.urljoin;
+      var buildUrl = ctx.buildUrl;
+      var base64Encode = ctx.base64Encode;
+      var base64Decode = ctx.base64Decode;
+      var md5 = ctx.md5;
+      var sha1 = ctx.sha1;
+      var stringify = ctx.stringify;
+      var jsonParse = ctx.jsonParse;
+      var fetch_params = ctx.fetch_params;
       var log = ctx.log;
       var MOBILE_UA = ctx.MOBILE_UA;
+      var PC_UA = ctx.PC_UA;
+      var UA = ctx.UA;
       var HOST = ctx.HOST;
       var CryptoJS = ctx.CryptoJS;
       ${code}
@@ -1349,11 +1648,12 @@
     if (!android || typeof android.sniffMediaUrl !== "function") {
       return null;
     }
-    const snifferRules = getSnifferRules(state.currentSource);
+    const snifferRules = getSnifferRules(state.currentSource, candidate.url);
     const response = safeJsonParse(android.sniffMediaUrl(JSON.stringify({
       url: candidate.url,
       headers: candidate.header || {},
       timeout: 15000,
+      maxDepth: snifferRules.maxDepth,
       matchRules: snifferRules.matchRules,
       excludeRules: snifferRules.excludeRules,
     })), {});
@@ -1363,12 +1663,23 @@
     return null;
   }
 
-  function getSnifferRules(source) {
+  function getSnifferRules(source, playbackUrl) {
     const matchRules = DEFAULT_SNIFFER_MATCH_RULES.slice();
     const excludeRules = DEFAULT_SNIFFER_EXCLUDE_RULES.slice();
+    let maxDepth = 3;
     appendRuleValues(matchRules, source && (source.sniffer_match || source.snifferMatch));
     appendRuleValues(excludeRules, source && (source.sniffer_exclude || source.snifferExclude));
-    return { matchRules, excludeRules };
+    SITE_SNIFFER_PROFILES.forEach((profile) => {
+      if (matchesSnifferProfile(profile, source, playbackUrl)) {
+        appendRuleValues(matchRules, profile.matchRules);
+        appendRuleValues(excludeRules, profile.excludeRules);
+        maxDepth = Math.max(maxDepth, Number(profile.maxDepth || 0));
+      }
+    });
+    if (source && (source.sniffer_depth || source.snifferDepth)) {
+      maxDepth = Math.max(maxDepth, Number(source.sniffer_depth || source.snifferDepth || 0));
+    }
+    return { matchRules, excludeRules, maxDepth: Math.min(4, Math.max(2, maxDepth)) };
   }
 
   function appendRuleValues(target, value) {
@@ -1384,6 +1695,16 @@
         target.push(item);
       }
     });
+  }
+
+  function matchesSnifferProfile(profile, source, playbackUrl) {
+    const samples = [
+      source && source.host,
+      source && source.title,
+      source && source.name,
+      playbackUrl,
+    ].filter(Boolean).join(" ");
+    return Boolean(samples && profile.test && profile.test.test(samples));
   }
 
   function applyHeaders(xhr, headers) {
@@ -1408,8 +1729,26 @@
     return "xm:" + (rule.title || rule.name || "source") + ":" + key;
   }
 
+  function normalizeRuleHeaders(headers) {
+    const normalized = {};
+    Object.keys(headers || {}).forEach((key) => {
+      let value = headers[key];
+      if (value === "MOBILE_UA") {
+        value = MOBILE_UA;
+      } else if (value === "PC_UA" || value === "UA") {
+        value = PC_UA;
+      }
+      normalized[key] = value;
+    });
+    return normalized;
+  }
+
+  function getPlayHeaders(rule) {
+    return mergeHeaders(rule && rule.headers, rule && rule.play_headers);
+  }
+
   function mergeHeaders(base, extra) {
-    return Object.assign({}, base || {}, extra || {});
+    return normalizeRuleHeaders(Object.assign({}, base || {}, extra || {}));
   }
 
   function setStatus(title, detail) {

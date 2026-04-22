@@ -337,7 +337,7 @@ h3 {
 .hero-card {
   position: relative;
   overflow: hidden;
-  min-height: 250px;
+  min-height: 286px;
 }
 
 .hero-backdrop {
@@ -355,7 +355,7 @@ h3 {
   padding: 18px;
   display: grid;
   gap: 14px;
-  min-height: 250px;
+  min-height: 286px;
   align-content: end;
 }
 
@@ -409,6 +409,96 @@ h3 {
   gap: 12px;
 }
 
+.home-rail-section {
+  padding-top: 12px;
+}
+
+.home-rail,
+.home-category-rail {
+  margin-top: 14px;
+}
+
+.home-rail {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.home-rail::-webkit-scrollbar,
+.home-category-rail::-webkit-scrollbar {
+  display: none;
+}
+
+.home-rail-card {
+  position: relative;
+  flex: 0 0 78%;
+  min-height: 176px;
+  border-radius: 24px;
+  overflow: hidden;
+  padding: 0;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.03);
+  text-align: left;
+}
+
+.home-rail-card.hot {
+  flex-basis: 64%;
+}
+
+.home-rail-card img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: #101932;
+}
+
+.home-rail-overlay {
+  position: relative;
+  z-index: 1;
+  min-height: 176px;
+  padding: 18px;
+  display: grid;
+  align-content: end;
+  gap: 8px;
+  background:
+    linear-gradient(180deg, rgba(4, 8, 18, 0.08), rgba(4, 8, 18, 0.94)),
+    radial-gradient(circle at top left, rgba(107, 233, 255, 0.1), transparent 24%);
+}
+
+.home-rail-title {
+  font-size: 18px;
+  line-height: 1.24;
+  font-weight: 700;
+}
+
+.home-rail-desc {
+  color: #d5e3f8;
+  line-height: 1.55;
+  font-size: 12px;
+}
+
+.home-category-rail {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.home-category-chip {
+  flex: 0 0 auto;
+  min-height: 42px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  color: var(--text);
+  background:
+    linear-gradient(135deg, rgba(107, 233, 255, 0.12), rgba(114, 255, 199, 0.06)),
+    rgba(255, 255, 255, 0.03);
+}
+
 .poster-card {
   overflow: hidden;
   border: 1px solid var(--line);
@@ -418,6 +508,7 @@ h3 {
     rgba(7, 14, 30, 0.92);
   text-align: left;
   padding: 0;
+  position: relative;
 }
 
 .poster-card img {
@@ -428,6 +519,11 @@ h3 {
   background:
     radial-gradient(circle at top left, rgba(107, 233, 255, 0.18), transparent 28%),
     #101a33;
+  transition: transform 0.28s ease;
+}
+
+.poster-card:hover img {
+  transform: scale(1.04);
 }
 
 .poster-card-body {
@@ -616,11 +712,80 @@ textarea:focus {
   overflow: auto;
 }
 
+.player-shell {
+  background:
+    linear-gradient(180deg, rgba(8, 17, 33, 0.96), rgba(5, 11, 24, 0.98)),
+    var(--panel-strong);
+}
+
 .detail-layout,
 .player-layout {
   display: grid;
   gap: 16px;
   margin-top: 16px;
+}
+
+.player-hero {
+  position: relative;
+  overflow: hidden;
+  min-height: 180px;
+  border-radius: 24px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.player-backdrop {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(4, 8, 18, 0.2), rgba(4, 8, 18, 0.92)),
+    radial-gradient(circle at top left, rgba(107, 233, 255, 0.18), transparent 24%),
+    #081120 center/cover no-repeat;
+  transform: scale(1.02);
+}
+
+.player-hero-content {
+  position: relative;
+  z-index: 1;
+  min-height: 180px;
+  padding: 18px;
+  display: grid;
+  align-content: end;
+  gap: 12px;
+}
+
+.player-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.player-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(107, 233, 255, 0.26);
+  background: rgba(8, 17, 33, 0.58);
+  color: var(--text);
+  font-size: 12px;
+}
+
+.player-chip.subtle {
+  border-color: var(--line);
+  color: var(--muted);
+}
+
+.player-summary {
+  max-width: 680px;
+  line-height: 1.7;
+  color: #dbe8fb;
+}
+
+.player-main-column {
+  display: grid;
+  gap: 16px;
 }
 
 .detail-poster-wrap img {
@@ -674,6 +839,9 @@ textarea:focus {
 
 .player-stage {
   padding: 14px;
+  background:
+    radial-gradient(circle at top right, rgba(107, 233, 255, 0.08), transparent 28%),
+    rgba(3, 7, 17, 0.96);
 }
 
 .artplayer-mount {
@@ -695,6 +863,101 @@ textarea:focus {
 
 .queue-panel {
   padding: 14px;
+}
+
+.player-section {
+  margin-top: 16px;
+  padding: 16px;
+  border-radius: 22px;
+}
+
+.player-rail-stack {
+  display: grid;
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.player-rail-group {
+  display: grid;
+  gap: 10px;
+}
+
+.player-rail-title {
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.episode-rail {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.episode-rail::-webkit-scrollbar {
+  display: none;
+}
+
+.episode-pill {
+  flex: 0 0 auto;
+  min-width: 92px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+}
+
+.episode-pill.active {
+  border-color: rgba(107, 233, 255, 0.52);
+  background: linear-gradient(135deg, rgba(107, 233, 255, 0.18), rgba(114, 255, 199, 0.1));
+}
+
+.player-recommend-rail {
+  margin-top: 14px;
+  display: grid;
+  gap: 12px;
+}
+
+.player-recommend-card {
+  display: grid;
+  grid-template-columns: 104px minmax(0, 1fr);
+  gap: 12px;
+  align-items: stretch;
+  border-radius: 20px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.03);
+  overflow: hidden;
+  padding: 0;
+  text-align: left;
+}
+
+.player-recommend-card img {
+  width: 100%;
+  height: 100%;
+  min-height: 136px;
+  object-fit: cover;
+  background: #101932;
+}
+
+.player-recommend-copy {
+  padding: 12px 12px 12px 0;
+  display: grid;
+  gap: 8px;
+  align-content: center;
+}
+
+.player-recommend-copy strong {
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.player-recommend-copy span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
 }
 
 .queue-list {
@@ -748,6 +1011,18 @@ textarea:focus {
   .player-layout {
     grid-template-columns: minmax(0, 1.5fr) 320px;
   }
+
+  .player-recommend-rail {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .home-rail-card {
+    flex-basis: 42%;
+  }
+
+  .home-rail-card.hot {
+    flex-basis: 34%;
+  }
 }
 
 @media (max-width: 520px) {
@@ -766,5 +1041,9 @@ textarea:focus {
 
   .card-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .player-recommend-card {
+    grid-template-columns: 88px minmax(0, 1fr);
   }
 }

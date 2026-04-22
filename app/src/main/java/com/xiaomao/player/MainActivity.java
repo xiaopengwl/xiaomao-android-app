@@ -39,6 +39,7 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayDeque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -54,8 +55,21 @@ import java.util.zip.GZIPInputStream;
 import javax.net.ssl.HttpsURLConnection;
 
 public class MainActivity extends AppCompatActivity {
+    private static final int DEFAULT_SNIFF_MAX_DEPTH = 2;
     private WebView webView;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
+
+    private static final class SniffTarget {
+        final String url;
+        final int depth;
+        final String source;
+
+        SniffTarget(String url, int depth, String source) {
+            this.url = url;
+            this.depth = depth;
+            this.source = source;
+        }
+    }
 
     @SuppressLint({"SetJavaScriptEnabled", "AddJavascriptInterface"})
     @Override
@@ -318,6 +332,7 @@ public class MainActivity extends AppCompatActivity {
     private JSONObject performSniff(JSONObject request) throws JSONException, InterruptedException {
         final String startUrl = request.optString("url");
         final int timeout = Math.max(3000, Math.min(request.optInt("timeout", 15000), 30000));
+        final int maxDepth = Math.max(0, Math.min(request.optInt("maxDepth", DEFAULT_SNIFF_MAX_DEPTH), 4));
         final Map<String, String> headers = jsonToMap(request.optJSONObject("headers"));
         final List<String> matchRules = jsonArrayToList(request.optJSONArray("matchRules"));
         final List<String> excludeRules = jsonArrayToList(request.optJSONArray("excludeRules"));
@@ -335,7 +350,14 @@ public class MainActivity extends AppCompatActivity {
 
             final AtomicBoolean finished = new AtomicBoolean(false);
             final Set<String> seenUrls = new HashSet<>();
+            final Set<String> visitedPages = new HashSet<>();
+            final ArrayDeque<SniffTarget> pendingTargets = new ArrayDeque<>();
+            final AtomicReference<SniffTarget> currentTarget = new AtomicReference<>();
             final Runnable[] timeoutHolder = new Runnable[1];
+            final Runnable[] advanceHolder = new Runnable[1];
+            final Runnable[] pageIdleHolder = new Runnable[1];
+
+            enqueueSniffTarget(pendingTargets, startUrl, 0, "root", maxDepth, excludeRules);
 
             timeoutHolder[0] = () -> completeSniffResult(
                     sniffView,
@@ -350,20 +372,71 @@ public class MainActivity extends AppCompatActivity {
                     "Sniffer timed out"
             );
 
+            pageIdleHolder[0] = () -> {
+                if (!finished.get()) {
+                    advanceHolder[0].run();
+                }
+            };
+
+            advanceHolder[0] = () -> {
+                if (finished.get()) {
+                    return;
+                }
+
+                SniffTarget nextTarget = null;
+                while (!pendingTargets.isEmpty() && nextTarget == null) {
+                    SniffTarget target = pendingTargets.poll();
+                    if (target == null || TextUtils.isEmpty(target.url)) {
+                        continue;
+                    }
+                    if (visitedPages.add(target.url)) {
+                        nextTarget = target;
+                    }
+                }
+
+                if (nextTarget == null) {
+                    completeSniffResult(
+                            sniffView,
+                            finished,
+                            latch,
+                            resultRef,
+                            timeoutHolder[0],
+                            "",
+                            false,
+                            "not_found",
+                            sniffView.getUrl(),
+                            "No media resource matched"
+                    );
+                    return;
+                }
+
+                currentTarget.set(nextTarget);
+                mainHandler.removeCallbacks(pageIdleHolder[0]);
+                if (headers.isEmpty()) {
+                    sniffView.loadUrl(nextTarget.url);
+                } else {
+                    sniffView.loadUrl(nextTarget.url, headers);
+                }
+            };
+
             sniffView.setWebChromeClient(new WebChromeClient());
             sniffView.setWebViewClient(new WebViewClient() {
                 private void maybeCapture(String candidate, String source) {
-                    if (TextUtils.isEmpty(candidate) || !seenUrls.add(candidate)) {
+                    if (TextUtils.isEmpty(candidate)) {
                         return;
                     }
-                    if (looksLikeMediaUrl(candidate, matchRules, excludeRules)) {
+                    String normalized = normalizePotentialUrl(candidate, sniffView.getUrl());
+                    if (TextUtils.isEmpty(normalized) || !seenUrls.add(normalized)) {
+                        return;
+                    }
+                    if (looksLikeMediaUrl(normalized, matchRules, excludeRules)) {
                         completeSniffResult(
                                 sniffView,
                                 finished,
                                 latch,
                                 resultRef,
                                 timeoutHolder[0],
-                                candidate,
+                                normalized,
                                 true,
                                 source,
                                 sniffView.getUrl(),
@@ -372,9 +445,21 @@ public class MainActivity extends AppCompatActivity {
                     }
                 }
 
+                private void maybeQueue(String candidate, String source, String baseUrl) {
+                    SniffTarget target = currentTarget.get();
+                    int nextDepth = target == null ? 1 : target.depth + 1;
+                    String normalized = normalizePotentialUrl(candidate, baseUrl);
+                    if (seenUrls.contains(normalized)) {
+                        return;
+                    }
+                    enqueueSniffTarget(pendingTargets, normalized, nextDepth, source, maxDepth, excludeRules);
+                }
+
                 @Override
                 public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
-                    maybeCapture(request.getUrl().toString(), "navigate");
+                    String candidate = request.getUrl().toString();
+                    maybeCapture(candidate, "navigate");
+                    maybeQueue(candidate, "navigate", view.getUrl());
                     return false;
                 }
 
@@ -392,13 +477,31 @@ public class MainActivity extends AppCompatActivity {
 
                 @Override
                 public void onPageFinished(WebView view, String url) {
-                    String js = "(function(){try{var out=[];var seen={};"
+                    mainHandler.removeCallbacks(pageIdleHolder[0]);
+                    String js = "(function(){try{var out=[];var pages=[];var seen={};var seenPages={};"
                             + "function add(u){if(!u||seen[u])return;seen[u]=1;out.push(u);}"
-                            + "var nodes=document.querySelectorAll('video,source,audio,iframe');"
-                            + "for(var i=0;i<nodes.length;i++){add(nodes[i].src);add(nodes[i].getAttribute('src'));add(nodes[i].getAttribute('data-src'));add(nodes[i].currentSrc);}"
-                            + "var vids=document.querySelectorAll('[data-config],[data-play],[data-url]');"
-                            + "for(var j=0;j<vids.length;j++){add(vids[j].getAttribute('data-config'));add(vids[j].getAttribute('data-play'));add(vids[j].getAttribute('data-url'));}"
-                            + "return JSON.stringify({urls:out});}catch(e){return JSON.stringify({error:String(e)})}})();";
+                            + "function addPage(u){if(!u||seenPages[u])return;seenPages[u]=1;pages.push(u);}"
+                            + "var nodes=document.querySelectorAll('video,source,audio,iframe,embed');"
+                            + "for(var i=0;i<nodes.length;i++){"
+                            + "add(nodes[i].src);add(nodes[i].getAttribute('src'));add(nodes[i].getAttribute('data-src'));add(nodes[i].currentSrc);"
+                            + "if(nodes[i].tagName==='IFRAME'){addPage(nodes[i].src);addPage(nodes[i].getAttribute('src'));addPage(nodes[i].getAttribute('data-src'));}"
+                            + "}"
+                            + "var attrs=['data-config','data-play','data-url','data-src','data-player','data-from'];"
+                            + "var vids=document.querySelectorAll('[data-config],[data-play],[data-url],[data-src],[data-player],[data-from],a[href]');"
+                            + "for(var j=0;j<vids.length;j++){"
+                            + "for(var k=0;k<attrs.length;k++){var val=vids[j].getAttribute(attrs[k]);add(val);addPage(val);}"
+                            + "add(vids[j].href);addPage(vids[j].href);"
+                            + "}"
+                            + "var html=document.documentElement?document.documentElement.innerHTML:'';"
+                            + "var patterns=["
+                            + "/(?:url|playurl|video_url|video|src)\\\\s*[:=]\\\\s*[\\\"']([^\\\"'<>\\\\s]+)[\\\"']/ig,"
+                            + "/(?:player_?[a-z0-9]*)\\\\s*=\\\\s*\\\\{[\\\\s\\\\S]*?(?:url|src)\\\\s*[:=]\\\\s*[\\\"']([^\\\"']+)[\\\"'][\\\\s\\\\S]*?\\\\}/ig,"
+                            + "/[\\\"'](https?:\\\\/\\\\/[^\\\"']+?(?:m3u8|mp4|m4v|flv|mpd|webm)[^\\\"']*)[\\\"']/ig"
+                            + "];"
+                            + "for(var p=0;p<patterns.length;p++){var match;while((match=patterns[p].exec(html))){add(match[1]);}}"
+                            + "var framePattern=/<iframe[^>]+(?:src|data-src)=[\\\"']([^\\\"']+)[\\\"']/ig;var frameMatch;"
+                            + "while((frameMatch=framePattern.exec(html))){addPage(frameMatch[1]);}"
+                            + "return JSON.stringify({urls:out,pages:pages,title:document.title||''});}catch(e){return JSON.stringify({error:String(e)})}})();";
                     view.evaluateJavascript(js, value -> {
                         try {
                             String decoded = decodeJsString(value);
@@ -406,14 +509,22 @@ public class MainActivity extends AppCompatActivity {
                             JSONArray urls = json.optJSONArray("urls");
                             if (urls != null) {
                                 for (int i = 0; i < urls.length(); i++) {
-                                    String candidate = urls.optString(i);
-                                    maybeCapture(normalizePotentialUrl(candidate, url), "dom");
+                                    maybeCapture(urls.optString(i), "dom");
                                     if (finished.get()) {
                                         return;
                                     }
                                 }
                             }
+                            JSONArray pages = json.optJSONArray("pages");
+                            if (pages != null) {
+                                for (int i = 0; i < pages.length(); i++) {
+                                    maybeQueue(pages.optString(i), "iframe", url);
+                                }
+                            }
                         } catch (Exception ignored) {
+                        }
+                        if (!finished.get()) {
+                            mainHandler.postDelayed(pageIdleHolder[0], 900);
                         }
                     });
                     super.onPageFinished(view, url);
@@ -421,11 +532,7 @@ public class MainActivity extends AppCompatActivity {
             });
 
             mainHandler.postDelayed(timeoutHolder[0], timeout);
-            if (headers.isEmpty()) {
-                sniffView.loadUrl(startUrl);
-            } else {
-                sniffView.loadUrl(startUrl, headers);
-            }
+            advanceHolder[0].run();
         });
 
         if (!latch.await(timeout + 5000L, TimeUnit.MILLISECONDS)) {
@@ -507,18 +614,10 @@ public class MainActivity extends AppCompatActivity {
         if (matchesAnyRule(lower, excludeRules)) {
             return false;
         }
-        if (matchesAnyRule(lower, matchRules)) {
+        if (hasDirectMediaFingerprint(lower)) {
             return true;
         }
-        return lower.contains(".m3u8")
-                || lower.contains(".mp4")
-                || lower.contains(".m4v")
-                || lower.contains(".flv")
-                || lower.contains(".mp3")
-                || lower.contains(".mpd")
-                || lower.contains("mime=video")
-                || lower.contains("video_mp4")
-                || lower.startsWith("blob:http");
+        return matchesAnyRule(lower, matchRules) && !isLikelyHtmlPage(lower);
     }
 
     private static boolean matchesAnyRule(String lowerUrl, List<String> rules) {
@@ -564,6 +663,67 @@ public class MainActivity extends AppCompatActivity {
             }
         }
         return candidate;
+    }
+
+    private static void enqueueSniffTarget(
+            ArrayDeque<SniffTarget> pendingTargets,
+            String candidate,
+            int depth,
+            String source,
+            int maxDepth,
+            List<String> excludeRules
+    ) {
+        if (depth > maxDepth) {
+            return;
+        }
+        String normalized = normalizePotentialUrl(candidate, "");
+        if (!shouldFollowSniffPage(normalized, excludeRules)) {
+            return;
+        }
+        pendingTargets.offer(new SniffTarget(normalized, depth, source));
+    }
+
+    private static boolean shouldFollowSniffPage(String url, List<String> excludeRules) {
+        if (TextUtils.isEmpty(url)) {
+            return false;
+        }
+        String lower = url.toLowerCase().trim();
+        if (!(lower.startsWith("http://") || lower.startsWith("https://"))) {
+            return false;
+        }
+        if (lower.startsWith("javascript:") || lower.startsWith("mailto:") || lower.startsWith("tel:")) {
+            return false;
+        }
+        if (matchesAnyRule(lower, excludeRules)) {
+            return false;
+        }
+        return !hasDirectMediaFingerprint(lower);
+    }
+
+    private static boolean hasDirectMediaFingerprint(String lower) {
+        return lower.contains(".m3u8")
+                || lower.contains(".mp4")
+                || lower.contains(".m4v")
+                || lower.contains(".flv")
+                || lower.contains(".mp3")
+                || lower.contains(".mpd")
+                || lower.contains(".webm")
+                || lower.contains("mime=video")
+                || lower.contains("mime_type=video")
+                || lower.contains("video_mp4")
+                || lower.contains("application/vnd.apple.mpegurl")
+                || lower.startsWith("blob:http");
+    }
+
+    private static boolean isLikelyHtmlPage(String lower) {
+        return lower.contains(".html")
+                || lower.contains(".htm")
+                || lower.contains(".php")
+                || lower.contains(".asp")
+                || lower.contains(".aspx")
+                || lower.contains(".jsp")
+                || lower.contains("=iframe")
+                || lower.contains("type=iframe");
     }
 
     private static String decodeJsString(String value) {
