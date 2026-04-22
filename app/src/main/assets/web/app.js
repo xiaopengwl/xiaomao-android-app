@@ -1,4 +1,4 @@
-(function () {
+﻿(function () {
   const android = window.AndroidApp || null;
   const MOBILE_UA = "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/124 Mobile Safari/537.36";
   const PC_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124 Safari/537.36";
@@ -127,6 +127,13 @@
     player: null,
     currentPlayback: null,
     featuredItem: null,
+    playerUi: {
+      orientation: "portrait",
+      brightness: 0.65,
+      volume: 1,
+      gestureCleanup: null,
+      gestureHudTimer: null,
+    },
   };
 
   const dom = {
@@ -195,6 +202,8 @@
     playerRecommendRail: document.getElementById("playerRecommendRail"),
     playerQueue: document.getElementById("playerQueue"),
     artplayerMount: document.getElementById("artplayerMount"),
+    playerGestureHud: document.getElementById("playerGestureHud"),
+    playerRotateButton: document.getElementById("playerRotateButton"),
     playerFullscreenButton: document.getElementById("playerFullscreenButton"),
     playerExternalButton: document.getElementById("playerExternalButton"),
     playerNativeButton: document.getElementById("playerNativeButton"),
@@ -333,6 +342,9 @@
       } catch (error) {
         console.warn(error);
       }
+    });
+    dom.playerRotateButton.addEventListener("click", () => {
+      togglePlayerOrientation();
     });
     dom.playerNativeButton.addEventListener("click", () => {
       if (!state.currentPlayback || !android) {
@@ -523,6 +535,8 @@
 
   function closePlayer() {
     dom.playerModal.classList.add("hidden");
+    cleanupPlayerGestures();
+    hidePlayerGestureHud();
     if (state.player) {
       try {
         state.player.destroy(false);
@@ -542,6 +556,7 @@
   }
 
   function mountArtPlayer(playback) {
+    cleanupPlayerGestures();
     if (state.player) {
       try {
         state.player.destroy(false);
@@ -551,8 +566,9 @@
       state.player = null;
     }
 
-    const headers = playback.headers || {};
+    const headers = sanitizeHeaders(playback.headers || {});
     const type = detectMediaType(playback.url);
+    syncPlayerSystemState();
 
     state.player = new Artplayer({
       container: dom.artplayerMount,
@@ -621,7 +637,191 @@
     state.player.on("fullscreenWeb", function (value) {
       dom.playerFullscreenButton.textContent = value ? "退出全屏" : "网页全屏";
     });
+    state.player.on("ready", function () {
+      applyPlayerVolume(state.playerUi.volume);
+      applyPlayerBrightness(state.playerUi.brightness);
+      bindPlayerGestures();
+    });
     dom.playerFullscreenButton.textContent = "网页全屏";
+    updatePlayerRotateButton();
+  }
+
+  function syncPlayerSystemState() {
+    if (!android || typeof android.getPlayerState !== "function") {
+      return state.playerUi;
+    }
+    const info = safeJsonParse(android.getPlayerState(), {});
+    if (typeof info.brightness === "number" && !Number.isNaN(info.brightness)) {
+      state.playerUi.brightness = clampValue(info.brightness, 0.08, 1);
+    }
+    if (typeof info.volume === "number" && !Number.isNaN(info.volume)) {
+      state.playerUi.volume = clampValue(info.volume, 0, 1);
+    }
+    if (info.orientation === "landscape" || info.orientation === "portrait") {
+      state.playerUi.orientation = info.orientation;
+    }
+    return state.playerUi;
+  }
+
+  function sanitizeHeaders(headers) {
+    const normalized = {};
+    Object.keys(headers || {}).forEach((key) => {
+      const value = headers[key];
+      if (value === undefined || value === null) {
+        return;
+      }
+      normalized[String(key)] = String(value);
+    });
+    return normalized;
+  }
+
+  function togglePlayerOrientation() {
+    if (android && typeof android.togglePlayerOrientation === "function") {
+      const next = String(android.togglePlayerOrientation() || "");
+      if (next === "landscape" || next === "portrait") {
+        state.playerUi.orientation = next;
+      } else {
+        state.playerUi.orientation = state.playerUi.orientation === "landscape" ? "portrait" : "landscape";
+      }
+    } else {
+      state.playerUi.orientation = state.playerUi.orientation === "landscape" ? "portrait" : "landscape";
+      if (state.player) {
+        try {
+          state.player.fullscreenWeb = state.playerUi.orientation === "landscape";
+        } catch (error) {
+          console.warn(error);
+        }
+      }
+    }
+    updatePlayerRotateButton();
+  }
+
+  function updatePlayerRotateButton() {
+    if (!dom.playerRotateButton) {
+      return;
+    }
+    dom.playerRotateButton.textContent = state.playerUi.orientation === "landscape" ? "切回竖屏" : "切到横屏";
+  }
+
+  function applyPlayerVolume(value) {
+    const next = clampValue(value, 0, 1);
+    state.playerUi.volume = next;
+    if (android && typeof android.setPlayerVolume === "function") {
+      const actual = Number(android.setPlayerVolume(next));
+      if (!Number.isNaN(actual)) {
+        state.playerUi.volume = clampValue(actual, 0, 1);
+      }
+    }
+    if (state.player && state.player.video) {
+      try {
+        state.player.video.volume = state.playerUi.volume;
+      } catch (error) {
+        console.warn(error);
+      }
+    }
+    return state.playerUi.volume;
+  }
+
+  function applyPlayerBrightness(value) {
+    const next = clampValue(value, 0.08, 1);
+    state.playerUi.brightness = next;
+    if (android && typeof android.setPlayerBrightness === "function") {
+      const actual = Number(android.setPlayerBrightness(next));
+      if (!Number.isNaN(actual)) {
+        state.playerUi.brightness = clampValue(actual, 0.08, 1);
+      }
+    }
+    dom.artplayerMount.style.setProperty("--player-brightness", String(state.playerUi.brightness));
+    return state.playerUi.brightness;
+  }
+
+  function showPlayerGestureHud(label, value) {
+    if (!dom.playerGestureHud) {
+      return;
+    }
+    dom.playerGestureHud.textContent = label + " " + value;
+    dom.playerGestureHud.classList.remove("hidden");
+    clearTimeout(state.playerUi.gestureHudTimer);
+    state.playerUi.gestureHudTimer = setTimeout(() => {
+      hidePlayerGestureHud();
+    }, 900);
+  }
+
+  function hidePlayerGestureHud() {
+    if (!dom.playerGestureHud) {
+      return;
+    }
+    clearTimeout(state.playerUi.gestureHudTimer);
+    dom.playerGestureHud.classList.add("hidden");
+  }
+
+  function cleanupPlayerGestures() {
+    if (state.playerUi.gestureCleanup) {
+      state.playerUi.gestureCleanup();
+      state.playerUi.gestureCleanup = null;
+    }
+  }
+
+  function bindPlayerGestures() {
+    cleanupPlayerGestures();
+    const surface = dom.artplayerMount;
+    if (!surface) {
+      return;
+    }
+    let session = null;
+
+    const onStart = (event) => {
+      if (!event.touches || event.touches.length !== 1) {
+        return;
+      }
+      if (event.target && event.target.closest(".art-controls, .art-control, .art-setting-panel, .art-bottom")) {
+        return;
+      }
+      const rect = surface.getBoundingClientRect();
+      const touch = event.touches[0];
+      const localX = touch.clientX - rect.left;
+      session = {
+        mode: localX < rect.width / 2 ? "volume" : "brightness",
+        startY: touch.clientY,
+        startValue: localX < rect.width / 2 ? state.playerUi.volume : state.playerUi.brightness,
+        height: Math.max(rect.height, 180),
+      };
+    };
+
+    const onMove = (event) => {
+      if (!session || !event.touches || event.touches.length !== 1) {
+        return;
+      }
+      const touch = event.touches[0];
+      const deltaY = session.startY - touch.clientY;
+      if (Math.abs(deltaY) < 10) {
+        return;
+      }
+      event.preventDefault();
+      const next = session.startValue + deltaY / session.height;
+      if (session.mode === "volume") {
+        const volume = applyPlayerVolume(next);
+        showPlayerGestureHud("音量", Math.round(volume * 100) + "%");
+      } else {
+        const brightness = applyPlayerBrightness(next);
+        showPlayerGestureHud("亮度", Math.round(brightness * 100) + "%");
+      }
+    };
+
+    const onEnd = () => {
+      session = null;
+    };
+
+    surface.addEventListener("touchstart", onStart, { passive: true });
+    surface.addEventListener("touchmove", onMove, { passive: false });
+    surface.addEventListener("touchend", onEnd, { passive: true });
+    surface.addEventListener("touchcancel", onEnd, { passive: true });
+    state.playerUi.gestureCleanup = () => {
+      surface.removeEventListener("touchstart", onStart);
+      surface.removeEventListener("touchmove", onMove);
+      surface.removeEventListener("touchend", onEnd);
+      surface.removeEventListener("touchcancel", onEnd);
+    };
   }
 
   function renderChrome() {
@@ -1162,15 +1362,62 @@
       if (sniffed && sniffed.url) {
         return {
           url: sniffed.url,
-          header: candidate.header || {},
+          header: sanitizeHeaders(candidate.header || {}),
         };
+      }
+      const extracted = extractMediaUrlFromHtml(rule, candidate);
+      if (extracted) {
+        return {
+          url: extracted,
+          header: sanitizeHeaders(candidate.header || {}),
+        };
+      }
+      if (!isDirectPlayableUrl(candidate.url)) {
+        throw new Error("未解析到真实播放地址");
       }
     }
 
     return {
       url: candidate.url,
-      header: candidate.header || {},
+      header: sanitizeHeaders(candidate.header || {}),
     };
+  }
+
+  function extractMediaUrlFromHtml(rule, candidate) {
+    try {
+      const html = requestText(candidate.url, {
+        headers: sanitizeHeaders(candidate.header || {}),
+        timeout: Math.min(Number(rule.timeout || 20000), 30000),
+      });
+      const patterns = [
+        /(?:url|playurl|video_url|src)\s*[:=]\s*["']([^"'<>]+?(?:m3u8|mp4|m4v|flv|mpd|webm)[^"']*)["']/ig,
+        /["'](https?:\/\/[^"']+?(?:m3u8|mp4|m4v|flv|mpd|webm)[^"']*)["']/ig,
+      ];
+      for (let i = 0; i < patterns.length; i += 1) {
+        let match;
+        while ((match = patterns[i].exec(html))) {
+          const normalized = normalizeEmbeddedMediaUrl(match[1], rule.host);
+          if (normalized && isDirectPlayableUrl(normalized)) {
+            return normalized;
+          }
+        }
+      }
+    } catch (error) {
+      console.warn(error);
+    }
+    return "";
+  }
+
+  function normalizeEmbeddedMediaUrl(value, host) {
+    let normalized = String(value || "").trim();
+    if (!normalized) {
+      return "";
+    }
+    normalized = normalized
+      .replace(/\\u0026/g, "&")
+      .replace(/\\\//g, "/")
+      .replace(/&amp;/g, "&");
+    return absoluteUrl(normalized, host);
   }
 
   function normalizeItems(items) {
@@ -1870,6 +2117,10 @@
     return text.length <= limit ? text : text.slice(0, limit - 1) + "…";
   }
 
+  function clampValue(value, min, max) {
+    return Math.min(max, Math.max(min, Number(value || 0)));
+  }
+
   function describeError(error) {
     return error && error.message ? error.message : String(error || "未知错误");
   }
@@ -1882,3 +2133,4 @@
     }
   }
 })();
+
