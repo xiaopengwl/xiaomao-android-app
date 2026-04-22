@@ -564,7 +564,7 @@
       autoplay: true,
       autoSize: true,
       playsInline: true,
-      fullscreen: true,
+      fullscreen: false,
       fullscreenWeb: true,
       playbackRate: true,
       aspectRatio: true,
@@ -1456,6 +1456,19 @@
           detail.playGroups.push({ name: tabName, items: items });
         }
       });
+    }
+
+    if (!detail.playGroups.length && config.lists) {
+      const items = selectEnhanced(root, config.lists).map((episodeNode, episodeIndex) => ({
+        name: extractByRule(episodeNode, config.list_text || "body&&Text", host) || "鎾斁 " + (episodeIndex + 1),
+        url: absoluteUrl(extractByRule(episodeNode, config.list_url || "a&&href", host), host),
+      })).filter((item) => item.url);
+      if (items.length) {
+        detail.playGroups.push({
+          name: config.tab_text_default || config.list_group_name || "默认线路",
+          items: items,
+        });
+      }
     }
 
     return detail;
