@@ -9,6 +9,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.text.TextUtils;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
@@ -38,8 +39,16 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.zip.GZIPInputStream;
 
 import javax.net.ssl.HttpsURLConnection;
@@ -158,6 +167,16 @@ public class MainActivity extends AppCompatActivity {
             try {
                 JSONObject request = new JSONObject(payload);
                 return performRequest(request).toString();
+            } catch (Exception e) {
+                return errorJson(e);
+            }
+        }
+
+        @JavascriptInterface
+        public String sniffMediaUrl(String payload) {
+            try {
+                JSONObject request = new JSONObject(payload);
+                return performSniff(request).toString();
             } catch (Exception e) {
                 return errorJson(e);
             }
@@ -294,6 +313,297 @@ public class MainActivity extends AppCompatActivity {
         response.put("headers", responseHeaders);
         connection.disconnect();
         return response;
+    }
+
+    private JSONObject performSniff(JSONObject request) throws JSONException, InterruptedException {
+        final String startUrl = request.optString("url");
+        final int timeout = Math.max(3000, Math.min(request.optInt("timeout", 15000), 30000));
+        final Map<String, String> headers = jsonToMap(request.optJSONObject("headers"));
+        final List<String> matchRules = jsonArrayToList(request.optJSONArray("matchRules"));
+        final List<String> excludeRules = jsonArrayToList(request.optJSONArray("excludeRules"));
+        final CountDownLatch latch = new CountDownLatch(1);
+        final AtomicReference<JSONObject> resultRef = new AtomicReference<>();
+
+        mainHandler.post(() -> {
+            final WebView sniffView = new WebView(MainActivity.this);
+            configureWebView(sniffView);
+
+            String userAgent = headers.get("User-Agent");
+            if (!TextUtils.isEmpty(userAgent)) {
+                sniffView.getSettings().setUserAgentString(userAgent);
+            }
+
+            final AtomicBoolean finished = new AtomicBoolean(false);
+            final Set<String> seenUrls = new HashSet<>();
+            final Runnable[] timeoutHolder = new Runnable[1];
+
+            timeoutHolder[0] = () -> completeSniffResult(
+                    sniffView,
+                    finished,
+                    latch,
+                    resultRef,
+                    timeoutHolder[0],
+                    "",
+                    false,
+                    "timeout",
+                    sniffView.getUrl(),
+                    "Sniffer timed out"
+            );
+
+            sniffView.setWebChromeClient(new WebChromeClient());
+            sniffView.setWebViewClient(new WebViewClient() {
+                private void maybeCapture(String candidate, String source) {
+                    if (TextUtils.isEmpty(candidate) || !seenUrls.add(candidate)) {
+                        return;
+                    }
+                    if (looksLikeMediaUrl(candidate, matchRules, excludeRules)) {
+                        completeSniffResult(
+                                sniffView,
+                                finished,
+                                latch,
+                                resultRef,
+                                timeoutHolder[0],
+                                candidate,
+                                true,
+                                source,
+                                sniffView.getUrl(),
+                                ""
+                        );
+                    }
+                }
+
+                @Override
+                public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                    maybeCapture(request.getUrl().toString(), "navigate");
+                    return false;
+                }
+
+                @Override
+                public void onLoadResource(WebView view, String url) {
+                    maybeCapture(url, "resource");
+                    super.onLoadResource(view, url);
+                }
+
+                @Override
+                public android.webkit.WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+                    maybeCapture(request.getUrl().toString(), "intercept");
+                    return super.shouldInterceptRequest(view, request);
+                }
+
+                @Override
+                public void onPageFinished(WebView view, String url) {
+                    String js = "(function(){try{var out=[];var seen={};"
+                            + "function add(u){if(!u||seen[u])return;seen[u]=1;out.push(u);}"
+                            + "var nodes=document.querySelectorAll('video,source,audio,iframe');"
+                            + "for(var i=0;i<nodes.length;i++){add(nodes[i].src);add(nodes[i].getAttribute('src'));add(nodes[i].getAttribute('data-src'));add(nodes[i].currentSrc);}"
+                            + "var vids=document.querySelectorAll('[data-config],[data-play],[data-url]');"
+                            + "for(var j=0;j<vids.length;j++){add(vids[j].getAttribute('data-config'));add(vids[j].getAttribute('data-play'));add(vids[j].getAttribute('data-url'));}"
+                            + "return JSON.stringify({urls:out});}catch(e){return JSON.stringify({error:String(e)})}})();";
+                    view.evaluateJavascript(js, value -> {
+                        try {
+                            String decoded = decodeJsString(value);
+                            JSONObject json = new JSONObject(decoded);
+                            JSONArray urls = json.optJSONArray("urls");
+                            if (urls != null) {
+                                for (int i = 0; i < urls.length(); i++) {
+                                    String candidate = urls.optString(i);
+                                    maybeCapture(normalizePotentialUrl(candidate, url), "dom");
+                                    if (finished.get()) {
+                                        return;
+                                    }
+                                }
+                            }
+                        } catch (Exception ignored) {
+                        }
+                    });
+                    super.onPageFinished(view, url);
+                }
+            });
+
+            mainHandler.postDelayed(timeoutHolder[0], timeout);
+            if (headers.isEmpty()) {
+                sniffView.loadUrl(startUrl);
+            } else {
+                sniffView.loadUrl(startUrl, headers);
+            }
+        });
+
+        if (!latch.await(timeout + 5000L, TimeUnit.MILLISECONDS)) {
+            JSONObject timeoutResult = new JSONObject();
+            timeoutResult.put("ok", false);
+            timeoutResult.put("found", false);
+            timeoutResult.put("url", "");
+            timeoutResult.put("source", "timeout");
+            timeoutResult.put("error", "Sniffer timed out");
+            return timeoutResult;
+        }
+
+        JSONObject result = resultRef.get();
+        if (result == null) {
+            JSONObject emptyResult = new JSONObject();
+            emptyResult.put("ok", false);
+            emptyResult.put("found", false);
+            emptyResult.put("url", "");
+            emptyResult.put("source", "unknown");
+            emptyResult.put("error", "No sniff result");
+            return emptyResult;
+        }
+        return result;
+    }
+
+    private void configureWebView(WebView target) {
+        WebSettings settings = target.getSettings();
+        settings.setJavaScriptEnabled(true);
+        settings.setDomStorageEnabled(true);
+        settings.setAllowFileAccess(true);
+        settings.setAllowContentAccess(true);
+        settings.setMediaPlaybackRequiresUserGesture(false);
+        settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+    }
+
+    private void completeSniffResult(
+            WebView sniffView,
+            AtomicBoolean finished,
+            CountDownLatch latch,
+            AtomicReference<JSONObject> resultRef,
+            Runnable timeoutRunnable,
+            String mediaUrl,
+            boolean found,
+            String source,
+            String pageUrl,
+            String error
+    ) {
+        if (!finished.compareAndSet(false, true)) {
+            return;
+        }
+
+        mainHandler.removeCallbacks(timeoutRunnable);
+        JSONObject json = new JSONObject();
+        try {
+            json.put("ok", found);
+            json.put("found", found);
+            json.put("url", mediaUrl == null ? "" : mediaUrl);
+            json.put("source", source == null ? "" : source);
+            json.put("pageUrl", pageUrl == null ? "" : pageUrl);
+            json.put("error", error == null ? "" : error);
+        } catch (JSONException ignored) {
+        }
+        resultRef.set(json);
+
+        try {
+            sniffView.stopLoading();
+            sniffView.loadUrl("about:blank");
+            sniffView.destroy();
+        } catch (Exception ignored) {
+        }
+        latch.countDown();
+    }
+
+    private static boolean looksLikeMediaUrl(String url, List<String> matchRules, List<String> excludeRules) {
+        if (TextUtils.isEmpty(url)) {
+            return false;
+        }
+        String lower = url.toLowerCase();
+        if (matchesAnyRule(lower, excludeRules)) {
+            return false;
+        }
+        if (matchesAnyRule(lower, matchRules)) {
+            return true;
+        }
+        return lower.contains(".m3u8")
+                || lower.contains(".mp4")
+                || lower.contains(".m4v")
+                || lower.contains(".flv")
+                || lower.contains(".mp3")
+                || lower.contains(".mpd")
+                || lower.contains("mime=video")
+                || lower.contains("video_mp4")
+                || lower.startsWith("blob:http");
+    }
+
+    private static boolean matchesAnyRule(String lowerUrl, List<String> rules) {
+        if (rules == null || rules.isEmpty()) {
+            return false;
+        }
+        for (String rule : rules) {
+            if (TextUtils.isEmpty(rule)) {
+                continue;
+            }
+            try {
+                if (lowerUrl.matches(".*" + rule.toLowerCase() + ".*")) {
+                    return true;
+                }
+            } catch (Exception ignored) {
+                if (lowerUrl.contains(rule.toLowerCase())) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static String normalizePotentialUrl(String value, String baseUrl) {
+        if (TextUtils.isEmpty(value)) {
+            return "";
+        }
+        String candidate = value.replace("\\/", "/").replace("&amp;", "&").trim();
+        if (candidate.startsWith("\"") && candidate.endsWith("\"") && candidate.length() > 1) {
+            candidate = candidate.substring(1, candidate.length() - 1);
+        }
+        if (candidate.startsWith("//")) {
+            return "https:" + candidate;
+        }
+        if (candidate.startsWith("http://") || candidate.startsWith("https://") || candidate.startsWith("blob:")) {
+            return candidate;
+        }
+        if (candidate.startsWith("/") && !TextUtils.isEmpty(baseUrl)) {
+            try {
+                URL url = new URL(baseUrl);
+                return url.getProtocol() + "://" + url.getHost() + candidate;
+            } catch (Exception ignored) {
+            }
+        }
+        return candidate;
+    }
+
+    private static String decodeJsString(String value) {
+        if (TextUtils.isEmpty(value) || "null".equals(value)) {
+            return "{}";
+        }
+        try {
+            return new JSONArray("[" + value + "]").getString(0);
+        } catch (JSONException e) {
+            return value;
+        }
+    }
+
+    @NonNull
+    private static Map<String, String> jsonToMap(JSONObject object) {
+        Map<String, String> map = new HashMap<>();
+        if (object == null) {
+            return map;
+        }
+        Iterator<String> keys = object.keys();
+        while (keys.hasNext()) {
+            String key = keys.next();
+            map.put(key, object.optString(key));
+        }
+        return map;
+    }
+
+    @NonNull
+    private static java.util.ArrayList<String> jsonArrayToList(JSONArray array) {
+        java.util.ArrayList<String> list = new java.util.ArrayList<>();
+        if (array == null) {
+            return list;
+        }
+        for (int i = 0; i < array.length(); i++) {
+            String value = array.optString(i);
+            if (!TextUtils.isEmpty(value)) {
+                list.add(value);
+            }
+        }
+        return list;
     }
 
     @NonNull

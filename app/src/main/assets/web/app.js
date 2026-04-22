@@ -8,6 +8,56 @@
     second: ["\u4e8c\u7ea7"],
     search: ["\u641c\u7d22"],
   };
+  const DEFAULT_SNIFFER_MATCH_RULES = [
+    "\\.m3u8(\\?|$)",
+    "\\.mp4(\\?|$)",
+    "\\.m4v(\\?|$)",
+    "\\.flv(\\?|$)",
+    "\\.webm(\\?|$)",
+    "\\.mpd(\\?|$)",
+    "\\.mp3(\\?|$)",
+    "mime=video",
+    "mime_type=video",
+    "video_mp4",
+    "video/tos",
+    "/playlist/",
+    "/stream/",
+    "/play/",
+    "playurl",
+    "vurl=",
+    "url=",
+    "m3u8\\?pt=",
+    "obj/tos",
+    "blob:http",
+  ];
+  const DEFAULT_SNIFFER_EXCLUDE_RULES = [
+    "\\.css(\\?|$)",
+    "\\.js(\\?|$)",
+    "\\.json(\\?|$)",
+    "\\.jpg(\\?|$)",
+    "\\.jpeg(\\?|$)",
+    "\\.png(\\?|$)",
+    "\\.gif(\\?|$)",
+    "\\.webp(\\?|$)",
+    "\\.svg(\\?|$)",
+    "\\.ico(\\?|$)",
+    "\\.woff2?(\\?|$)",
+    "\\.ttf(\\?|$)",
+    "\\.map(\\?|$)",
+    "googleads",
+    "doubleclick",
+    "hm.baidu",
+    "cnzz",
+    "gstatic",
+    "favicon",
+    "captcha",
+    "analytics",
+    "tracker",
+    "subtitle",
+    "\\.srt(\\?|$)",
+    "\\.ass(\\?|$)",
+    "\\.vtt(\\?|$)",
+  ];
 
   const state = {
     page: "home",
@@ -81,6 +131,7 @@
     playerUrlText: document.getElementById("playerUrlText"),
     playerQueue: document.getElementById("playerQueue"),
     artplayerMount: document.getElementById("artplayerMount"),
+    playerFullscreenButton: document.getElementById("playerFullscreenButton"),
     playerExternalButton: document.getElementById("playerExternalButton"),
     playerNativeButton: document.getElementById("playerNativeButton"),
     closePlayerButton: document.getElementById("closePlayerButton"),
@@ -207,6 +258,16 @@
     dom.playerExternalButton.addEventListener("click", () => {
       if (state.currentPlayback) {
         openExternal(state.currentPlayback.url);
+      }
+    });
+    dom.playerFullscreenButton.addEventListener("click", () => {
+      if (!state.player) {
+        return;
+      }
+      try {
+        state.player.fullscreenWeb = !state.player.fullscreenWeb;
+      } catch (error) {
+        console.warn(error);
       }
     });
     dom.playerNativeButton.addEventListener("click", () => {
@@ -488,6 +549,10 @@
     state.player.on("error", function () {
       setStatus("ArtPlayer 播放异常", "可以尝试原生兜底或外部播放器。");
     });
+    state.player.on("fullscreenWeb", function (value) {
+      dom.playerFullscreenButton.textContent = value ? "退出全屏" : "网页全屏";
+    });
+    dom.playerFullscreenButton.textContent = "网页全屏";
   }
 
   function renderChrome() {
@@ -826,20 +891,48 @@
   async function resolvePlayUrl(rule, inputUrl) {
     const lazy = rule.lazy;
     const initialUrl = absoluteUrl(inputUrl, rule.host);
-    if (!lazy) {
-      return { url: initialUrl, header: rule.headers || {} };
-    }
+    let candidate = {
+      url: initialUrl,
+      header: rule.headers || {},
+      parse: 0,
+      jx: 0,
+    };
+
     if (typeof lazy === "string" && lazy.startsWith("js:")) {
       const context = createExecContext(rule, initialUrl);
       await executeJsRule(lazy, context);
       if (typeof context.input === "string") {
-        return { url: context.input, header: rule.headers || {} };
-      }
-      if (context.input && typeof context.input === "object") {
-        return context.input;
+        candidate = {
+          url: context.input,
+          header: rule.headers || {},
+          parse: 0,
+          jx: 0,
+        };
+      } else if (context.input && typeof context.input === "object") {
+        candidate = {
+          url: context.input.url || initialUrl,
+          header: context.input.header || rule.headers || {},
+          parse: Number(context.input.parse || 0),
+          jx: Number(context.input.jx || 0),
+        };
       }
     }
-    return { url: initialUrl, header: rule.headers || {} };
+
+    candidate.url = absoluteUrl(candidate.url, rule.host);
+    if (shouldSniffPlaybackCandidate(candidate)) {
+      const sniffed = sniffPlaybackCandidate(candidate);
+      if (sniffed && sniffed.url) {
+        return {
+          url: sniffed.url,
+          header: candidate.header || {},
+        };
+      }
+    }
+
+    return {
+      url: candidate.url,
+      header: candidate.header || {},
+    };
   }
 
   function normalizeItems(items) {
@@ -1226,6 +1319,71 @@
 
   function detectMediaType(url) {
     return String(url || "").toLowerCase().indexOf(".m3u8") !== -1 ? "m3u8" : "normal";
+  }
+
+  function isDirectPlayableUrl(url) {
+    const lower = String(url || "").toLowerCase();
+    return lower.indexOf(".m3u8") !== -1
+      || lower.indexOf(".mp4") !== -1
+      || lower.indexOf(".m4v") !== -1
+      || lower.indexOf(".webm") !== -1
+      || lower.indexOf(".flv") !== -1
+      || lower.indexOf(".mpd") !== -1
+      || lower.indexOf("mime=video") !== -1
+      || lower.indexOf("video_mp4") !== -1
+      || lower.indexOf("blob:http") === 0;
+  }
+
+  function shouldSniffPlaybackCandidate(candidate) {
+    const url = candidate && candidate.url ? candidate.url : "";
+    if (!url || !/^https?:\/\//i.test(url)) {
+      return false;
+    }
+    if (candidate.parse === 1 || candidate.jx === 1) {
+      return true;
+    }
+    return !isDirectPlayableUrl(url);
+  }
+
+  function sniffPlaybackCandidate(candidate) {
+    if (!android || typeof android.sniffMediaUrl !== "function") {
+      return null;
+    }
+    const snifferRules = getSnifferRules(state.currentSource);
+    const response = safeJsonParse(android.sniffMediaUrl(JSON.stringify({
+      url: candidate.url,
+      headers: candidate.header || {},
+      timeout: 15000,
+      matchRules: snifferRules.matchRules,
+      excludeRules: snifferRules.excludeRules,
+    })), {});
+    if (response && response.found && response.url) {
+      return response;
+    }
+    return null;
+  }
+
+  function getSnifferRules(source) {
+    const matchRules = DEFAULT_SNIFFER_MATCH_RULES.slice();
+    const excludeRules = DEFAULT_SNIFFER_EXCLUDE_RULES.slice();
+    appendRuleValues(matchRules, source && (source.sniffer_match || source.snifferMatch));
+    appendRuleValues(excludeRules, source && (source.sniffer_exclude || source.snifferExclude));
+    return { matchRules, excludeRules };
+  }
+
+  function appendRuleValues(target, value) {
+    if (!value) {
+      return;
+    }
+    if (Array.isArray(value)) {
+      value.forEach((item) => appendRuleValues(target, item));
+      return;
+    }
+    String(value).split(/[|,;\n]/).map((item) => item.trim()).filter(Boolean).forEach((item) => {
+      if (target.indexOf(item) === -1) {
+        target.push(item);
+      }
+    });
   }
 
   function applyHeaders(xhr, headers) {
