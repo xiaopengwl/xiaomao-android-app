@@ -1,10 +1,13 @@
 package com.xiaomao.player;
 
 import android.annotation.SuppressLint;
+import android.content.pm.ActivityInfo;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
+import android.content.res.Configuration;
+import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
@@ -17,6 +20,7 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Toast;
+import android.view.WindowManager;
 
 import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
@@ -58,6 +62,8 @@ public class MainActivity extends AppCompatActivity {
     private static final int DEFAULT_SNIFF_MAX_DEPTH = 2;
     private WebView webView;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    private AudioManager audioManager;
+    private float playerBrightness = 0.65f;
 
     private static final class SniffTarget {
         final String url;
@@ -78,6 +84,8 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         webView = findViewById(R.id.webview);
+        audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+        playerBrightness = readCurrentBrightness();
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
@@ -241,10 +249,92 @@ public class MainActivity extends AppCompatActivity {
             }
             return json.toString();
         }
+
+        @JavascriptInterface
+        public String getPlayerState() {
+            JSONObject json = new JSONObject();
+            try {
+                json.put("brightness", readCurrentBrightness());
+                json.put("volume", readCurrentVolume());
+                json.put("orientation", isLandscape() ? "landscape" : "portrait");
+            } catch (JSONException ignored) {
+            }
+            return json.toString();
+        }
+
+        @JavascriptInterface
+        public double setPlayerBrightness(double value) {
+            float clamped = clamp01((float) value, 0.08f);
+            playerBrightness = clamped;
+            mainHandler.post(() -> {
+                WindowManager.LayoutParams params = getWindow().getAttributes();
+                params.screenBrightness = clamped;
+                getWindow().setAttributes(params);
+            });
+            return clamped;
+        }
+
+        @JavascriptInterface
+        public double setPlayerVolume(double value) {
+            if (audioManager == null) {
+                return value;
+            }
+            float clamped = clamp01((float) value, 0f);
+            int maxVolume = Math.max(1, audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC));
+            int targetVolume = Math.min(maxVolume, Math.max(0, Math.round(clamped * maxVolume)));
+            audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, targetVolume, 0);
+            return readCurrentVolume();
+        }
+
+        @JavascriptInterface
+        public String togglePlayerOrientation() {
+            final AtomicReference<String> result = new AtomicReference<>(isLandscape() ? "landscape" : "portrait");
+            final CountDownLatch latch = new CountDownLatch(1);
+            mainHandler.post(() -> {
+                boolean landscape = isLandscape();
+                setRequestedOrientation(landscape
+                        ? ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                        : ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
+                result.set(landscape ? "portrait" : "landscape");
+                latch.countDown();
+            });
+            try {
+                latch.await(600, TimeUnit.MILLISECONDS);
+            } catch (InterruptedException ignored) {
+                Thread.currentThread().interrupt();
+            }
+            return result.get();
+        }
     }
 
     private void toast(String message) {
         mainHandler.post(() -> Toast.makeText(MainActivity.this, message, Toast.LENGTH_SHORT).show());
+    }
+
+    private boolean isLandscape() {
+        return getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE;
+    }
+
+    private float readCurrentBrightness() {
+        WindowManager.LayoutParams params = getWindow().getAttributes();
+        if (params.screenBrightness >= 0f) {
+            playerBrightness = clamp01(params.screenBrightness, 0.08f);
+            return playerBrightness;
+        }
+        return playerBrightness;
+    }
+
+    private double readCurrentVolume() {
+        if (audioManager == null) {
+            return 1.0d;
+        }
+        int maxVolume = Math.max(1, audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC));
+        int currentVolume = Math.max(0, audioManager.getStreamVolume(AudioManager.STREAM_MUSIC));
+        return Math.min(1.0d, Math.max(0.0d, currentVolume / (double) maxVolume));
+    }
+
+    private float clamp01(float value, float min) {
+        return Math.max(min, Math.min(1f, value));
     }
 
     private String readAssetText(String path) throws IOException {
