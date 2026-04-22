@@ -1,4 +1,4 @@
-﻿(function () {
+(function () {
   const android = window.AndroidApp || null;
   const MOBILE_UA = "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/124 Mobile Safari/537.36";
   const PC_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124 Safari/537.36";
@@ -866,8 +866,11 @@
   }
 
   function renderChrome() {
-    dom.activeSourceInline.textContent = state.currentSource ? state.currentSource.title : "未选择片源";
-    dom.activeSourceStat.textContent = state.currentSource ? state.currentSource.title : "未选择";
+    const sourceTitle = state.currentSource ? state.currentSource.title : "未选择片源";
+    dom.activeSourceInline.textContent = shorten(sourceTitle, 20);
+    dom.activeSourceInline.title = sourceTitle;
+    dom.activeSourceStat.textContent = shorten(sourceTitle, 16);
+    dom.activeSourceStat.title = sourceTitle;
     dom.activeModeStat.textContent = state.currentMode;
     dom.resultCountStat.textContent = String(currentVisibleItems().length);
     dom.sourceCountStat.textContent = String(state.sources.length);

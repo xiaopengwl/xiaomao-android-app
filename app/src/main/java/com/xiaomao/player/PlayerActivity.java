@@ -4,23 +4,31 @@ import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.widget.Button;
+import android.widget.ImageButton;
 import android.widget.TextView;
 import android.widget.Toast;
-import android.widget.VideoView;
 
 import androidx.appcompat.app.AppCompatActivity;
 
 import org.json.JSONObject;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 
+import cn.jzvd.Jzvd;
+import cn.jzvd.JzvdStd;
+
 public class PlayerActivity extends AppCompatActivity {
-    private VideoView videoView;
+    private JzvdStd playerView;
     private TextView titleView;
+    private TextView subtitleView;
     private String playUrl;
+    private String titleText;
     private String headersJson;
 
     @Override
@@ -29,40 +37,78 @@ public class PlayerActivity extends AppCompatActivity {
         setContentView(R.layout.activity_player);
 
         titleView = findViewById(R.id.player_title);
-        videoView = findViewById(R.id.player_video);
+        subtitleView = findViewById(R.id.player_subtitle);
+        playerView = findViewById(R.id.player_video);
+        ImageButton backButton = findViewById(R.id.player_back_button);
         Button externalButton = findViewById(R.id.player_external_button);
 
-        String title = getIntent().getStringExtra("title");
-        playUrl = getIntent().getStringExtra("url");
-        headersJson = getIntent().getStringExtra("headers");
-        titleView.setText(title == null || title.isEmpty() ? "Player" : title);
+        titleText = safe(getIntent().getStringExtra("title"));
+        playUrl = safe(getIntent().getStringExtra("url"));
+        headersJson = safe(getIntent().getStringExtra("headers"));
 
+        if (titleText.isEmpty()) {
+            titleText = "晓鹏壳子";
+        }
+
+        titleView.setText(titleText);
+        subtitleView.setText(parseHeaders(headersJson).isEmpty() ? "JZVideo 原生播放" : "JZVideo 原生播放 · 已附带请求头");
+
+        backButton.setOnClickListener(v -> finish());
         externalButton.setOnClickListener(v -> openExternal());
+
         startPlayback();
     }
 
     private void startPlayback() {
-        if (playUrl == null || playUrl.isEmpty()) {
+        if (TextUtils.isEmpty(playUrl)) {
             Toast.makeText(this, "No playable url", Toast.LENGTH_SHORT).show();
             finish();
             return;
         }
 
-        videoView.setVideoURI(Uri.parse(playUrl), parseHeaders(headersJson));
-        videoView.setOnPreparedListener(mediaPlayer -> {
-            mediaPlayer.setOnVideoSizeChangedListener((mp, width, height) -> {
-                if (width > 0 && height > 0) {
-                    videoView.requestLayout();
-                }
-            });
-            videoView.start();
-        });
-        videoView.setOnErrorListener((mp, what, extra) -> {
-            Toast.makeText(this, "Internal player failed, trying external player", Toast.LENGTH_SHORT).show();
+        try {
+            Map<String, String> headers = parseHeaders(headersJson);
+            if (!setupWithHeaders(headers)) {
+                setupSimple();
+            }
+            playerView.startVideo();
+        } catch (Throwable error) {
+            Toast.makeText(this, "JZVideo init failed, trying external player", Toast.LENGTH_SHORT).show();
             openExternal();
+        }
+    }
+
+    private boolean setupWithHeaders(Map<String, String> headers) {
+        if (headers == null || headers.isEmpty()) {
+            return false;
+        }
+        try {
+            Class<?> dataSourceClass = Class.forName("cn.jzvd.JZDataSource");
+            Object dataSource = dataSourceClass.getConstructor(String.class, String.class).newInstance(playUrl, titleText);
+            try {
+                Field headerMapField = dataSourceClass.getField("headerMap");
+                headerMapField.set(dataSource, headers);
+            } catch (NoSuchFieldException ignored) {
+                Method setHeaderMap = dataSourceClass.getMethod("setHeaderMap", HashMap.class);
+                setHeaderMap.invoke(dataSource, new HashMap<>(headers));
+            }
+            Method setUp = playerView.getClass().getMethod("setUp", dataSourceClass, int.class);
+            setUp.invoke(playerView, dataSource, Jzvd.SCREEN_NORMAL);
             return true;
-        });
-        videoView.start();
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+    private void setupSimple() throws Exception {
+        try {
+            Method method = playerView.getClass().getMethod("setUp", String.class, String.class);
+            method.invoke(playerView, playUrl, titleText);
+            return;
+        } catch (NoSuchMethodException ignored) {
+        }
+        Method method = playerView.getClass().getMethod("setUp", String.class, String.class, int.class);
+        method.invoke(playerView, playUrl, titleText, Jzvd.SCREEN_NORMAL);
     }
 
     private void openExternal() {
@@ -75,6 +121,20 @@ public class PlayerActivity extends AppCompatActivity {
         }
     }
 
+    @Override
+    public void onBackPressed() {
+        if (Jzvd.backPress()) {
+            return;
+        }
+        super.onBackPressed();
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        Jzvd.releaseAllVideos();
+    }
+
     private Map<String, String> parseHeaders(String rawJson) {
         Map<String, String> headers = new HashMap<>();
         if (rawJson == null || rawJson.isEmpty()) {
@@ -85,10 +145,17 @@ public class PlayerActivity extends AppCompatActivity {
             Iterator<String> keys = jsonObject.keys();
             while (keys.hasNext()) {
                 String key = keys.next();
-                headers.put(key, jsonObject.optString(key));
+                String value = jsonObject.optString(key, "");
+                if (!TextUtils.isEmpty(key) && !TextUtils.isEmpty(value)) {
+                    headers.put(key, value);
+                }
             }
         } catch (Exception ignored) {
         }
         return headers;
+    }
+
+    private String safe(String value) {
+        return value == null ? "" : value.trim();
     }
 }

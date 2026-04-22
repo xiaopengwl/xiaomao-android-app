@@ -1,12 +1,14 @@
 package com.xiaomao.player;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
+import android.text.TextUtils;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
@@ -33,6 +35,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.Locale;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -54,6 +57,7 @@ public class NativePlayerActivity extends Activity {
     private String playUrl;
     private boolean sniffing = false;
     private boolean artReady = false;
+    private final java.util.LinkedHashMap<String, String> activeHeaders = new java.util.LinkedHashMap<>();
 
     private final ArrayList<String> episodeNames = new ArrayList<>();
     private final ArrayList<String> episodeInputs = new ArrayList<>();
@@ -133,9 +137,9 @@ public class NativePlayerActivity extends Activity {
         LinearLayout nav = new LinearLayout(this);
         nav.setOrientation(LinearLayout.HORIZONTAL);
         nav.setGravity(Gravity.CENTER_VERTICAL);
-        nav.setPadding(dp(12), dp(10), dp(12), dp(8));
+        nav.setPadding(dp(12), dp(10), dp(12), dp(10));
         nav.setBackgroundColor(Color.parseColor("#0B0F18"));
-        page.addView(nav, new LinearLayout.LayoutParams(-1, dp(58)));
+        page.addView(nav, new LinearLayout.LayoutParams(-1, dp(72)));
 
         TextView back = new TextView(this);
         back.setText("‹");
@@ -154,14 +158,18 @@ public class NativePlayerActivity extends Activity {
 
         titleView = makeText("", 16, "#FFFFFF", true);
         titleView.setSingleLine(true);
+        titleView.setEllipsize(TextUtils.TruncateAt.END);
         navText.addView(titleView, new LinearLayout.LayoutParams(-1, 0, 1));
 
         lineView = makeText("", 11, "#9EAFD6", false);
         lineView.setSingleLine(true);
+        lineView.setEllipsize(TextUtils.TruncateAt.END);
         navText.addView(lineView, new LinearLayout.LayoutParams(-1, 0, 1));
 
-        TextView sourceTag = makeChip("原生稳定播放", "#35141A", "#E75B68", "#FFE6EA");
-        nav.addView(sourceTag, new LinearLayout.LayoutParams(-2, dp(34)));
+        TextView sourceTag = makeChip("原生播放", "#35141A", "#E75B68", "#FFE6EA");
+        LinearLayout.LayoutParams sourceTagLp = new LinearLayout.LayoutParams(-2, dp(32));
+        sourceTagLp.leftMargin = dp(6);
+        nav.addView(sourceTag, sourceTagLp);
 
         playerBox = new FrameLayout(this);
         playerBox.setBackground(cardBg("#05070B", "#151B2A", 0));
@@ -210,6 +218,11 @@ public class NativePlayerActivity extends Activity {
         heroCard.addView(chips);
         TextView lineChip = makeChip("线路 " + line, "#1A2337", "#3D4B72", "#DCE7FF");
         TextView sourceChip = makeChip("源 " + source.title, "#182717", "#2F7E57", "#D8FFE7");
+        lineChip.setSingleLine(true);
+        lineChip.setEllipsize(TextUtils.TruncateAt.END);
+        sourceChip.setSingleLine(true);
+        sourceChip.setEllipsize(TextUtils.TruncateAt.END);
+        sourceChip.setMaxWidth(dp(220));
         LinearLayout.LayoutParams chip1 = new LinearLayout.LayoutParams(-2, dp(34));
         chip1.rightMargin = dp(8);
         chips.addView(lineChip, chip1);
@@ -255,6 +268,8 @@ public class NativePlayerActivity extends Activity {
             ep.setTypeface(Typeface.DEFAULT_BOLD);
             ep.setGravity(Gravity.CENTER);
             ep.setSingleLine(true);
+            ep.setEllipsize(TextUtils.TruncateAt.END);
+            ep.setMaxWidth(dp(260));
             ep.setPadding(dp(16), 0, dp(16), 0);
             ep.setBackground(i == currentIndex ? cardBg("#E50914", "#FF5260", 18) : cardBg("#182033", "#33415F", 18));
             LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-2, dp(40));
@@ -279,9 +294,10 @@ public class NativePlayerActivity extends Activity {
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
         settings.setMediaPlaybackRequiresUserGesture(false);
+        settings.setAllowFileAccess(true);
+        settings.setAllowContentAccess(true);
+        settings.setAllowFileAccessFromFileURLs(true);
         settings.setAllowUniversalAccessFromFileURLs(true);
-        settings.setAllowFileAccess(false);
-        settings.setAllowContentAccess(false);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
         }
@@ -334,29 +350,40 @@ public class NativePlayerActivity extends Activity {
         releaseSniffer();
         artReady = false;
         playUrl = null;
+        activeHeaders.clear();
         showState("正在解析播放地址…", true, 1f);
         if (source.raw != null && source.raw.contains("var rule")) {
-            engine.runLazy(input, (url, err) -> runOnUiThread(() -> {
-                if ((url == null || url.trim().isEmpty()) && err != null && !err.isEmpty()) {
+            engine.runLazy(input, (result, err) -> runOnUiThread(() -> {
+                if ((result == null || safe(result.url).isEmpty()) && err != null && !err.isEmpty()) {
                     showError("解析失败: " + err);
                 } else {
-                    startPlayer(url);
+                    if (result != null) {
+                        activeHeaders.clear();
+                        activeHeaders.putAll(result.headers);
+                        startPlayer(result.url, result.parse == 1 || result.jx == 1);
+                    } else {
+                        startPlayer(input, false);
+                    }
                 }
             }));
             return;
         }
-        startPlayer(input);
+        startPlayer(input, false);
     }
 
-    private void startPlayer(String url) {
+    private void startPlayer(String url, boolean forceSniff) {
         String next = safe(url).isEmpty() ? input : safe(url);
         playUrl = next;
         if (playUrl.isEmpty()) {
             showError("未获取到可播放地址");
             return;
         }
-        if (!looksLikeMedia(playUrl)) {
+        if (forceSniff || !looksLikeMedia(playUrl)) {
             startSniff(playUrl, "解析结果不是直链，正在按规则网页嗅探…");
+            return;
+        }
+        if (shouldUseSystemPlayer(playUrl)) {
+            launchSystemPlayer(playUrl);
             return;
         }
         loadArtPlayer(playUrl);
@@ -368,7 +395,7 @@ public class NativePlayerActivity extends Activity {
         playUrl = mediaUrl;
         artReady = false;
         showState("播放器加载中…", true, 1f);
-        playerWeb.loadDataWithBaseURL("https://artplayer.org/", buildPlayerHtml(mediaUrl), "text/html", "utf-8", null);
+        playerWeb.loadDataWithBaseURL("file:///android_asset/web/", buildPlayerHtml(mediaUrl), "text/html", "utf-8", null);
     }
 
     private void startSniff(String pageUrl, String message) {
@@ -409,7 +436,15 @@ public class NativePlayerActivity extends Activity {
         sniffCurrentUrl = clean;
         sniffCurrentDepth = depth;
         try {
-            sniffWeb.loadUrl(clean);
+            java.util.HashMap<String, String> headers = new java.util.HashMap<>(activeHeaders);
+            if (!headers.containsKey("Referer") && source != null && !safe(source.host).isEmpty()) {
+                headers.put("Referer", source.host + "/");
+            }
+            if (headers.isEmpty()) {
+                sniffWeb.loadUrl(clean);
+            } else {
+                sniffWeb.loadUrl(clean, headers);
+            }
         } catch (Exception ignored) {
             processNextSniffTask();
         }
@@ -472,6 +507,31 @@ public class NativePlayerActivity extends Activity {
                 || lower.contains(".mkv") || lower.contains(".mpd") || lower.contains("mime=video")
                 || lower.contains("/m3u8") || lower.contains("video_mp4")
                 || lower.contains("application/vnd.apple.mpegurl");
+    }
+
+    private boolean isHlsLike(String url) {
+        if (url == null) return false;
+        String lower = url.toLowerCase(Locale.ROOT);
+        return lower.contains(".m3u8") || lower.contains("/m3u8")
+                || lower.contains("application/vnd.apple.mpegurl")
+                || lower.contains("application/x-mpegurl");
+    }
+
+    private boolean shouldUseSystemPlayer(String url) {
+        return looksLikeMedia(url) && !isHlsLike(url) && !activeHeaders.isEmpty();
+    }
+
+    private void launchSystemPlayer(String mediaUrl) {
+        try {
+            Intent intent = new Intent(this, PlayerActivity.class);
+            intent.putExtra("title", title);
+            intent.putExtra("url", mediaUrl);
+            intent.putExtra("headers", buildHeadersJson());
+            startActivity(intent);
+            finish();
+        } catch (Exception e) {
+            showError("原生内核播放失败: " + e.getMessage());
+        }
     }
 
     private boolean shouldFollowPage(String url) {
@@ -610,19 +670,22 @@ public class NativePlayerActivity extends Activity {
     private String buildPlayerHtml(String mediaUrl) {
         String safeUrl = jsString(mediaUrl);
         String safeTitle = jsString(title);
+        String safeHeaders = jsString(buildHeadersJson());
         return "<!doctype html><html><head><meta charset='utf-8'>"
                 + "<meta name='viewport' content='width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover,user-scalable=no'>"
                 + "<style>html,body{margin:0;padding:0;width:100%;height:100%;background:#000;overflow:hidden;}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#fff;}#player{position:absolute;inset:0;background:#000;} .art-video-player{background:#000!important;} .art-video-player .art-controls{background:linear-gradient(180deg,rgba(0,0,0,0),rgba(0,0,0,.82))!important;} </style>"
                 + "</head><body><div id='player'></div>"
-                + "<script src='https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.5.17/hls.min.js'></script>"
-                + "<script src='https://cdn.jsdelivr.net/npm/artplayer/dist/artplayer.js'></script>"
+                + "<script src='./vendor/hls.light.min.js'></script>"
+                + "<script src='./vendor/artplayer.js'></script>"
                 + "<script>"
                 + "var url='" + safeUrl + "';"
+                + "var requestHeaders=JSON.parse('" + safeHeaders + "');"
                 + "function postReady(){try{HermesPlayer.onReady();}catch(e){}}"
                 + "function postError(msg){try{HermesPlayer.onError(String(msg||''));}catch(e){}}"
                 + "function lower(u){return String(u||'').toLowerCase();}"
                 + "function guessType(u){u=lower(u);if(u.indexOf('m3u8')>-1||u.indexOf('application/vnd.apple.mpegurl')>-1)return 'm3u8';if(u.indexOf('.flv')>-1)return 'flv';if(u.indexOf('.mpd')>-1)return 'mpd';return '';}"
-                + "function playM3u8(video, playUrl, art){if(art.hls){try{art.hls.destroy();}catch(e){}}var nativeOk=video.canPlayType('application/vnd.apple.mpegurl')||video.canPlayType('application/x-mpegURL');if(nativeOk){video.src=playUrl;video.addEventListener('loadedmetadata',function(){video.play().catch(function(){});},{once:true});return;}if(window.Hls&&Hls.isSupported()){var hls=new Hls({enableWorker:true,lowLatencyMode:false});hls.loadSource(playUrl);hls.attachMedia(video);art.hls=hls;art.on('destroy',function(){try{hls.destroy();}catch(e){}});hls.on(Hls.Events.MANIFEST_PARSED,function(){video.play().catch(function(){});});hls.on(Hls.Events.ERROR,function(evt,data){if(data&&data.fatal){postError('HLS '+data.type+' '+data.details);}});}else{postError('当前设备不支持 m3u8');}}"
+                + "function applyHeaders(xhr){if(!requestHeaders)return;Object.keys(requestHeaders).forEach(function(key){try{xhr.setRequestHeader(key,requestHeaders[key]);}catch(e){}});}"
+                + "function playM3u8(video, playUrl, art){if(art.hls){try{art.hls.destroy();}catch(e){}}var nativeOk=video.canPlayType('application/vnd.apple.mpegurl')||video.canPlayType('application/x-mpegURL');if(nativeOk){video.src=playUrl;video.addEventListener('loadedmetadata',function(){video.play().catch(function(){});},{once:true});return;}if(window.Hls&&Hls.isSupported()){var hls=new Hls({enableWorker:true,lowLatencyMode:false,xhrSetup:function(xhr){applyHeaders(xhr);},fetchSetup:function(context,initParams){var headers=Object.assign({},(initParams&&initParams.headers)||{},requestHeaders||{});return new Request(context.url,Object.assign({},initParams||{},{headers:headers}));}});hls.loadSource(playUrl);hls.attachMedia(video);art.hls=hls;art.on('destroy',function(){try{hls.destroy();}catch(e){}});hls.on(Hls.Events.MANIFEST_PARSED,function(){video.play().catch(function(){});});hls.on(Hls.Events.ERROR,function(evt,data){if(data&&data.fatal){postError('HLS '+data.type+' '+data.details);}});}else{postError('当前设备不支持 m3u8');}}"
                 + "try{var art=new Artplayer({container:'#player',url:url,autoplay:true,type:guessType(url),autoSize:true,playsInline:true,setting:true,fullscreen:true,fullscreenWeb:true,miniProgressBar:true,backdrop:true,lock:true,gesture:true,fastForward:true,autoOrientation:true,hotkey:false,playbackRate:true,aspectRatio:true,lang:'zh-cn',theme:'#E50914',mutex:true,volume:.7,moreVideoAttr:{preload:'auto','webkit-playsinline':true,playsInline:true,'x5-video-player-type':'h5-page','x5-video-player-fullscreen':'true',x5VideoPlayerType:'h5-page',x5VideoPlayerFullscreen:true,crossOrigin:'anonymous'},customType:{m3u8:playM3u8}});art.on('ready',function(){postReady();try{art.play();}catch(e){}});art.on('video:error',function(err){postError(err&&err.message?err.message:'video error');});art.on('error',function(err){postError(err&&err.message?err.message:'art error');});window.addEventListener('error',function(e){postError(e&&e.message?e.message:'window error');});}catch(e){postError(e&&e.message?e.message:'player init error');}"
                 + "</script></body></html>";
     }
@@ -698,6 +761,25 @@ public class NativePlayerActivity extends Activity {
         drawable.setCornerRadius(dp(radiusDp));
         drawable.setStroke(dp(1), Color.parseColor(stroke));
         return drawable;
+    }
+
+    private String buildHeadersJson() {
+        try {
+            JSONObject object = new JSONObject();
+            for (Map.Entry<String, String> entry : activeHeaders.entrySet()) {
+                if (entry.getKey() == null || safe(entry.getValue()).isEmpty()) continue;
+                object.put(entry.getKey(), entry.getValue());
+            }
+            if (!object.has("Referer") && source != null && !safe(source.host).isEmpty()) {
+                object.put("Referer", source.host + "/");
+            }
+            if (!object.has("User-Agent")) {
+                object.put("User-Agent", "Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36");
+            }
+            return object.toString();
+        } catch (Exception ignored) {
+            return "{}";
+        }
     }
 
     private int dp(float value) {

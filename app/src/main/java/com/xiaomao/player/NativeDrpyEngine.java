@@ -1,6 +1,7 @@
 package com.xiaomao.player;
 
 import android.app.Activity;
+import android.text.TextUtils;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -59,22 +60,45 @@ public class NativeDrpyEngine {
         }
     }
 
-    public void runLazy(String input, Callback<String> callback) {
+    public void runLazy(String input, Callback<LazyResult> callback) {
         lastResult = "";
         String js = "(function(){try{" + baseJs(input)
                 + "document.html=request(input,{headers:(rule.headers||{})});"
                 + "var code=rule['lazy']||'';code=String(code);if(code.indexOf('js:')===0)code=code.substring(3);"
-                + "if(code.length>0){eval(code);}if(typeof input==='object'){Android.setResult(JSON.stringify(input));}"
-                + "else{Android.setResult(JSON.stringify({url:String(input||'')}));}return 'ok';"
+                + "if(code.length>0){eval(code);}"
+                + "if(typeof input==='object'){if(!input.header&&!input.headers)input.header=(rule.play_headers||rule.headers||{});Android.setResult(JSON.stringify(input));}"
+                + "else{Android.setResult(JSON.stringify({url:String(input||''),parse:rule.play_parse?1:0,jx:0,header:(rule.play_headers||rule.headers||{})}));}return 'ok';"
                 + "}catch(e){Android.setResult(JSON.stringify({url:" + quote(input) + ",error:String(e)}));return 'err';}})()";
         webView.evaluateJavascript(js, value -> {
             try {
                 JSONObject object = new JSONObject(lastResult);
-                callback.done(object.optString("url", input), object.optString("error", ""));
+                callback.done(parseLazyResult(object, input), object.optString("error", ""));
             } catch (Exception e) {
-                callback.done(input, e.toString());
+                callback.done(new LazyResult(input), e.toString());
             }
         });
+    }
+
+    private LazyResult parseLazyResult(JSONObject object, String fallbackInput) {
+        LazyResult result = new LazyResult(object.optString("url", fallbackInput));
+        result.error = object.optString("error", "");
+        result.parse = object.optInt("parse", 0);
+        result.jx = object.optInt("jx", 0);
+        JSONObject headerObject = object.optJSONObject("header");
+        if (headerObject == null) {
+            headerObject = object.optJSONObject("headers");
+        }
+        if (headerObject != null) {
+            Iterator<String> keys = headerObject.keys();
+            while (keys.hasNext()) {
+                String key = keys.next();
+                String value = headerObject.optString(key, "");
+                if (!TextUtils.isEmpty(value)) {
+                    result.headers.put(key, value);
+                }
+            }
+        }
+        return result;
     }
 
     private String baseJs(String input) {
@@ -215,5 +239,17 @@ public class NativeDrpyEngine {
         String body = "";
         String finalUrl = "";
         String contentType = "";
+    }
+
+    public static final class LazyResult {
+        public String url;
+        public String error = "";
+        public int parse = 0;
+        public int jx = 0;
+        public final LinkedHashMap<String, String> headers = new LinkedHashMap<>();
+
+        LazyResult(String url) {
+            this.url = url == null ? "" : url;
+        }
     }
 }

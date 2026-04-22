@@ -110,6 +110,7 @@ button {
   top: 10px;
   z-index: 10;
   padding: 12px;
+  overflow: hidden;
 }
 
 .top-row,
@@ -296,6 +297,9 @@ h3 {
 
 .status-strip {
   margin-top: 10px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: stretch;
 }
 
 .status-pill,
@@ -313,7 +317,8 @@ h3 {
 }
 
 .status-pill {
-  flex: 1 1 auto;
+  width: 100%;
+  max-width: 100%;
 }
 
 .status-pill span:last-child {
@@ -331,8 +336,8 @@ h3 {
 }
 
 .active-source-pill {
-  flex: 0 1 46%;
-  max-width: 46%;
+  width: 100%;
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -496,7 +501,11 @@ h3 {
 .source-profile,
 .profile-hero,
 .profile-actions {
+  width: 100%;
+  max-width: 100%;
   padding: 16px;
+  min-width: 0;
+  overflow-x: clip;
 }
 
 .card-grid {
@@ -504,6 +513,8 @@ h3 {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+  width: 100%;
+  max-width: 100%;
   min-width: 0;
 }
 
@@ -616,6 +627,9 @@ h3 {
 }
 
 .poster-card {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 18px;
@@ -1219,10 +1233,64 @@ textarea:focus {
     min-height: 148px;
   }
 
+  .top-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 10px;
+  }
+
+  .brand-row {
+    gap: 10px;
+  }
+
+  .header-actions {
+    gap: 6px;
+  }
+
+  .header-actions .icon-button {
+    min-width: 40px;
+    min-height: 40px;
+    padding: 9px 11px;
+    border-radius: 12px;
+    font-size: 13px;
+  }
+
+  .status-strip {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .status-pill,
+  .active-source-pill {
+    min-height: 36px;
+    padding: 8px 11px;
+  }
+
+  .top-tabs {
+    gap: 6px;
+    margin-top: 8px;
+  }
+
+  .top-tab {
+    padding: 7px 12px;
+    font-size: 12px;
+  }
+
   .hero-content {
     min-height: 148px;
     padding: 12px;
     gap: 8px;
+  }
+
+  #page-home #featuredTitle {
+    font-size: 15px;
+    line-height: 1.2;
+  }
+
+  #page-home #featuredMeta {
+    font-size: 11px;
+    line-height: 1.45;
   }
 
   .page-section,
@@ -1266,8 +1334,13 @@ textarea:focus {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
+  #page-home .quick-card strong {
+    font-size: 13px;
+    line-height: 1.28;
+  }
+
   .card-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, calc((100% - 10px) / 2)));
     gap: 10px;
   }
 
@@ -1386,6 +1459,25 @@ textarea:focus {
 
   .detail-copy {
     gap: 10px;
+  }
+
+  .bottom-nav {
+    width: min(calc(100% - 14px), 524px);
+    bottom: calc(6px + env(safe-area-inset-bottom, 0px));
+    padding: 6px;
+    border-radius: 20px;
+  }
+
+  .bottom-item {
+    border-radius: 14px;
+    padding: 8px 6px;
+    gap: 4px;
+    font-size: 11px;
+  }
+
+  .bottom-icon {
+    width: 22px;
+    height: 22px;
   }
 }
 
