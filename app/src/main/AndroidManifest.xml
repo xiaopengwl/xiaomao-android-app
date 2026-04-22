@@ -16,6 +16,11 @@
             android:exported="false"
             android:screenOrientation="portrait" />
         <activity
+            android:name=".NativePlayerActivity"
+            android:exported="false"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:screenOrientation="fullSensor" />
+        <activity
             android:name=".MainActivity"
             android:exported="true">
             <intent-filter>
