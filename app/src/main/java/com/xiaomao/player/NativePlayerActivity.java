@@ -1,10 +1,12 @@
 package com.xiaomao.player;
 
 import android.app.Activity;
+import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -26,21 +28,31 @@ import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.ScrollView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import cn.jzvd.Jzvd;
+import cn.jzvd.JzvdStd;
+
 public class NativePlayerActivity extends Activity {
+    private JzvdStd playerView;
     private WebView sniffWeb;
+    private View playerOverlay;
     private ProgressBar loading;
     private TextView titleView;
     private TextView lineView;
@@ -73,6 +85,11 @@ public class NativePlayerActivity extends Activity {
     private int sniffCurrentDepth = 0;
 
     private final Handler handler = new Handler();
+    private final Runnable hideState = () -> {
+        if (playerOverlay != null && !sniffing) {
+            playerOverlay.setVisibility(View.GONE);
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -141,7 +158,7 @@ public class NativePlayerActivity extends Activity {
         back.setGravity(Gravity.CENTER);
         back.setBackground(cardBg("#171D2B", "#2D3548", 18));
         nav.addView(back, new LinearLayout.LayoutParams(dp(42), dp(42)));
-        back.setOnClickListener(v -> finish());
+        back.setOnClickListener(v -> onBackPressed());
 
         LinearLayout navText = new LinearLayout(this);
         navText.setOrientation(LinearLayout.VERTICAL);
@@ -167,12 +184,17 @@ public class NativePlayerActivity extends Activity {
         playerBox.setBackground(cardBg("#05070B", "#151B2A", 0));
         page.addView(playerBox, new LinearLayout.LayoutParams(-1, dp(232)));
 
+        playerView = new JzvdStd(this);
+        playerView.setBackgroundColor(Color.BLACK);
+        playerBox.addView(playerView, new FrameLayout.LayoutParams(-1, -1));
+
         LinearLayout overlay = new LinearLayout(this);
         overlay.setOrientation(LinearLayout.VERTICAL);
         overlay.setGravity(Gravity.CENTER);
         overlay.setPadding(dp(18), dp(18), dp(18), dp(18));
         overlay.setClickable(false);
         overlay.setFocusable(false);
+        playerOverlay = overlay;
         playerBox.addView(overlay, new FrameLayout.LayoutParams(-1, -1));
 
         loading = new ProgressBar(this);
@@ -309,7 +331,7 @@ public class NativePlayerActivity extends Activity {
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
                 if (!sniffing) return;
-                showState("嗅探中，正在递归抓取 iframe / video 地址…", true, 1f);
+                showState("Sniffing page resources...", true, 1f);
                 probeCurrentPage(url, sniffCurrentDepth);
             }
         });
@@ -320,7 +342,7 @@ public class NativePlayerActivity extends Activity {
         releaseSniffer();
         playUrl = null;
         activeHeaders.clear();
-        showState("正在解析播放地址…", true, 1f);
+        showState("Resolving play url...", true, 1f);
         if (source.raw != null && source.raw.contains("var rule")) {
             engine.runLazy(input, (result, err) -> runOnUiThread(() -> {
                 if ((result == null || safe(result.url).isEmpty()) && err != null && !err.isEmpty()) {
@@ -351,7 +373,26 @@ public class NativePlayerActivity extends Activity {
             startSniff(playUrl, "解析结果不是直链，正在按规则网页嗅探…");
             return;
         }
-        launchSystemPlayer(playUrl);
+        playInPlace(playUrl);
+    }
+
+    private void playInPlace(String mediaUrl) {
+        sniffing = false;
+        releaseSniffer();
+        playUrl = mediaUrl;
+        showState("Loading player...", true, 1f);
+        Jzvd.releaseAllVideos();
+        try {
+            Map<String, String> headers = parseHeaders(buildHeadersJson());
+            if (!setupPlayerWithHeaders(headers)) {
+                setupPlayerSimple();
+            }
+            playerView.startVideo();
+            showReadyState();
+        } catch (Throwable error) {
+            Toast.makeText(this, "JZPlayer init failed, trying external player", Toast.LENGTH_SHORT).show();
+            openExternalPlayer();
+        }
     }
 
     private void startSniff(String pageUrl, String message) {
@@ -426,12 +467,13 @@ public class NativePlayerActivity extends Activity {
     private void probeCurrentPage(String url, int depth) {
         if (sniffWeb == null) return;
         String js = "(function(){try{var out=[];"
-                + "function add(u,t){u=String(u||'').trim();if(!u)return;out.push({url:u,type:t||''});}"
+                + "function add(u,t){u=String(u||'').trim();if(!u)return;out.push({url:u,type:t||''});try{if(/%[0-9a-f]{2}/i.test(u)){var du=decodeURIComponent(u);if(du&&du!==u)out.push({url:du,type:(t||'')+'-decoded'});}}catch(e){}}"
                 + "var vids=document.querySelectorAll('video,source,audio');for(var i=0;i<vids.length;i++){add(vids[i].currentSrc||vids[i].src,'video');add(vids[i].getAttribute('src'),'media');add(vids[i].getAttribute('data-src'),'media');}"
                 + "var links=document.querySelectorAll('a[href],iframe[src],iframe[data-src],embed[src],object[data],[data-play],[data-url],[data-player],[data-play-url]');"
                 + "for(var k=0;k<links.length;k++){var n=links[k];add(n.getAttribute('href')||n.getAttribute('src')||n.getAttribute('data')||n.getAttribute('data-play')||n.getAttribute('data-url')||n.getAttribute('data-player')||n.getAttribute('data-play-url'), n.tagName.toLowerCase());}"
                 + "var html=document.documentElement?document.documentElement.outerHTML:'';"
-                + "var reg=/https?:\\/\\/[^\\s\"'<>]+/g;var ms=html.match(reg)||[];for(var x=0;x<ms.length;x++){add(ms[x],'html');}"
+                + "var regs=[/https?:\\/\\/[^\\s\"'<>]+/g,/(?:thisUrl|video_src|videoUrl)\\s*[:=]\\s*[\\\"']([^\\\"']+)[\\\"']/ig,/(?:player_aaaa|player_data|__PLAYER__|MacPlayerConfig)\\s*=\\s*\\{[\\s\\S]*?(?:url|src|video_url|parse_api)\\s*[:=]\\s*[\\\"']([^\\\"']+)[\\\"'][\\s\\S]*?\\}/ig,/src\\s*:\\s*[\\\"']([^\\\"']+)[\\\"']/ig,/[\\\"'](%[0-9a-f]{2}[^\\\"']*(?:%6d%33%75%38|%6d%70%34)[^\\\"']*)[\\\"']/ig];"
+                + "for(var r=0;r<regs.length;r++){var m;while((m=regs[r].exec(html))){add(m[1]||m[0],'html');}}"
                 + "HermesPlayer.onSniffResult(JSON.stringify(out)," + depth + "," + JSONObject.quote(url == null ? "" : url) + ");"
                 + "}catch(e){HermesPlayer.onSniffResult('[]'," + depth + "," + JSONObject.quote(url == null ? "" : url) + ");}})();";
         sniffWeb.evaluateJavascript(js, null);
@@ -444,8 +486,8 @@ public class NativePlayerActivity extends Activity {
             runOnUiThread(() -> {
                 if (!sniffing) return;
                 sniffing = false;
-                showState("已捕获真实视频地址，正在播放…", true, 1f);
-                launchSystemPlayer(normalized);
+                showState("Media url found, starting playback...", true, 1f);
+                playInPlace(normalized);
             });
             return;
         }
@@ -463,31 +505,6 @@ public class NativePlayerActivity extends Activity {
                 || lower.contains(".mkv") || lower.contains(".mpd") || lower.contains("mime=video")
                 || lower.contains("/m3u8") || lower.contains("video_mp4")
                 || lower.contains("application/vnd.apple.mpegurl");
-    }
-
-    private boolean isHlsLike(String url) {
-        if (url == null) return false;
-        String lower = url.toLowerCase(Locale.ROOT);
-        return lower.contains(".m3u8") || lower.contains("/m3u8")
-                || lower.contains("application/vnd.apple.mpegurl")
-                || lower.contains("application/x-mpegurl");
-    }
-
-    private boolean shouldUseSystemPlayer(String url) {
-        return looksLikeMedia(url) && !isHlsLike(url) && !activeHeaders.isEmpty();
-    }
-
-    private void launchSystemPlayer(String mediaUrl) {
-        try {
-            Intent intent = new Intent(this, PlayerActivity.class);
-            intent.putExtra("title", title);
-            intent.putExtra("url", mediaUrl);
-            intent.putExtra("headers", buildHeadersJson());
-            startActivity(intent);
-            finish();
-        } catch (Exception e) {
-            showError("原生内核播放失败: " + e.getMessage());
-        }
     }
 
     private boolean shouldFollowPage(String url) {
@@ -541,10 +558,10 @@ public class NativePlayerActivity extends Activity {
         addRules(snifferFollowRules, parseRuleValues(source.raw, "snifferFollow"));
         addRules(snifferMediaRules, parseRuleValues(source.raw, "sniffer_media"));
         addRules(snifferMediaRules, parseRuleValues(source.raw, "snifferMedia"));
-        if (snifferMatchRules.isEmpty()) addRules(snifferMatchRules, "m3u8", "mp4", "flv", "mpd", "player", "iframe", "video", "?url=");
+        if (snifferMatchRules.isEmpty()) addRules(snifferMatchRules, "m3u8", "mp4", "flv", "mpd", "player", "iframe", "video", "?url=", "player_aaaa", "player_data", "MacPlayerConfig", "parse_api", "thisUrl", "video_url", "obj/tos");
         if (snifferExcludeRules.isEmpty()) addRules(snifferExcludeRules, "googleads", "doubleclick", "favicon", ".css", ".js", ".png", ".jpg", ".jpeg", ".gif", ".svg");
-        if (snifferFollowRules.isEmpty()) addRules(snifferFollowRules, "iframe", "player", "play", "video", "?url=", "/v/", "/vod/");
-        if (snifferMediaRules.isEmpty()) addRules(snifferMediaRules, "m3u8", "mp4", "flv", "mkv", "mpd", "application/vnd.apple.mpegurl", "video_mp4");
+        if (snifferFollowRules.isEmpty()) addRules(snifferFollowRules, "iframe", "player", "play", "video", "?url=", "/v/", "/vod/", "parse", "api.php", "player_aaaa");
+        if (snifferMediaRules.isEmpty()) addRules(snifferMediaRules, "m3u8", "mp4", "flv", "mkv", "mpd", "application/vnd.apple.mpegurl", "video_mp4", "mime=video", "mime_type=video", "obj/tos");
         String depth = pickRuleScalar(source.raw, "sniffer_depth");
         if (depth.isEmpty()) depth = pickRuleScalar(source.raw, "sniff_depth");
         try {
@@ -579,6 +596,12 @@ public class NativePlayerActivity extends Activity {
     private String normalizeSniffUrl(String raw, String base) {
         String url = safe(raw);
         if (url.isEmpty()) return "";
+        if (url.contains("%")) {
+            try {
+                url = java.net.URLDecoder.decode(url, "UTF-8");
+            } catch (Exception ignored) {
+            }
+        }
         if (url.startsWith("//")) return "https:" + url;
         if (url.startsWith("http://") || url.startsWith("https://")) return url;
         if (url.startsWith("javascript:") || url.startsWith("blob:") || url.startsWith("data:")) return url;
@@ -608,7 +631,81 @@ public class NativePlayerActivity extends Activity {
         addRules(out, values.toArray(new String[0]));
     }
 
+    private boolean setupPlayerWithHeaders(Map<String, String> headers) {
+        if (headers == null || headers.isEmpty()) {
+            return false;
+        }
+        try {
+            Class<?> dataSourceClass = Class.forName("cn.jzvd.JZDataSource");
+            Object dataSource = dataSourceClass.getConstructor(String.class, String.class).newInstance(playUrl, title);
+            try {
+                Field headerMapField = dataSourceClass.getField("headerMap");
+                headerMapField.set(dataSource, headers);
+            } catch (NoSuchFieldException ignored) {
+                Method setHeaderMap = dataSourceClass.getMethod("setHeaderMap", HashMap.class);
+                setHeaderMap.invoke(dataSource, new HashMap<>(headers));
+            }
+            Method setUp = playerView.getClass().getMethod("setUp", dataSourceClass, int.class);
+            setUp.invoke(playerView, dataSource, Jzvd.SCREEN_NORMAL);
+            return true;
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+    private void setupPlayerSimple() throws Exception {
+        try {
+            Method method = playerView.getClass().getMethod("setUp", String.class, String.class);
+            method.invoke(playerView, playUrl, title);
+            return;
+        } catch (NoSuchMethodException ignored) {
+        }
+        Method method = playerView.getClass().getMethod("setUp", String.class, String.class, int.class);
+        method.invoke(playerView, playUrl, title, Jzvd.SCREEN_NORMAL);
+    }
+
+    private Map<String, String> parseHeaders(String rawJson) {
+        Map<String, String> headers = new HashMap<>();
+        if (safe(rawJson).isEmpty()) {
+            return headers;
+        }
+        try {
+            JSONObject jsonObject = new JSONObject(rawJson);
+            Iterator<String> keys = jsonObject.keys();
+            while (keys.hasNext()) {
+                String key = keys.next();
+                String value = jsonObject.optString(key, "");
+                if (!TextUtils.isEmpty(key) && !TextUtils.isEmpty(value)) {
+                    headers.put(key, value);
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        return headers;
+    }
+    private void openExternalPlayer() {
+        try {
+            Intent intent = new Intent(Intent.ACTION_VIEW);
+            intent.setDataAndType(Uri.parse(playUrl), "video/*");
+            startActivity(intent);
+        } catch (ActivityNotFoundException e) {
+            Toast.makeText(this, "No external player found", Toast.LENGTH_SHORT).show();
+            showError("No external player found");
+        }
+    }
+
+    private void showReadyState() {
+        showState("Playing", false, 1f);
+        handler.removeCallbacks(hideState);
+        handler.postDelayed(hideState, 1200);
+    }
+
     private void showState(String text, boolean showLoading, float alpha) {
+        handler.removeCallbacks(hideState);
+        if (playerOverlay != null) {
+            playerOverlay.setVisibility(View.VISIBLE);
+            playerOverlay.bringToFront();
+        }
         loading.setVisibility(showLoading ? View.VISIBLE : View.GONE);
         stateView.setVisibility(View.VISIBLE);
         stateView.setAlpha(alpha);
@@ -636,16 +733,25 @@ public class NativePlayerActivity extends Activity {
             sniffWeb = null;
         }
     }
+    @Override
+    public void onBackPressed() {
+        if (Jzvd.backPress()) {
+            return;
+        }
+        super.onBackPressed();
+    }
 
     @Override
     protected void onResume() {
         super.onResume();
+        tryInvokeJzvd("goOnPlayOnResume");
         if (sniffWeb != null) sniffWeb.onResume();
     }
 
     @Override
     protected void onPause() {
         if (sniffWeb != null) sniffWeb.onPause();
+        Jzvd.releaseAllVideos();
         super.onPause();
     }
 
@@ -654,7 +760,16 @@ public class NativePlayerActivity extends Activity {
         getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         handler.removeCallbacksAndMessages(null);
         releaseSniffer();
+        Jzvd.releaseAllVideos();
         super.onDestroy();
+    }
+
+    private void tryInvokeJzvd(String methodName) {
+        try {
+            Method method = Jzvd.class.getMethod(methodName);
+            method.invoke(null);
+        } catch (Throwable ignored) {
+        }
     }
 
     private TextView makeText(String text, int sp, String color, boolean bold) {
