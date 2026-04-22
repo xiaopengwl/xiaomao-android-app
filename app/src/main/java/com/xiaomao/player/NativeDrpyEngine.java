@@ -12,6 +12,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.List;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -22,6 +23,7 @@ public class NativeDrpyEngine {
     private final NativeSource source;
     private String lastResult = "";
     private String currentHost = "";
+    private final LinkedHashMap<String, String> cookieJar = new LinkedHashMap<>();
 
     public interface Callback<T> {
         void done(T data, String err);
@@ -43,7 +45,9 @@ public class NativeDrpyEngine {
         @JavascriptInterface
         public String request(String url, String options) {
             try {
-                return requestRaw(abs(url), parseHttpOptions(options)).body;
+                HttpResult result = requestRaw(abs(url), parseHttpOptions(options));
+                updateCurrentHost(result.finalUrl);
+                return result.body;
             } catch (Exception e) {
                 return "";
             }
@@ -171,6 +175,10 @@ public class NativeDrpyEngine {
                 : opt.userAgent;
         connection.setRequestProperty("User-Agent", userAgent);
         connection.setRequestProperty("Referer", opt.referer.isEmpty() ? currentHost + "/" : opt.referer);
+        String cookie = cookieJar.get(cookieHostKey(url));
+        if (cookie != null && !cookie.isEmpty() && !opt.headers.containsKey("Cookie") && !opt.headers.containsKey("cookie")) {
+            connection.setRequestProperty("Cookie", cookie);
+        }
         for (Map.Entry<String, String> entry : opt.headers.entrySet()) {
             if (entry.getKey() == null || entry.getValue() == null || entry.getValue().isEmpty()) continue;
             connection.setRequestProperty(entry.getKey(), entry.getValue());
@@ -197,7 +205,58 @@ public class NativeDrpyEngine {
         result.body = output.toString("UTF-8");
         result.finalUrl = connection.getURL().toString();
         result.contentType = connection.getContentType() == null ? "" : connection.getContentType();
+        storeCookies(result.finalUrl, connection.getHeaderFields());
         return result;
+    }
+
+    private void updateCurrentHost(String url) {
+        try {
+            URL parsed = new URL(url);
+            currentHost = parsed.getProtocol() + "://" + parsed.getHost();
+        } catch (Exception ignored) {
+        }
+    }
+
+    private String cookieHostKey(String url) {
+        try {
+            URL parsed = new URL(url);
+            return parsed.getHost();
+        } catch (Exception ignored) {
+            return "";
+        }
+    }
+
+    private void storeCookies(String finalUrl, Map<String, List<String>> headerFields) {
+        if (headerFields == null || headerFields.isEmpty()) return;
+        String hostKey = cookieHostKey(finalUrl);
+        if (hostKey.isEmpty()) return;
+        LinkedHashMap<String, String> merged = new LinkedHashMap<>();
+        String existing = cookieJar.get(hostKey);
+        if (existing != null && !existing.isEmpty()) {
+            String[] pairs = existing.split(";\\s*");
+            for (String pair : pairs) {
+                int index = pair.indexOf('=');
+                if (index > 0) merged.put(pair.substring(0, index), pair.substring(index + 1));
+            }
+        }
+        for (Map.Entry<String, List<String>> entry : headerFields.entrySet()) {
+            String key = entry.getKey();
+            if (key == null || !"set-cookie".equalsIgnoreCase(key)) continue;
+            for (String value : entry.getValue()) {
+                if (value == null || value.isEmpty()) continue;
+                String pair = value.split(";", 2)[0];
+                int index = pair.indexOf('=');
+                if (index > 0) merged.put(pair.substring(0, index), pair.substring(index + 1));
+            }
+        }
+        if (!merged.isEmpty()) {
+            StringBuilder builder = new StringBuilder();
+            for (Map.Entry<String, String> entry : merged.entrySet()) {
+                if (builder.length() > 0) builder.append("; ");
+                builder.append(entry.getKey()).append("=").append(entry.getValue());
+            }
+            cookieJar.put(hostKey, builder.toString());
+        }
     }
 
     private String abs(String value) {
