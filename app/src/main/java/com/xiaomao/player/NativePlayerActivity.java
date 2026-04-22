@@ -40,8 +40,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class NativePlayerActivity extends Activity {
-    private FrameLayout playerBox;
-    private WebView playerWeb;
     private WebView sniffWeb;
     private ProgressBar loading;
     private TextView titleView;
@@ -56,7 +54,6 @@ public class NativePlayerActivity extends Activity {
     private String input;
     private String playUrl;
     private boolean sniffing = false;
-    private boolean artReady = false;
     private final java.util.LinkedHashMap<String, String> activeHeaders = new java.util.LinkedHashMap<>();
 
     private final ArrayList<String> episodeNames = new ArrayList<>();
@@ -76,11 +73,6 @@ public class NativePlayerActivity extends Activity {
     private int sniffCurrentDepth = 0;
 
     private final Handler handler = new Handler();
-    private final Runnable hideState = () -> {
-        if (stateView != null && artReady) {
-            stateView.animate().alpha(0.35f).setDuration(220).start();
-        }
-    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -171,17 +163,16 @@ public class NativePlayerActivity extends Activity {
         sourceTagLp.leftMargin = dp(6);
         nav.addView(sourceTag, sourceTagLp);
 
-        playerBox = new FrameLayout(this);
+        FrameLayout playerBox = new FrameLayout(this);
         playerBox.setBackground(cardBg("#05070B", "#151B2A", 0));
         page.addView(playerBox, new LinearLayout.LayoutParams(-1, dp(232)));
-
-        playerWeb = createPlayerWebView();
-        playerBox.addView(playerWeb, new FrameLayout.LayoutParams(-1, -1));
 
         LinearLayout overlay = new LinearLayout(this);
         overlay.setOrientation(LinearLayout.VERTICAL);
         overlay.setGravity(Gravity.CENTER);
         overlay.setPadding(dp(18), dp(18), dp(18), dp(18));
+        overlay.setClickable(false);
+        overlay.setFocusable(false);
         playerBox.addView(overlay, new FrameLayout.LayoutParams(-1, -1));
 
         loading = new ProgressBar(this);
@@ -208,7 +199,7 @@ public class NativePlayerActivity extends Activity {
         root.addView(heroCard, new LinearLayout.LayoutParams(-1, -2));
 
         heroCard.addView(makeText("原生解析播放", 18, "#FFFFFF", true));
-        TextView tip = makeText("使用 kezi 风格的原生 lazy 解析、网页嗅探和 ArtPlayer 播放，优先解决播放器页源不稳定的问题。", 13, "#C9D4F4", false);
+        TextView tip = makeText("使用 kezi 风格的原生 lazy 解析和网页嗅探，拿到真实地址后交给 JZPlayer 播放。", 13, "#C9D4F4", false);
         tip.setPadding(0, dp(10), 0, 0);
         heroCard.addView(tip);
 
@@ -288,27 +279,6 @@ public class NativePlayerActivity extends Activity {
         resolveAndPlay();
     }
 
-    private WebView createPlayerWebView() {
-        WebView web = new WebView(this);
-        WebSettings settings = web.getSettings();
-        settings.setJavaScriptEnabled(true);
-        settings.setDomStorageEnabled(true);
-        settings.setMediaPlaybackRequiresUserGesture(false);
-        settings.setAllowFileAccess(true);
-        settings.setAllowContentAccess(true);
-        settings.setAllowFileAccessFromFileURLs(true);
-        settings.setAllowUniversalAccessFromFileURLs(true);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
-        }
-        settings.setUserAgentString("Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36");
-        web.setBackgroundColor(Color.BLACK);
-        web.addJavascriptInterface(new PlayerBridge(), "HermesPlayer");
-        web.setWebChromeClient(new WebChromeClient());
-        web.setWebViewClient(new WebViewClient());
-        return web;
-    }
-
     private WebView createSnifferWebView() {
         WebView web = new WebView(this);
         web.setVisibility(View.INVISIBLE);
@@ -348,7 +318,6 @@ public class NativePlayerActivity extends Activity {
 
     private void resolveAndPlay() {
         releaseSniffer();
-        artReady = false;
         playUrl = null;
         activeHeaders.clear();
         showState("正在解析播放地址…", true, 1f);
@@ -382,20 +351,7 @@ public class NativePlayerActivity extends Activity {
             startSniff(playUrl, "解析结果不是直链，正在按规则网页嗅探…");
             return;
         }
-        if (shouldUseSystemPlayer(playUrl)) {
-            launchSystemPlayer(playUrl);
-            return;
-        }
-        loadArtPlayer(playUrl);
-    }
-
-    private void loadArtPlayer(String mediaUrl) {
-        sniffing = false;
-        releaseSniffer();
-        playUrl = mediaUrl;
-        artReady = false;
-        showState("播放器加载中…", true, 1f);
-        playerWeb.loadDataWithBaseURL("file:///android_asset/web/", buildPlayerHtml(mediaUrl), "text/html", "utf-8", null);
+        launchSystemPlayer(playUrl);
     }
 
     private void startSniff(String pageUrl, String message) {
@@ -489,7 +445,7 @@ public class NativePlayerActivity extends Activity {
                 if (!sniffing) return;
                 sniffing = false;
                 showState("已捕获真实视频地址，正在播放…", true, 1f);
-                loadArtPlayer(normalized);
+                launchSystemPlayer(normalized);
             });
             return;
         }
@@ -653,7 +609,6 @@ public class NativePlayerActivity extends Activity {
     }
 
     private void showState(String text, boolean showLoading, float alpha) {
-        handler.removeCallbacks(hideState);
         loading.setVisibility(showLoading ? View.VISIBLE : View.GONE);
         stateView.setVisibility(View.VISIBLE);
         stateView.setAlpha(alpha);
@@ -663,35 +618,10 @@ public class NativePlayerActivity extends Activity {
     private void showError(String text) {
         sniffing = false;
         releaseSniffer();
-        artReady = false;
         showState(text, false, 1f);
     }
 
-    private String buildPlayerHtml(String mediaUrl) {
-        String safeUrl = jsString(mediaUrl);
-        String safeTitle = jsString(title);
-        String safeHeaders = jsString(buildHeadersJson());
-        return "<!doctype html><html><head><meta charset='utf-8'>"
-                + "<meta name='viewport' content='width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover,user-scalable=no'>"
-                + "<style>html,body{margin:0;padding:0;width:100%;height:100%;background:#000;overflow:hidden;}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#fff;}#player{position:absolute;inset:0;background:#000;} .art-video-player{background:#000!important;} .art-video-player .art-controls{background:linear-gradient(180deg,rgba(0,0,0,0),rgba(0,0,0,.82))!important;} </style>"
-                + "</head><body><div id='player'></div>"
-                + "<script src='./vendor/hls.light.min.js'></script>"
-                + "<script src='./vendor/artplayer.js'></script>"
-                + "<script>"
-                + "var url='" + safeUrl + "';"
-                + "var requestHeaders=JSON.parse('" + safeHeaders + "');"
-                + "function postReady(){try{HermesPlayer.onReady();}catch(e){}}"
-                + "function postError(msg){try{HermesPlayer.onError(String(msg||''));}catch(e){}}"
-                + "function lower(u){return String(u||'').toLowerCase();}"
-                + "function guessType(u){u=lower(u);if(u.indexOf('m3u8')>-1||u.indexOf('application/vnd.apple.mpegurl')>-1)return 'm3u8';if(u.indexOf('.flv')>-1)return 'flv';if(u.indexOf('.mpd')>-1)return 'mpd';return '';}"
-                + "function applyHeaders(xhr){if(!requestHeaders)return;Object.keys(requestHeaders).forEach(function(key){try{xhr.setRequestHeader(key,requestHeaders[key]);}catch(e){}});}"
-                + "function playM3u8(video, playUrl, art){if(art.hls){try{art.hls.destroy();}catch(e){}}var nativeOk=video.canPlayType('application/vnd.apple.mpegurl')||video.canPlayType('application/x-mpegURL');if(nativeOk){video.src=playUrl;video.addEventListener('loadedmetadata',function(){video.play().catch(function(){});},{once:true});return;}if(window.Hls&&Hls.isSupported()){var hls=new Hls({enableWorker:true,lowLatencyMode:false,xhrSetup:function(xhr){applyHeaders(xhr);},fetchSetup:function(context,initParams){var headers=Object.assign({},(initParams&&initParams.headers)||{},requestHeaders||{});return new Request(context.url,Object.assign({},initParams||{},{headers:headers}));}});hls.loadSource(playUrl);hls.attachMedia(video);art.hls=hls;art.on('destroy',function(){try{hls.destroy();}catch(e){}});hls.on(Hls.Events.MANIFEST_PARSED,function(){video.play().catch(function(){});});hls.on(Hls.Events.ERROR,function(evt,data){if(data&&data.fatal){postError('HLS '+data.type+' '+data.details);}});}else{postError('当前设备不支持 m3u8');}}"
-                + "try{var art=new Artplayer({container:'#player',url:url,autoplay:true,type:guessType(url),autoSize:true,playsInline:true,setting:true,fullscreen:true,fullscreenWeb:true,miniProgressBar:true,backdrop:true,lock:true,gesture:true,fastForward:true,autoOrientation:true,hotkey:false,playbackRate:true,aspectRatio:true,lang:'zh-cn',theme:'#E50914',mutex:true,volume:.7,moreVideoAttr:{preload:'auto','webkit-playsinline':true,playsInline:true,'x5-video-player-type':'h5-page','x5-video-player-fullscreen':'true',x5VideoPlayerType:'h5-page',x5VideoPlayerFullscreen:true,crossOrigin:'anonymous'},customType:{m3u8:playM3u8}});art.on('ready',function(){postReady();try{art.play();}catch(e){}});art.on('video:error',function(err){postError(err&&err.message?err.message:'video error');});art.on('error',function(err){postError(err&&err.message?err.message:'art error');});window.addEventListener('error',function(e){postError(e&&e.message?e.message:'window error');});}catch(e){postError(e&&e.message?e.message:'player init error');}"
-                + "</script></body></html>";
-    }
-
     private void releaseSniffer() {
-        handler.removeCallbacks(hideState);
         sniffQueue.clear();
         sniffVisited.clear();
         if (sniffWeb != null) {
@@ -710,13 +640,11 @@ public class NativePlayerActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
-        if (playerWeb != null) playerWeb.onResume();
         if (sniffWeb != null) sniffWeb.onResume();
     }
 
     @Override
     protected void onPause() {
-        if (playerWeb != null) playerWeb.onPause();
         if (sniffWeb != null) sniffWeb.onPause();
         super.onPause();
     }
@@ -726,15 +654,6 @@ public class NativePlayerActivity extends Activity {
         getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         handler.removeCallbacksAndMessages(null);
         releaseSniffer();
-        if (playerWeb != null) {
-            try {
-                playerWeb.stopLoading();
-                playerWeb.loadUrl("about:blank");
-                playerWeb.destroy();
-            } catch (Exception ignored) {
-            }
-            playerWeb = null;
-        }
         super.onDestroy();
     }
 
@@ -790,25 +709,7 @@ public class NativePlayerActivity extends Activity {
         return value == null ? "" : value.trim();
     }
 
-    private String jsString(String text) {
-        if (text == null) return "";
-        return text.replace("\\", "\\\\").replace("'", "\\'").replace("\n", " ").replace("\r", " ");
-    }
-
     private final class PlayerBridge {
-        @JavascriptInterface
-        public void onReady() {
-            runOnUiThread(() -> {
-                artReady = true;
-                showState("正在播放", false, 1f);
-                handler.postDelayed(hideState, 1200);
-            });
-        }
-
-        @JavascriptInterface
-        public void onError(String message) {
-            runOnUiThread(() -> showError("播放失败: " + (message == null ? "未知错误" : message)));
-        }
 
         @JavascriptInterface
         public void onSniffResult(String payload, int depth, String pageUrl) {
