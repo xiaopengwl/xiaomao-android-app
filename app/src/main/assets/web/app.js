@@ -1505,17 +1505,74 @@
 
   function selectOneStep(root, selector) {
     const normalizedRoot = normalizeRoot(root);
-    const eqMatch = String(selector).match(/^(.*?):eq\((-?\d+)\)$/);
+    const rawSelector = String(selector || "").trim();
+    if (!rawSelector) {
+      return [];
+    }
+    const nestedEqMatch = rawSelector.match(/^(.*?):eq\((-?\d+)\)(.*)$/);
+    if (nestedEqMatch && nestedEqMatch[3]) {
+      const baseNodes = selectOneStep(normalizedRoot, nestedEqMatch[1] + ":eq(" + nestedEqMatch[2] + ")");
+      return baseNodes.flatMap((node) => selectOneStep(node, nestedEqMatch[3].trim()));
+    }
+    const eqMatch = rawSelector.match(/^(.*?):eq\((-?\d+)\)$/);
     if (eqMatch) {
-      const candidates = Array.from(normalizedRoot.querySelectorAll(eqMatch[1] || "*"));
+      const candidates = queryAllWithSelf(normalizedRoot, eqMatch[1] || "*");
       const index = Number(eqMatch[2]);
       const finalIndex = index < 0 ? candidates.length + index : index;
       return candidates[finalIndex] ? [candidates[finalIndex]] : [];
     }
-    if (selector === "body") {
+    if (rawSelector === "body") {
       return [normalizedRoot.body || normalizedRoot];
     }
-    return Array.from(normalizedRoot.querySelectorAll(selector));
+    return queryAllWithSelf(normalizedRoot, rawSelector);
+  }
+
+  function queryAllWithSelf(root, selector) {
+    const normalizedRoot = normalizeRoot(root);
+    const normalizedSelector = selector.trim().replace(/^>\s*/, ":scope > ");
+    const results = [];
+    const seen = new Set();
+
+    const pushNode = (node) => {
+      if (!node || seen.has(node)) {
+        return;
+      }
+      seen.add(node);
+      results.push(node);
+    };
+
+    try {
+      if (normalizedRoot instanceof Element && canMatchSelector(normalizedRoot, normalizedSelector) && normalizedRoot.matches(normalizedSelector)) {
+        pushNode(normalizedRoot);
+      }
+    } catch (error) {
+      if (normalizedRoot instanceof Element && canMatchSelector(normalizedRoot, selector) && normalizedRoot.matches(selector)) {
+        pushNode(normalizedRoot);
+      }
+    }
+
+    try {
+      Array.from(normalizedRoot.querySelectorAll(normalizedSelector)).forEach(pushNode);
+    } catch (error) {
+      try {
+        Array.from(normalizedRoot.querySelectorAll(selector)).forEach(pushNode);
+      } catch (ignored) {
+        return results;
+      }
+    }
+    return results;
+  }
+
+  function canMatchSelector(node, selector) {
+    if (!(node instanceof Element)) {
+      return false;
+    }
+    try {
+      node.matches(selector);
+      return true;
+    } catch (error) {
+      return false;
+    }
   }
 
   function normalizeRoot(root) {
