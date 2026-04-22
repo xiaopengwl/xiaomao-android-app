@@ -219,6 +219,27 @@ public class MainActivity extends AppCompatActivity {
         }
 
         @JavascriptInterface
+        public void openNativePlayer(String payload) {
+            try {
+                JSONObject json = new JSONObject(payload);
+                Intent intent = new Intent(MainActivity.this, NativePlayerActivity.class);
+                intent.putExtra("title", json.optString("title"));
+                intent.putExtra("series_title", json.optString("seriesTitle"));
+                intent.putExtra("line", json.optString("line"));
+                intent.putExtra("input", json.optString("input"));
+                intent.putExtra("source_title", json.optString("sourceTitle"));
+                intent.putExtra("source_host", json.optString("sourceHost"));
+                intent.putExtra("source_raw", json.optString("sourceRaw"));
+                intent.putStringArrayListExtra("episode_names", new java.util.ArrayList<>(jsonArrayToList(json.optJSONArray("episodeNames"))));
+                intent.putStringArrayListExtra("episode_inputs", new java.util.ArrayList<>(jsonArrayToList(json.optJSONArray("episodeInputs"))));
+                intent.putExtra("episode_index", json.optInt("episodeIndex", 0));
+                startActivity(intent);
+            } catch (Exception e) {
+                toast("Open native player failed: " + e.getMessage());
+            }
+        }
+
+        @JavascriptInterface
         public void openExternal(String url) {
             try {
                 Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
