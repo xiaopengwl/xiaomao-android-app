@@ -497,6 +497,29 @@
       return;
     }
 
+    if (android && typeof android.openNativePlayer === "function" && state.detail && state.currentSource.content) {
+      const groups = ensureArray(state.detail.playGroups);
+      const activeGroup = groups.find((group) => group && group.name === groupName)
+        || groups.find((group) => ensureArray(group && group.items).some((item) => item && item.url === episode.url))
+        || { items: [episode] };
+      const items = ensureArray(activeGroup.items);
+      const episodeIndex = Math.max(0, items.findIndex((item) => item && item.url === episode.url));
+      android.openNativePlayer(JSON.stringify({
+        title: episode.name,
+        seriesTitle: state.detail.vod_name || state.currentSource.title,
+        line: groupName || "默认线路",
+        input: episode.url,
+        sourceTitle: state.currentSource.title || "",
+        sourceHost: state.currentSource.host || "",
+        sourceRaw: state.currentSource.content || "",
+        episodeNames: items.map((item) => item && item.name ? item.name : "播放"),
+        episodeInputs: items.map((item) => item && item.url ? item.url : ""),
+        episodeIndex: episodeIndex,
+      }));
+      setStatus("开始原生播放", episode.name);
+      return;
+    }
+
     setStatus("正在解析播放地址", episode.name);
     try {
       const resolved = await resolvePlayUrl(state.currentSource, episode.url);
