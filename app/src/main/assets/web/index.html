@@ -1,0 +1,337 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>小猫影视</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="ambient ambient-a"></div>
+  <div class="ambient ambient-b"></div>
+  <div class="grain"></div>
+
+  <div class="app-shell">
+    <header class="top-shell glass">
+      <div class="top-row">
+        <div class="brand-row">
+          <div class="brand-mark">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+          <div>
+            <p class="eyebrow">XIAOMAO STREAM</p>
+            <h1>推荐</h1>
+          </div>
+        </div>
+
+        <div class="header-actions">
+          <button id="refreshButton" class="icon-button" aria-label="刷新">刷</button>
+          <button id="manageButton" class="icon-button primary" aria-label="源管理">源</button>
+        </div>
+      </div>
+
+      <div class="status-strip">
+        <div class="status-pill">
+          <span class="status-dot"></span>
+          <span id="statusText">正在启动...</span>
+        </div>
+        <div class="active-source-pill" id="activeSourceInline">未选择片源</div>
+      </div>
+
+      <nav class="top-tabs" id="topTabs">
+        <button class="top-tab active" data-page="home">首页</button>
+        <button class="top-tab" data-page="explore">发现</button>
+        <button class="top-tab" data-page="search">搜索</button>
+        <button class="top-tab" data-page="sources">片源</button>
+        <button class="top-tab" data-page="profile">我的</button>
+      </nav>
+    </header>
+
+    <main class="page-stack">
+      <section class="page active" id="page-home" data-page="home">
+        <article class="hero-card glass">
+          <div class="hero-backdrop" id="featuredBackdrop"></div>
+          <div class="hero-content">
+            <p class="eyebrow">精选推荐</p>
+            <h2 id="featuredTitle">等待加载影视源</h2>
+            <p id="featuredMeta" class="hero-meta">载入片源后，这里会展示首屏推荐内容。</p>
+            <div class="hero-actions">
+              <button id="featuredActionButton" class="primary-button">查看详情</button>
+              <button id="featuredRefreshButton" class="ghost-button">刷新推荐</button>
+            </div>
+          </div>
+        </article>
+
+        <section class="quick-strip">
+          <div class="quick-card glass">
+            <span class="quick-label">当前片源</span>
+            <strong id="activeSourceStat">未选择</strong>
+          </div>
+          <div class="quick-card glass">
+            <span class="quick-label">当前状态</span>
+            <strong id="activeModeStat">空闲</strong>
+          </div>
+          <div class="quick-card glass">
+            <span class="quick-label">内容数量</span>
+            <strong id="resultCountStat">0</strong>
+          </div>
+        </section>
+
+        <section class="page-section">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">正在热播</p>
+              <h3>推荐内容流</h3>
+            </div>
+            <span id="homeSummaryText" class="section-note">等待数据加载。</span>
+          </div>
+          <div id="homeGrid" class="card-grid"></div>
+        </section>
+      </section>
+
+      <section class="page" id="page-explore" data-page="explore">
+        <section class="page-section">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">分类发现</p>
+              <h3>按分类浏览</h3>
+            </div>
+            <span id="exploreSummaryText" class="section-note">选择分类后会在这里加载内容。</span>
+          </div>
+          <div id="categoryList" class="chip-list"></div>
+        </section>
+
+        <section class="page-section">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">分类内容</p>
+              <h3 id="exploreTitle">最新推荐</h3>
+            </div>
+          </div>
+          <div id="exploreGrid" class="card-grid"></div>
+        </section>
+      </section>
+
+      <section class="page" id="page-search" data-page="search">
+        <section class="search-panel glass">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">全局搜索</p>
+              <h3>快速查找影视内容</h3>
+            </div>
+          </div>
+
+          <div class="search-box">
+            <input id="searchInput" placeholder="搜索片名、标签、演员">
+            <button id="searchButton" class="primary-button">搜索</button>
+          </div>
+        </section>
+
+        <section class="page-section">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">搜索结果</p>
+              <h3 id="searchTitle">还没有搜索</h3>
+            </div>
+            <span id="searchSummaryText" class="section-note">搜索结果会显示在这里。</span>
+          </div>
+          <div id="searchGrid" class="card-grid"></div>
+        </section>
+      </section>
+
+      <section class="page" id="page-sources" data-page="sources">
+        <section class="source-controls glass">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">片源库</p>
+              <h3>当前运行片源</h3>
+            </div>
+            <button id="openManagerInlineButton" class="ghost-button">添加片源</button>
+          </div>
+
+          <label class="control">
+            <span>当前片源</span>
+            <select id="sourceSelect"></select>
+          </label>
+        </section>
+
+        <section class="source-profile glass">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">片源信息</p>
+              <h3 id="sourcePanelTitle">未选择片源</h3>
+            </div>
+            <span id="sourceKindBadge" class="kind-badge">内置</span>
+          </div>
+
+          <div class="meta-list">
+            <div class="meta-line">
+              <span>站点</span>
+              <strong id="sourceHostText">-</strong>
+            </div>
+            <div class="meta-line">
+              <span>超时</span>
+              <strong id="sourceTimeoutText">-</strong>
+            </div>
+            <div class="meta-line">
+              <span>能力</span>
+              <strong id="sourceCapabilityText">-</strong>
+            </div>
+          </div>
+
+          <div id="sourceBadgeList" class="badge-list"></div>
+        </section>
+      </section>
+
+      <section class="page" id="page-profile" data-page="profile">
+        <section class="profile-hero glass">
+          <p class="eyebrow">会话中心</p>
+          <h3>播放控制台</h3>
+          <p id="profileSummaryText" class="section-note">查看当前片源、最近详情和播放状态。</p>
+        </section>
+
+        <section class="profile-grid">
+          <article class="metric-box glass">
+            <span class="quick-label">可用片源</span>
+            <strong id="sourceCountStat">0</strong>
+          </article>
+          <article class="metric-box glass">
+            <span class="quick-label">播放器</span>
+            <strong id="engineStat">ArtPlayer</strong>
+          </article>
+          <article class="metric-box glass">
+            <span class="quick-label">最近详情</span>
+            <strong id="lastDetailStat">暂无</strong>
+          </article>
+          <article class="metric-box glass">
+            <span class="quick-label">正在播放</span>
+            <strong id="nowPlayingStat">空闲</strong>
+          </article>
+        </section>
+
+        <section class="profile-actions glass">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">快捷操作</p>
+              <h3>常用入口</h3>
+            </div>
+          </div>
+          <div class="action-list">
+            <button id="profileOpenDetailButton" class="ghost-button">打开最近详情</button>
+            <button id="profileOpenPlayerButton" class="ghost-button">回到播放器</button>
+            <button id="profileOpenExternalButton" class="ghost-button">打开当前链接</button>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <nav class="bottom-nav glass" id="bottomNav">
+      <button class="bottom-item active" data-page="home">
+        <span class="bottom-icon">首</span>
+        <span>首页</span>
+      </button>
+      <button class="bottom-item" data-page="explore">
+        <span class="bottom-icon">发</span>
+        <span>发现</span>
+      </button>
+      <button class="bottom-item" data-page="search">
+        <span class="bottom-icon">搜</span>
+        <span>搜索</span>
+      </button>
+      <button class="bottom-item" data-page="sources">
+        <span class="bottom-icon">源</span>
+        <span>片源</span>
+      </button>
+      <button class="bottom-item" data-page="profile">
+        <span class="bottom-icon">我</span>
+        <span>我的</span>
+      </button>
+    </nav>
+  </div>
+
+  <div id="detailDrawer" class="overlay hidden">
+    <div class="overlay-backdrop"></div>
+    <div class="drawer-panel glass">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">详情页</p>
+          <h3 id="detailTitle">未命名</h3>
+        </div>
+        <button id="closeDetailButton" class="ghost-button">关闭</button>
+      </div>
+
+      <div class="detail-layout">
+        <div class="detail-poster-wrap">
+          <img id="detailImage" alt="">
+        </div>
+        <div class="detail-copy">
+          <p id="detailMeta" class="detail-meta"></p>
+          <p id="detailContent" class="detail-content"></p>
+          <button id="detailOpenExternalButton" class="ghost-button detail-open-button">外部打开详情</button>
+        </div>
+      </div>
+
+      <div id="playGroups" class="play-groups"></div>
+    </div>
+  </div>
+
+  <div id="playerModal" class="overlay hidden">
+    <div class="overlay-backdrop"></div>
+    <div class="player-shell glass">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">播放器</p>
+          <h3 id="playerTitleText">未选择播放源</h3>
+          <p id="playerMetaText" class="section-note">等待开始播放。</p>
+        </div>
+        <div class="player-toolbar">
+          <button id="playerExternalButton" class="ghost-button">外部播放器</button>
+          <button id="playerNativeButton" class="ghost-button">原生兜底</button>
+          <button id="closePlayerButton" class="primary-button">关闭</button>
+        </div>
+      </div>
+
+      <div class="player-layout">
+        <div class="player-stage">
+          <div id="artplayerMount" class="artplayer-mount"></div>
+          <div class="player-url" id="playerUrlText">-</div>
+        </div>
+        <aside class="queue-panel">
+          <p class="eyebrow">播放队列</p>
+          <h4>选集列表</h4>
+          <div id="playerQueue" class="queue-list"></div>
+        </aside>
+      </div>
+    </div>
+  </div>
+
+  <div id="managerModal" class="overlay hidden">
+    <div class="overlay-backdrop"></div>
+    <div class="manager-shell glass">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">源管理</p>
+          <h3>粘贴自定义 drpy 源</h3>
+        </div>
+        <button id="closeManagerButton" class="ghost-button">关闭</button>
+      </div>
+
+      <p class="section-note">支持完整 <code>var rule = {...}</code> 源，保存后下次启动会自动恢复。</p>
+      <textarea id="sourceTextarea" placeholder="在这里粘贴完整 drpy 或 t3-js 源"></textarea>
+
+      <div class="manager-actions">
+        <button id="pasteButton" class="ghost-button">读取剪贴板</button>
+        <button id="saveSourceButton" class="primary-button">保存片源</button>
+        <button id="clearSourceButton" class="ghost-button danger">清空自定义片源</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="./vendor/crypto-js.js"></script>
+  <script src="./vendor/hls.light.min.js"></script>
+  <script src="./vendor/artplayer.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>

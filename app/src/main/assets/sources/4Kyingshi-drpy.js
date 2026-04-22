@@ -1,0 +1,37 @@
+var rule = {
+title: '4k影视',
+host: 'https://www.4kvm.me',
+url: '/filter?classify=fyclass&page=fypage',
+searchUrl: '/search?q=**',
+searchable: 2,
+quickSearch: 0,
+filterable: 0,
+headers: {
+'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+'Referer': 'https://www.4kvm.me/',
+},
+timeout: 60000,
+class_name: '电影&电视剧&动漫',
+class_url: '1&2&3',
+play_parse: false,
+sniffer: 1,
+lazy: '',
+play_headers: {
+'Referer': 'https://www.4kvm.me/',
+'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+},
+class_parse: 'div.movie-card;h3&&Text;img&&data-src;img&&alt;a.block&&href',
+推荐: 'div.movie-card;h3&&Text;img&&data-src;img&&alt;a.block&&href',
+一级: 'div.movie-card;h3&&Text;img&&data-src;img&&alt;a.block&&href',
+二级: {
+title: '.movie-poster h1&&Text',
+img: '.movie-poster img&&src',
+desc: '.bg-dark-800 .col-span-2.text-gray-300',
+content: '.text-xs.text-gray-300.leading-relaxed&&Text',
+tabs: '',
+lists: 'a.episode-link',
+list_text: 'span&&Text',
+list_url: 'a&&href'
+},
+搜索: 'div.group.relative;h3&&Text;img&&data-src;.text-xs&&Text;a&&href',
+};
