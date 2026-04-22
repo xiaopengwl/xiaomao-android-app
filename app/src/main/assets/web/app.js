@@ -89,6 +89,9 @@
         "__PLAYER__",
         "player_data",
         "player_aaaa",
+        "MacPlayerConfig",
+        "parse_api",
+        "link_next",
         "now=play",
         "url=",
         "vkey=",
@@ -529,8 +532,23 @@
     renderPlayerQueue();
     renderHomeContinueRail(state.homeItems);
     renderChrome();
-    mountArtPlayer(playback);
-    dom.playerModal.classList.remove("hidden");
+    try {
+      mountArtPlayer(playback);
+      dom.playerModal.classList.remove("hidden");
+    } catch (error) {
+      console.warn(error);
+      setStatus("播放器初始化失败", describeError(error));
+      if (android && typeof android.openPlayer === "function") {
+        android.openPlayer(JSON.stringify({
+          title: playback.title,
+          url: playback.url,
+          headers: sanitizeHeaders(playback.headers || {}),
+        }));
+        toast("网页播放器异常，已切换原生兜底");
+        return;
+      }
+      toast("播放器初始化失败");
+    }
   }
 
   function closePlayer() {
@@ -1372,6 +1390,21 @@
           header: sanitizeHeaders(candidate.header || {}),
         };
       }
+      const followPage = extractFollowPageFromHtml(rule, candidate);
+      if (followPage) {
+        const followSniff = sniffPlaybackCandidate({
+          url: followPage,
+          header: sanitizeHeaders(candidate.header || {}),
+          parse: 1,
+          jx: 1,
+        });
+        if (followSniff && followSniff.url) {
+          return {
+            url: followSniff.url,
+            header: sanitizeHeaders(candidate.header || {}),
+          };
+        }
+      }
       if (!isDirectPlayableUrl(candidate.url)) {
         throw new Error("未解析到真实播放地址");
       }
@@ -1391,13 +1424,41 @@
       });
       const patterns = [
         /(?:url|playurl|video_url|src)\s*[:=]\s*["']([^"'<>]+?(?:m3u8|mp4|m4v|flv|mpd|webm)[^"']*)["']/ig,
+        /(?:player_aaaa|player_data|__PLAYER__|MacPlayerConfig)\s*=\s*\{[\s\S]*?(?:url|src|video_url)\s*[:=]\s*["']([^"'<>]+)["'][\s\S]*?\}/ig,
         /["'](https?:\/\/[^"']+?(?:m3u8|mp4|m4v|flv|mpd|webm)[^"']*)["']/ig,
+        /["'](https?:\\\/\\\/[^"']+?(?:m3u8|mp4|m4v|flv|mpd|webm)[^"']*)["']/ig,
       ];
       for (let i = 0; i < patterns.length; i += 1) {
         let match;
         while ((match = patterns[i].exec(html))) {
           const normalized = normalizeEmbeddedMediaUrl(match[1], rule.host);
           if (normalized && isDirectPlayableUrl(normalized)) {
+            return normalized;
+          }
+        }
+      }
+    } catch (error) {
+      console.warn(error);
+    }
+    return "";
+  }
+
+  function extractFollowPageFromHtml(rule, candidate) {
+    try {
+      const html = requestText(candidate.url, {
+        headers: sanitizeHeaders(candidate.header || {}),
+        timeout: Math.min(Number(rule.timeout || 20000), 30000),
+      });
+      const patterns = [
+        /<iframe[^>]+(?:src|data-src)=["']([^"']+)["']/ig,
+        /(?:player_aaaa|player_data|__PLAYER__|MacPlayerConfig)\s*=\s*\{[\s\S]*?(?:parse|parse_api|from|link_next)\s*[:=]\s*["']([^"'<>]+)["'][\s\S]*?\}/ig,
+        /["']((?:https?:\/\/|https?:\\\/\\\/|\/\/|\/)[^"']+?(?:player|parse|api|iframe)[^"']*)["']/ig,
+      ];
+      for (let i = 0; i < patterns.length; i += 1) {
+        let match;
+        while ((match = patterns[i].exec(html))) {
+          const normalized = normalizeEmbeddedMediaUrl(match[1], rule.host);
+          if (normalized && /^https?:\/\//i.test(normalized) && !isDirectPlayableUrl(normalized)) {
             return normalized;
           }
         }
@@ -1415,7 +1476,10 @@
     }
     normalized = normalized
       .replace(/\\u0026/g, "&")
+      .replace(/\\u003d/g, "=")
+      .replace(/\\u002f/gi, "/")
       .replace(/\\\//g, "/")
+      .replace(/^\/\//, "https://")
       .replace(/&amp;/g, "&");
     return absoluteUrl(normalized, host);
   }
