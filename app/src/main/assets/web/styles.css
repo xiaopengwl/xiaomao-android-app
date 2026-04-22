@@ -334,10 +334,15 @@ h3 {
   display: grid;
 }
 
+#page-home {
+  gap: 12px;
+}
+
 .hero-card {
   position: relative;
   overflow: hidden;
-  min-height: 286px;
+  min-height: 224px;
+  border-radius: 22px;
 }
 
 .hero-backdrop {
@@ -352,10 +357,10 @@ h3 {
 .hero-content {
   position: relative;
   z-index: 1;
-  padding: 18px;
+  padding: 16px;
   display: grid;
-  gap: 14px;
-  min-height: 286px;
+  gap: 12px;
+  min-height: 224px;
   align-content: end;
 }
 
@@ -372,6 +377,13 @@ h3 {
   flex-wrap: wrap;
 }
 
+#page-home .hero-actions .primary-button,
+#page-home .hero-actions .ghost-button {
+  min-height: 40px;
+  padding: 9px 14px;
+  border-radius: 999px;
+}
+
 .quick-strip,
 .profile-grid {
   display: grid;
@@ -384,6 +396,18 @@ h3 {
   padding: 14px;
 }
 
+#page-home .quick-strip {
+  gap: 8px;
+}
+
+#page-home .quick-card {
+  padding: 12px 10px;
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.015)),
+    rgba(8, 16, 30, 0.88);
+}
+
 .quick-card strong,
 .metric-box strong {
   display: block;
@@ -391,6 +415,11 @@ h3 {
   font-size: 19px;
   line-height: 1.2;
   word-break: break-word;
+}
+
+#page-home .quick-card strong {
+  margin-top: 6px;
+  font-size: 15px;
 }
 
 .page-section,
@@ -409,8 +438,13 @@ h3 {
   gap: 12px;
 }
 
+#page-home .page-section {
+  padding: 14px;
+  border-radius: 20px;
+}
+
 .home-rail-section {
-  padding-top: 12px;
+  padding-top: 8px;
 }
 
 .home-rail,
@@ -432,9 +466,9 @@ h3 {
 
 .home-rail-card {
   position: relative;
-  flex: 0 0 78%;
-  min-height: 176px;
-  border-radius: 24px;
+  flex: 0 0 46%;
+  min-height: 132px;
+  border-radius: 18px;
   overflow: hidden;
   padding: 0;
   border: 1px solid var(--line);
@@ -443,7 +477,7 @@ h3 {
 }
 
 .home-rail-card.hot {
-  flex-basis: 64%;
+  flex-basis: 46%;
 }
 
 .home-rail-card img {
@@ -458,26 +492,26 @@ h3 {
 .home-rail-overlay {
   position: relative;
   z-index: 1;
-  min-height: 176px;
-  padding: 18px;
+  min-height: 132px;
+  padding: 12px;
   display: grid;
   align-content: end;
-  gap: 8px;
+  gap: 6px;
   background:
     linear-gradient(180deg, rgba(4, 8, 18, 0.08), rgba(4, 8, 18, 0.94)),
     radial-gradient(circle at top left, rgba(107, 233, 255, 0.1), transparent 24%);
 }
 
 .home-rail-title {
-  font-size: 18px;
-  line-height: 1.24;
+  font-size: 14px;
+  line-height: 1.32;
   font-weight: 700;
 }
 
 .home-rail-desc {
   color: #d5e3f8;
-  line-height: 1.55;
-  font-size: 12px;
+  line-height: 1.45;
+  font-size: 11px;
 }
 
 .home-category-rail {
@@ -489,11 +523,12 @@ h3 {
 
 .home-category-chip {
   flex: 0 0 auto;
-  min-height: 42px;
-  padding: 10px 16px;
+  min-height: 36px;
+  padding: 8px 14px;
   border-radius: 999px;
   border: 1px solid var(--line);
   color: var(--text);
+  font-size: 13px;
   background:
     linear-gradient(135deg, rgba(107, 233, 255, 0.12), rgba(114, 255, 199, 0.06)),
     rgba(255, 255, 255, 0.03);
@@ -502,7 +537,7 @@ h3 {
 .poster-card {
   overflow: hidden;
   border: 1px solid var(--line);
-  border-radius: 22px;
+  border-radius: 18px;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02)),
     rgba(7, 14, 30, 0.92);
@@ -527,22 +562,22 @@ h3 {
 }
 
 .poster-card-body {
-  padding: 12px;
+  padding: 10px;
   display: grid;
-  gap: 8px;
+  gap: 6px;
 }
 
 .poster-card-title {
-  font-size: 14px;
-  line-height: 1.4;
-  min-height: 38px;
+  font-size: 13px;
+  line-height: 1.38;
+  min-height: 34px;
 }
 
 .poster-card-desc {
-  font-size: 12px;
-  line-height: 1.55;
+  font-size: 11px;
+  line-height: 1.45;
   color: var(--muted);
-  min-height: 34px;
+  min-height: 28px;
 }
 
 .empty-card {
@@ -1017,15 +1052,46 @@ textarea:focus {
   }
 
   .home-rail-card {
-    flex-basis: 42%;
+    flex-basis: 30%;
   }
 
   .home-rail-card.hot {
-    flex-basis: 34%;
+    flex-basis: 30%;
   }
 }
 
 @media (max-width: 520px) {
+  .app-shell {
+    padding: 10px 10px 92px;
+  }
+
+  .top-shell {
+    top: 6px;
+    padding: 12px;
+  }
+
+  .hero-card {
+    min-height: 186px;
+  }
+
+  .hero-content {
+    min-height: 186px;
+    padding: 14px;
+    gap: 10px;
+  }
+
+  .page-section,
+  .search-panel,
+  .source-controls,
+  .source-profile,
+  .profile-hero,
+  .profile-actions,
+  .player-shell,
+  .drawer-panel,
+  .manager-shell {
+    padding: 14px;
+  }
+
   .search-box,
   .hero-actions,
   .manager-actions,
@@ -1041,9 +1107,131 @@ textarea:focus {
 
   .card-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .poster-card {
+    border-radius: 18px;
+  }
+
+  .poster-card-body {
+    padding: 10px;
+  }
+
+  .poster-card-title {
+    font-size: 13px;
+    min-height: 34px;
+  }
+
+  .poster-card-desc {
+    font-size: 11px;
+    min-height: 30px;
   }
 
   .player-recommend-card {
     grid-template-columns: 88px minmax(0, 1fr);
+  }
+
+  .home-rail {
+    gap: 10px;
+  }
+
+  .home-rail-card {
+    flex-basis: 48%;
+    min-height: 120px;
+    border-radius: 16px;
+  }
+
+  .home-rail-card.hot {
+    flex-basis: 48%;
+  }
+
+  .home-rail-overlay {
+    min-height: 120px;
+    padding: 10px;
+    gap: 6px;
+  }
+
+  .home-rail-title {
+    font-size: 13px;
+  }
+
+  .home-rail-desc {
+    font-size: 11px;
+    line-height: 1.36;
+  }
+
+  .home-category-chip {
+    min-height: 34px;
+    padding: 7px 12px;
+    font-size: 12px;
+  }
+
+  .player-hero {
+    min-height: 152px;
+  }
+
+  .player-hero-content {
+    min-height: 152px;
+    padding: 14px;
+  }
+
+  .player-stage {
+    padding: 10px;
+  }
+
+  .artplayer-mount {
+    min-height: 196px;
+    border-radius: 14px;
+  }
+
+  .queue-panel,
+  .player-section {
+    padding: 12px;
+  }
+}
+
+@media (max-width: 390px) {
+  .quick-strip {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .quick-card,
+  .metric-box {
+    padding: 12px;
+  }
+
+  .quick-card strong,
+  .metric-box strong {
+    margin-top: 8px;
+    font-size: 16px;
+  }
+
+  .home-rail-card {
+    flex-basis: 56%;
+  }
+
+  .home-rail-card.hot {
+    flex-basis: 56%;
+  }
+
+  .bottom-nav {
+    width: min(calc(100% - 12px), 520px);
+    bottom: 6px;
+    padding: 6px;
+    border-radius: 20px;
+  }
+
+  .bottom-item {
+    border-radius: 14px;
+    padding: 8px 6px;
+    gap: 4px;
+    font-size: 11px;
+  }
+
+  .bottom-icon {
+    width: 22px;
+    height: 22px;
   }
 }
