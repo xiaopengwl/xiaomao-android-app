@@ -12,168 +12,66 @@
         android:layout_marginStart="14dp"
         android:layout_marginTop="14dp"
         android:layout_marginEnd="14dp"
-        app:cardBackgroundColor="#111B21"
-        app:cardCornerRadius="26dp"
-        app:strokeColor="#1F3A2A"
-        app:strokeWidth="1dp">
+        app:cardBackgroundColor="#102116"
+        app:cardCornerRadius="24dp"
+        app:strokeColor="#1FCB63"
+        app:strokeWidth="2dp">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:padding="16dp">
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="14dp"
+            android:paddingTop="12dp"
+            android:paddingEnd="12dp"
+            android:paddingBottom="12dp">
 
-            <LinearLayout
-                android:layout_width="match_parent"
+            <ImageView
+                android:layout_width="22dp"
+                android:layout_height="22dp"
+                android:src="@android:drawable/ic_menu_search"
+                android:tint="#B8FFD0" />
+
+            <com.google.android.material.textfield.TextInputLayout
+                style="@style/Widget.MaterialComponents.TextInputLayout.FilledBox.Dense"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
+                android:layout_marginStart="10dp"
+                android:layout_weight="1"
+                android:hint="输入片名、演员、关键词"
+                app:boxBackgroundColor="#00000000"
+                app:boxStrokeWidth="0dp"
+                app:boxStrokeWidthFocused="0dp"
+                app:hintTextColor="#B8FFD0">
 
-                <com.google.android.material.card.MaterialCardView
-                    android:layout_width="48dp"
-                    android:layout_height="48dp"
-                    app:cardBackgroundColor="#1FCB63"
-                    app:cardCornerRadius="18dp">
-
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:gravity="center"
-                        android:text="猫"
-                        android:textColor="#062110"
-                        android:textSize="22sp"
-                        android:textStyle="bold" />
-                </com.google.android.material.card.MaterialCardView>
-
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="12dp"
-                    android:layout_weight="1"
-                    android:orientation="vertical">
-
-                    <TextView
-                        android:id="@+id/main_title"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="小猫影视"
-                        android:textColor="#FFFFFF"
-                        android:textSize="22sp"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:id="@+id/main_subtitle"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:text="原生聚合 · 中文界面 · 直接播放"
-                        android:textColor="#93A8A0"
-                        android:textSize="12sp" />
-                </LinearLayout>
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/refresh_button"
-                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="44dp"
-                    android:text="刷新"
-                    android:textAllCaps="false"
-                    android:textColor="#E7F7ED"
-                    app:cornerRadius="14dp"
-                    app:strokeColor="#2A6340" />
-            </LinearLayout>
-
-            <TextView
-                android:id="@+id/header_source_text"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:text="当前片源：正在加载"
-                android:textColor="#D7E5DE"
-                android:textSize="13sp" />
-
-            <com.google.android.material.card.MaterialCardView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
-                app:cardBackgroundColor="#102116"
-                app:cardCornerRadius="22dp"
-                app:strokeColor="#1FCB63"
-                app:strokeWidth="2dp">
-
-                <LinearLayout
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/search_input"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal"
-                    android:paddingStart="14dp"
-                    android:paddingTop="12dp"
-                    android:paddingEnd="12dp"
-                    android:paddingBottom="12dp">
+                    android:background="@android:color/transparent"
+                    android:imeOptions="actionSearch"
+                    android:inputType="text"
+                    android:maxLines="1"
+                    android:minHeight="44dp"
+                    android:textColor="#FFFFFF"
+                    android:textColorHint="#B8FFD0"
+                    android:textSize="16sp" />
+            </com.google.android.material.textfield.TextInputLayout>
 
-                    <ImageView
-                        android:layout_width="24dp"
-                        android:layout_height="24dp"
-                        android:src="@android:drawable/ic_menu_search"
-                        android:tint="#B8FFD0" />
-
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/search_input"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="10dp"
-                        android:layout_weight="1"
-                        android:background="@android:color/transparent"
-                        android:hint="输入片名、演员、关键词，回车直接搜索"
-                        android:imeOptions="actionSearch"
-                        android:inputType="text"
-                        android:maxLines="1"
-                        android:textColor="#FFFFFF"
-                        android:textColorHint="#B8FFD0"
-                        android:textSize="15sp" />
-
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/search_button"
-                        android:layout_width="wrap_content"
-                        android:layout_height="44dp"
-                        android:text="搜索"
-                        android:textAllCaps="false"
-                        android:textColor="#042111"
-                        app:backgroundTint="#1FCB63"
-                        app:cornerRadius="16dp" />
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
-
-            <com.google.android.material.card.MaterialCardView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                app:cardBackgroundColor="#173024"
-                app:cardCornerRadius="20dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="14dp">
-
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="推荐、片库、榜单、我的"
-                        android:textColor="#F3FFF8"
-                        android:textSize="16sp"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="6dp"
-                        android:text="首页只看片，“我的”里统一管理片源、导入源和设置。"
-                        android:textColor="#B9DCC5"
-                        android:textSize="13sp" />
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/search_button"
+                android:layout_width="wrap_content"
+                android:layout_height="44dp"
+                android:layout_marginStart="10dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:minWidth="72dp"
+                android:text="搜索"
+                android:textAllCaps="false"
+                android:textColor="#042111"
+                app:backgroundTint="#1FCB63"
+                app:cornerRadius="16dp" />
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
 
@@ -330,7 +228,7 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="原生页面"
+                            android:text="片源管理"
                             android:textColor="#FFFFFF"
                             android:textSize="17sp"
                             android:textStyle="bold" />
@@ -341,7 +239,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="10dp"
                             android:lineSpacingExtra="4dp"
-                            android:text="把片源管理、导入源、设置都放到原生页面里，首页不再显示顶部下拉选择框。"
+                            android:text="在这里切换片源、导入源和打开设置。"
                             android:textColor="#D7E5DE"
                             android:textSize="14sp" />
 
@@ -350,12 +248,11 @@
                             android:layout_width="match_parent"
                             android:layout_height="48dp"
                             android:layout_marginTop="14dp"
-                            android:text="片源管理"
+                            android:text="打开片源管理"
                             android:textAllCaps="false"
                             android:textColor="#042111"
                             app:backgroundTint="#1FCB63"
                             app:cornerRadius="16dp" />
-
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
             </LinearLayout>

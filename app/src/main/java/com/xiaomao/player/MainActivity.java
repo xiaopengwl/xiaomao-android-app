@@ -46,9 +46,6 @@ public class MainActivity extends AppCompatActivity {
         MINE
     }
 
-    private TextView mainTitleView;
-    private TextView mainSubtitleView;
-    private TextView headerSourceTextView;
     private TextView sectionTitleView;
     private TextView statusTextView;
     private TextView pageTextView;
@@ -60,7 +57,6 @@ public class MainActivity extends AppCompatActivity {
     private View loadingIndicator;
     private View pageControlsView;
     private HorizontalScrollView categoryScrollView;
-    private MaterialButton refreshButton;
     private MaterialButton searchButton;
     private MaterialButton homeButton;
     private MaterialButton prevButton;
@@ -120,9 +116,6 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void bindViews() {
-        mainTitleView = findViewById(R.id.main_title);
-        mainSubtitleView = findViewById(R.id.main_subtitle);
-        headerSourceTextView = findViewById(R.id.header_source_text);
         sectionTitleView = findViewById(R.id.section_title);
         statusTextView = findViewById(R.id.status_text);
         pageTextView = findViewById(R.id.page_text);
@@ -134,7 +127,6 @@ public class MainActivity extends AppCompatActivity {
         loadingIndicator = findViewById(R.id.loading_indicator);
         pageControlsView = findViewById(R.id.page_controls);
         categoryScrollView = findViewById(R.id.category_scroll);
-        refreshButton = findViewById(R.id.refresh_button);
         searchButton = findViewById(R.id.search_button);
         homeButton = findViewById(R.id.home_button);
         prevButton = findViewById(R.id.prev_button);
@@ -160,7 +152,6 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void setupEvents() {
-        refreshButton.setOnClickListener(v -> reloadCurrentPage(true));
         searchButton.setOnClickListener(v -> performSearch(1));
         homeButton.setOnClickListener(v -> openHomeTab(true));
         prevButton.setOnClickListener(v -> changePage(-1));
@@ -241,14 +232,12 @@ public class MainActivity extends AppCompatActivity {
         categories.clear();
         adapter.submitList(new ArrayList<>());
         rankAdapter.submitList(new ArrayList<>());
-        mainTitleView.setText(getString(R.string.app_name));
-        mainSubtitleView.setText("原生聚合 · 中文界面 · 直接播放");
         if (!SettingsStore.keepLastSearch(this)) {
             searchInput.setText("");
         } else {
             searchInput.setText(SettingsStore.lastSearch(this));
         }
-        updateSourceSummary();
+        updateMinePanel();
         renderCategories();
         applyTabState();
         loadCategories();
@@ -348,7 +337,7 @@ public class MainActivity extends AppCompatActivity {
         applyTabState();
         syncBottomSelection(R.id.menu_mine);
         setSectionTitle("我的");
-        setStatus("在这里管理片源、导入源和设置");
+        setStatus("在这里打开片源管理");
         updateMinePanel();
         showLoading(false, "");
     }
@@ -615,19 +604,12 @@ public class MainActivity extends AppCompatActivity {
         ignoreBottomSelection = false;
     }
 
-    private void updateSourceSummary() {
-        String title = currentSource == null ? "未选择片源" : currentSource.title;
-        String host = currentSource == null || currentSource.host.isEmpty() ? "未提供站点地址" : currentSource.host;
-        headerSourceTextView.setText("当前片源：" + title + " · " + host);
-        updateMinePanel();
-    }
-
     private void updateMinePanel() {
         String title = currentSource == null ? "片源：加载中" : "片源：" + currentSource.title;
         String host = currentSource == null || currentSource.host.isEmpty() ? "站点：当前片源未提供 host" : "站点：" + currentSource.host;
         mineSourceNameView.setText(title);
         mineSourceHostView.setText(host);
-        mineFeatureTextView.setText("把片源管理、导入源、设置都放到原生页面里，首页不再显示顶部下拉选择框。");
+        mineFeatureTextView.setText("在这里切换片源、导入源和打开设置。");
     }
 
     private void openDetail(NativeDrpyEngine.MediaItem item) {
