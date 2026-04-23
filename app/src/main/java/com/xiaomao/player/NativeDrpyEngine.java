@@ -5,40 +5,140 @@ import android.text.TextUtils;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
+import android.webkit.WebViewClient;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.util.List;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 public class NativeDrpyEngine {
     private final Activity activity;
     private final WebView webView;
     private final NativeSource source;
+    private final String helperJs;
+    private final ArrayList<Runnable> pendingActions = new ArrayList<>();
     private String lastResult = "";
     private String currentHost = "";
     private final LinkedHashMap<String, String> cookieJar = new LinkedHashMap<>();
+    private boolean ready = false;
+    private boolean released = false;
 
     public interface Callback<T> {
         void done(T data, String err);
+    }
+
+    public static final class Category {
+        public final String id;
+        public final String name;
+        public final String url;
+
+        Category(String id, String name, String url) {
+            this.id = id == null ? "" : id;
+            this.name = name == null ? "" : name;
+            this.url = url == null ? "" : url;
+        }
+    }
+
+    public static final class MediaItem {
+        public final String id;
+        public final String vodId;
+        public final String title;
+        public final String poster;
+        public final String remark;
+        public final String url;
+
+        MediaItem(String id, String vodId, String title, String poster, String remark, String url) {
+            this.id = id == null ? "" : id;
+            this.vodId = vodId == null ? "" : vodId;
+            this.title = title == null ? "" : title;
+            this.poster = poster == null ? "" : poster;
+            this.remark = remark == null ? "" : remark;
+            this.url = url == null ? "" : url;
+        }
+    }
+
+    public static final class EpisodeItem {
+        public final String name;
+        public final String url;
+
+        EpisodeItem(String name, String url) {
+            this.name = name == null ? "" : name;
+            this.url = url == null ? "" : url;
+        }
+    }
+
+    public static final class EpisodeGroup {
+        public final String name;
+        public final ArrayList<EpisodeItem> items;
+
+        EpisodeGroup(String name, ArrayList<EpisodeItem> items) {
+            this.name = name == null ? "" : name;
+            this.items = items == null ? new ArrayList<>() : items;
+        }
+    }
+
+    public static final class MediaDetail {
+        public final String vodId;
+        public final String title;
+        public final String poster;
+        public final String remark;
+        public final String content;
+        public final ArrayList<EpisodeGroup> playGroups;
+
+        MediaDetail(String vodId, String title, String poster, String remark, String content, ArrayList<EpisodeGroup> playGroups) {
+            this.vodId = vodId == null ? "" : vodId;
+            this.title = title == null ? "" : title;
+            this.poster = poster == null ? "" : poster;
+            this.remark = remark == null ? "" : remark;
+            this.content = content == null ? "" : content;
+            this.playGroups = playGroups == null ? new ArrayList<>() : playGroups;
+        }
+    }
+
+    public static final class LazyResult {
+        public String url;
+        public String error = "";
+        public int parse = 0;
+        public int jx = 0;
+        public final LinkedHashMap<String, String> headers = new LinkedHashMap<>();
+
+        LazyResult(String url) {
+            this.url = url == null ? "" : url;
+        }
     }
 
     public NativeDrpyEngine(Activity activity, NativeSource source) {
         this.activity = activity;
         this.source = source;
         this.currentHost = source == null ? "" : source.host;
+        this.helperJs = readAssetText("runtime/native_rule_runtime.js");
         this.webView = new WebView(activity);
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
         webView.addJavascriptInterface(new Bridge(), "Android");
-        webView.loadData("<html><body>drpy</body></html>", "text/html", "utf-8");
+        webView.setWebViewClient(new WebViewClient() {
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                ready = true;
+                flushPendingActions();
+            }
+        });
+        webView.loadDataWithBaseURL(currentHost.isEmpty() ? "https://appassets.androidplatform.net/" : currentHost,
+                "<html><body>native-runtime</body></html>",
+                "text/html",
+                "utf-8",
+                null);
     }
 
     public class Bridge {
@@ -64,23 +164,236 @@ public class NativeDrpyEngine {
         }
     }
 
-    public void runLazy(String input, Callback<LazyResult> callback) {
-        lastResult = "";
-        String js = "(function(){try{" + baseJs(input)
+    public void loadCategories(Callback<ArrayList<Category>> callback) {
+        String body = ""
+                + "__xmRunPreprocess();"
+                + "var out=[];"
+                + "if(rule.class_name && rule.class_url){"
+                + "var names=String(rule.class_name).split('&');"
+                + "var urls=String(rule.class_url).split('&');"
+                + "for(var i=0;i<names.length;i++){out.push({id:'class-'+i,name:names[i]||'',url:urls[i]||''});}"
+                + "}else if(rule.class_parse){"
+                + "var html=request(rule.host,{headers:(rule.headers||{})});"
+                + "out=__xmParseCategoriesByClassParse(rule.class_parse, html, rule.host||HOST);"
+                + "}"
+                + "Android.setResult(JSON.stringify({categories:out}));";
+        runJsonRule("", body, (json, err) -> {
+            if (!err.isEmpty()) {
+                callback.done(new ArrayList<>(), err);
+                return;
+            }
+            callback.done(parseCategories(json), parseRuleError(json));
+        });
+    }
+
+    public void loadRecommend(int page, Callback<ArrayList<MediaItem>> callback) {
+        int targetPage = Math.max(1, page);
+        String body = ""
+                + "var page=" + targetPage + ";"
+                + "MY_PAGE=page;"
+                + "__xmRunPreprocess();"
+                + "var cfg=__xmGetRuleValue(rule,__xmRuleKeys.recommend);"
+                + "if(!cfg){Android.setResult(JSON.stringify({items:[]}));}"
+                + "else if(typeof cfg==='string' && cfg.indexOf('js:')===0){"
+                + "input=__xmBuildRecommendUrl(rule,page);"
                 + "document.html=request(input,{headers:(rule.headers||{})});"
-                + "var code=rule['lazy']||'';code=String(code);if(code.indexOf('js:')===0)code=code.substring(3);"
+                + "var code=String(cfg).substring(3);"
+                + "var VODS=[];var d=[];var result=[];"
+                + "eval(code);"
+                + "Android.setResult(JSON.stringify({items:__xmNormalizeItems(__xmPickListResult(VODS,d,result,input), rule.host||HOST)}));"
+                + "}else{"
+                + "var url=__xmBuildRecommendUrl(rule,page);"
+                + "var html=request(url,{headers:(rule.headers||{})});"
+                + "Android.setResult(JSON.stringify({items:__xmParseListBySelector(cfg, html, rule.host||HOST)}));"
+                + "}";
+        runJsonRule("", body, (json, err) -> {
+            if (!err.isEmpty()) {
+                callback.done(new ArrayList<>(), err);
+                return;
+            }
+            callback.done(parseMediaItems(json), parseRuleError(json));
+        });
+    }
+
+    public void loadCategoryItems(String categoryUrl, int page, Callback<ArrayList<MediaItem>> callback) {
+        int targetPage = Math.max(1, page);
+        String safeCategory = categoryUrl == null ? "" : categoryUrl;
+        String body = ""
+                + "var page=" + targetPage + ";"
+                + "MY_PAGE=page;"
+                + "__xmRunPreprocess();"
+                + "var cfg=__xmGetRuleValue(rule,__xmRuleKeys.first);"
+                + "var target=__xmBuildCategoryUrl(rule," + quote(safeCategory) + ",page);"
+                + "if(!cfg){Android.setResult(JSON.stringify({items:[]}));}"
+                + "else if(typeof cfg==='string' && cfg.indexOf('js:')===0){"
+                + "input=target;"
+                + "document.html=request(target,{headers:(rule.headers||{})});"
+                + "var code=String(cfg).substring(3);"
+                + "var VODS=[];var d=[];var result=[];"
+                + "eval(code);"
+                + "Android.setResult(JSON.stringify({items:__xmNormalizeItems(__xmPickListResult(VODS,d,result,input), rule.host||HOST)}));"
+                + "}else{"
+                + "var html=request(target,{headers:(rule.headers||{})});"
+                + "Android.setResult(JSON.stringify({items:__xmParseListBySelector(cfg, html, rule.host||HOST)}));"
+                + "}";
+        runJsonRule("", body, (json, err) -> {
+            if (!err.isEmpty()) {
+                callback.done(new ArrayList<>(), err);
+                return;
+            }
+            callback.done(parseMediaItems(json), parseRuleError(json));
+        });
+    }
+
+    public void search(String keyword, int page, Callback<ArrayList<MediaItem>> callback) {
+        int targetPage = Math.max(1, page);
+        String safeKeyword = keyword == null ? "" : keyword;
+        String body = ""
+                + "var page=" + targetPage + ";"
+                + "MY_PAGE=page;"
+                + "__xmRunPreprocess();"
+                + "var cfg=__xmGetRuleValue(rule,__xmRuleKeys.search);"
+                + "var target=__xmBuildSearchUrl(rule," + quote(safeKeyword) + ",page);"
+                + "if(!cfg){Android.setResult(JSON.stringify({items:[]}));}"
+                + "else if(typeof cfg==='string' && cfg.indexOf('js:')===0){"
+                + "input=target;"
+                + "document.html=request(target,{headers:(rule.headers||{})});"
+                + "var code=String(cfg).substring(3);"
+                + "var VODS=[];var d=[];var result=[];"
+                + "eval(code);"
+                + "Android.setResult(JSON.stringify({items:__xmNormalizeItems(__xmPickListResult(VODS,d,result,input), rule.host||HOST)}));"
+                + "}else{"
+                + "var html=request(target,{headers:(rule.headers||{})});"
+                + "Android.setResult(JSON.stringify({items:__xmParseListBySelector(cfg, html, rule.host||HOST)}));"
+                + "}";
+        runJsonRule("", body, (json, err) -> {
+            if (!err.isEmpty()) {
+                callback.done(new ArrayList<>(), err);
+                return;
+            }
+            callback.done(parseMediaItems(json), parseRuleError(json));
+        });
+    }
+
+    public void loadDetail(String itemUrl, String fallbackTitle, String fallbackPic, Callback<MediaDetail> callback) {
+        String safeUrl = itemUrl == null ? "" : itemUrl;
+        String safeTitle = fallbackTitle == null ? "" : fallbackTitle;
+        String safePic = fallbackPic == null ? "" : fallbackPic;
+        String body = ""
+                + "var detailUrl=__xmAbsoluteUrl(" + quote(safeUrl) + ", rule.host||HOST);"
+                + "__xmRunPreprocess();"
+                + "var cfg=__xmGetRuleValue(rule,__xmRuleKeys.second);"
+                + "if(typeof cfg==='string' && cfg.indexOf('js:')===0){"
+                + "input=detailUrl;"
+                + "document.html=request(detailUrl,{headers:(rule.headers||{})});"
+                + "var code=String(cfg).substring(3);"
+                + "var VOD=null;var result=null;"
+                + "eval(code);"
+                + "var payload=__xmPickDetailResult(VOD,(result&&result.VOD)?result.VOD:null,result);"
+                + "Android.setResult(JSON.stringify({detail:__xmNormalizeDetail(payload, rule.host||HOST, " + quote(safeTitle) + ", " + quote(safePic) + ", detailUrl)}));"
+                + "}else if(cfg && typeof cfg==='object'){"
+                + "var html=request(detailUrl,{headers:(rule.headers||{})});"
+                + "var payload2=__xmParseDetailObject(cfg, html, rule.host||HOST, detailUrl);"
+                + "Android.setResult(JSON.stringify({detail:__xmNormalizeDetail(payload2, rule.host||HOST, " + quote(safeTitle) + ", " + quote(safePic) + ", detailUrl)}));"
+                + "}else{"
+                + "Android.setResult(JSON.stringify({detail:__xmNormalizeDetail({vod_id:detailUrl,vod_name:" + quote(safeTitle) + ",vod_pic:" + quote(safePic) + ",playGroups:[{name:'默认线路',items:[{name:'播放',url:detailUrl}]}]}, rule.host||HOST, " + quote(safeTitle) + ", " + quote(safePic) + ", detailUrl)}));"
+                + "}";
+        runJsonRule(safeUrl, body, (json, err) -> {
+            if (!err.isEmpty()) {
+                callback.done(new MediaDetail(safeUrl, safeTitle, safePic, "", err, new ArrayList<>()), err);
+                return;
+            }
+            callback.done(parseMediaDetail(json, safeUrl, safeTitle, safePic), parseRuleError(json));
+        });
+    }
+
+    public void runLazy(String input, Callback<LazyResult> callback) {
+        String fallbackInput = input == null ? "" : input;
+        String body = ""
+                + "__xmRunPreprocess();"
+                + "document.html=request(input,{headers:(rule.headers||{})});"
+                + "var code=rule['lazy']||'';"
+                + "code=String(code);"
+                + "if(code.indexOf('js:')===0)code=code.substring(3);"
                 + "if(code.length>0){eval(code);}"
-                + "if(typeof input==='object'){if(!input.header&&!input.headers)input.header=(rule.play_headers||rule.headers||{});Android.setResult(JSON.stringify(input));}"
-                + "else{Android.setResult(JSON.stringify({url:String(input||''),parse:rule.play_parse?1:0,jx:0,header:(rule.play_headers||rule.headers||{})}));}return 'ok';"
-                + "}catch(e){Android.setResult(JSON.stringify({url:" + quote(input) + ",error:String(e)}));return 'err';}})()";
-        webView.evaluateJavascript(js, value -> {
+                + "if(typeof input==='object'){"
+                + "if(!input.header&&!input.headers)input.header=(rule.play_headers||rule.headers||{});"
+                + "Android.setResult(JSON.stringify(input));"
+                + "}else{"
+                + "Android.setResult(JSON.stringify({url:String(input||''),parse:rule.play_parse?1:0,jx:0,header:(rule.play_headers||rule.headers||{})}));"
+                + "}";
+        runJsonRule(fallbackInput, body, (json, err) -> {
+            if (!err.isEmpty()) {
+                callback.done(new LazyResult(fallbackInput), err);
+                return;
+            }
             try {
-                JSONObject object = new JSONObject(lastResult);
-                callback.done(parseLazyResult(object, input), object.optString("error", ""));
+                JSONObject object = new JSONObject(json);
+                callback.done(parseLazyResult(object, fallbackInput), object.optString("error", ""));
             } catch (Exception e) {
-                callback.done(new LazyResult(input), e.toString());
+                callback.done(new LazyResult(fallbackInput), e.toString());
             }
         });
+    }
+
+    public void release() {
+        activity.runOnUiThread(() -> {
+            released = true;
+            pendingActions.clear();
+            try {
+                webView.removeJavascriptInterface("Android");
+                webView.stopLoading();
+                webView.loadUrl("about:blank");
+                webView.destroy();
+            } catch (Exception ignored) {
+            }
+        });
+    }
+
+    private void runJsonRule(String input, String body, Callback<String> callback) {
+        String js = "(function(){try{"
+                + baseJs(input == null ? "" : input)
+                + body
+                + "}catch(e){Android.setResult(JSON.stringify({__xm_error:String(e)}));}})();";
+        evaluateScript(js, callback);
+    }
+
+    private void evaluateScript(String script, Callback<String> callback) {
+        withReady(() -> {
+            if (released) {
+                callback.done("", "engine released");
+                return;
+            }
+            lastResult = "";
+            webView.evaluateJavascript(script, value -> {
+                String result = lastResult;
+                if (TextUtils.isEmpty(result)) {
+                    result = decodeJsString(value);
+                }
+                callback.done(result == null ? "" : result, "");
+            });
+        });
+    }
+
+    private void withReady(Runnable action) {
+        activity.runOnUiThread(() -> {
+            if (released) {
+                return;
+            }
+            if (ready) {
+                action.run();
+            } else {
+                pendingActions.add(action);
+            }
+        });
+    }
+
+    private void flushPendingActions() {
+        ArrayList<Runnable> actions = new ArrayList<>(pendingActions);
+        pendingActions.clear();
+        for (Runnable action : actions) {
+            action.run();
+        }
     }
 
     private LazyResult parseLazyResult(JSONObject object, String fallbackInput) {
@@ -105,6 +418,115 @@ public class NativeDrpyEngine {
         return result;
     }
 
+    private ArrayList<Category> parseCategories(String json) {
+        ArrayList<Category> list = new ArrayList<>();
+        try {
+            JSONObject object = new JSONObject(json);
+            JSONArray array = object.optJSONArray("categories");
+            if (array == null) {
+                return list;
+            }
+            for (int i = 0; i < array.length(); i++) {
+                JSONObject item = array.optJSONObject(i);
+                if (item == null) {
+                    continue;
+                }
+                list.add(new Category(
+                        item.optString("id", "class-" + i),
+                        item.optString("name", ""),
+                        item.optString("url", "")
+                ));
+            }
+        } catch (Exception ignored) {
+        }
+        return list;
+    }
+
+    private ArrayList<MediaItem> parseMediaItems(String json) {
+        ArrayList<MediaItem> list = new ArrayList<>();
+        try {
+            JSONObject object = new JSONObject(json);
+            JSONArray array = object.optJSONArray("items");
+            if (array == null) {
+                return list;
+            }
+            for (int i = 0; i < array.length(); i++) {
+                JSONObject item = array.optJSONObject(i);
+                if (item == null) {
+                    continue;
+                }
+                list.add(new MediaItem(
+                        item.optString("id", ""),
+                        item.optString("vod_id", item.optString("url", "")),
+                        item.optString("vod_name", item.optString("title", "")),
+                        item.optString("vod_pic", item.optString("img", "")),
+                        item.optString("vod_remarks", item.optString("desc", "")),
+                        item.optString("url", item.optString("vod_id", ""))
+                ));
+            }
+        } catch (Exception ignored) {
+        }
+        return list;
+    }
+
+    private MediaDetail parseMediaDetail(String json, String fallbackId, String fallbackTitle, String fallbackPic) {
+        try {
+            JSONObject object = new JSONObject(json);
+            JSONObject detail = object.optJSONObject("detail");
+            if (detail == null) {
+                return new MediaDetail(fallbackId, fallbackTitle, fallbackPic, "", "", new ArrayList<>());
+            }
+            ArrayList<EpisodeGroup> groups = new ArrayList<>();
+            JSONArray groupArray = detail.optJSONArray("playGroups");
+            if (groupArray != null) {
+                for (int i = 0; i < groupArray.length(); i++) {
+                    JSONObject group = groupArray.optJSONObject(i);
+                    if (group == null) {
+                        continue;
+                    }
+                    ArrayList<EpisodeItem> items = new ArrayList<>();
+                    JSONArray itemArray = group.optJSONArray("items");
+                    if (itemArray != null) {
+                        for (int j = 0; j < itemArray.length(); j++) {
+                            JSONObject entry = itemArray.optJSONObject(j);
+                            if (entry == null) {
+                                continue;
+                            }
+                            items.add(new EpisodeItem(
+                                    entry.optString("name", "播放 " + (j + 1)),
+                                    entry.optString("url", "")
+                            ));
+                        }
+                    }
+                    groups.add(new EpisodeGroup(group.optString("name", "线路 " + (i + 1)), items));
+                }
+            }
+            return new MediaDetail(
+                    detail.optString("vod_id", fallbackId),
+                    detail.optString("vod_name", fallbackTitle),
+                    detail.optString("vod_pic", fallbackPic),
+                    detail.optString("vod_remarks", ""),
+                    detail.optString("vod_content", ""),
+                    groups
+            );
+        } catch (Exception ignored) {
+            return new MediaDetail(fallbackId, fallbackTitle, fallbackPic, "", "", new ArrayList<>());
+        }
+    }
+
+    private String parseRuleError(String json) {
+        try {
+            JSONObject object = new JSONObject(json);
+            String error = object.optString("__xm_error", "");
+            if (!error.isEmpty()) {
+                return error;
+            }
+            return object.optString("error", "");
+        } catch (Exception ignored) {
+            return "";
+        }
+    }
+
     private String baseJs(String input) {
         String raw = source == null || source.raw == null ? "" : source.raw;
         String host = source == null ? "" : source.host;
@@ -120,7 +542,10 @@ public class NativeDrpyEngine {
                 + "function request(url,opt){var cfg=mergeReqOpt(opt||{});var r=Android.request(String(url||''),JSON.stringify(cfg||{}));document.html=r;return r;}"
                 + "function requestRaw(url,opt){return request(url,opt);}function fetch(u,o){return request(u,o);}function post(u,o){return request(u,o);}function getHtml(u,o){return request(u,o);}"
                 + "function setResult(v){Android.setResult(JSON.stringify(v||[]));}function setResult2(v){setResult(v);}function log(v){Android.log(String(v));}"
-                + jsRuntime() + raw + "\n;";
+                + jsRuntime()
+                + helperJs
+                + raw
+                + "\n;";
     }
 
     private static String jsRuntime() {
@@ -188,7 +613,7 @@ public class NativeDrpyEngine {
             connection.setDoOutput(true);
             connection.setRequestMethod("POST".equals(method) ? "POST" : method);
             if (!opt.contentType.isEmpty()) connection.setRequestProperty("Content-Type", opt.contentType);
-            if (!opt.body.isEmpty()) connection.getOutputStream().write(opt.body.getBytes("UTF-8"));
+            if (!opt.body.isEmpty()) connection.getOutputStream().write(opt.body.getBytes(StandardCharsets.UTF_8));
         } else {
             connection.setRequestMethod(method);
         }
@@ -267,6 +692,20 @@ public class NativeDrpyEngine {
         return currentHost + "/" + value;
     }
 
+    private String readAssetText(String path) {
+        try (InputStream inputStream = activity.getAssets().open(path);
+             ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+            byte[] buffer = new byte[4096];
+            int size;
+            while ((size = inputStream.read(buffer)) > 0) {
+                outputStream.write(buffer, 0, size);
+            }
+            return outputStream.toString("UTF-8");
+        } catch (Exception ignored) {
+            return "";
+        }
+    }
+
     private static String first(JSONObject object, String... keys) {
         for (String key : keys) {
             String value = object.optString(key, "");
@@ -280,7 +719,21 @@ public class NativeDrpyEngine {
     }
 
     private static String js(String value) {
-        return (value == null ? "" : value).replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n");
+        return (value == null ? "" : value)
+                .replace("\\", "\\\\")
+                .replace("'", "\\'")
+                .replace("\n", "\\n");
+    }
+
+    private static String decodeJsString(String value) {
+        if (TextUtils.isEmpty(value) || "null".equals(value)) {
+            return "";
+        }
+        try {
+            return new JSONArray("[" + value + "]").getString(0);
+        } catch (Exception ignored) {
+            return value;
+        }
     }
 
     static final class HttpOptions {
@@ -298,17 +751,5 @@ public class NativeDrpyEngine {
         String body = "";
         String finalUrl = "";
         String contentType = "";
-    }
-
-    public static final class LazyResult {
-        public String url;
-        public String error = "";
-        public int parse = 0;
-        public int jx = 0;
-        public final LinkedHashMap<String, String> headers = new LinkedHashMap<>();
-
-        LazyResult(String url) {
-            this.url = url == null ? "" : url;
-        }
     }
 }
