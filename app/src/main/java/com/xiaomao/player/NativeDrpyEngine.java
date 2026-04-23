@@ -618,7 +618,7 @@ public class NativeDrpyEngine {
                 : opt.userAgent;
         connection.setRequestProperty("User-Agent", userAgent);
         connection.setRequestProperty("Referer", opt.referer.isEmpty() ? currentHost + "/" : opt.referer);
-        String cookie = cookieJar.get(cookieHostKey(url));
+        String cookie = mergeCookieHeader(cookieJar.get(cookieHostKey(url)), defaultCookieForUrl(url));
         if (cookie != null && !cookie.isEmpty() && !opt.headers.containsKey("Cookie") && !opt.headers.containsKey("cookie")) {
             connection.setRequestProperty("Cookie", cookie);
         }
@@ -675,6 +675,41 @@ public class NativeDrpyEngine {
         } catch (Exception ignored) {
             return "";
         }
+    }
+
+    private String defaultCookieForUrl(String url) {
+        String hostKey = cookieHostKey(url).toLowerCase();
+        if (hostKey.contains("51cg1.com") || hostKey.contains("isppven.com") || hostKey.contains("51cg")) {
+            return "user-choose=true";
+        }
+        return "";
+    }
+
+    private String mergeCookieHeader(String existing, String extra) {
+        if ((existing == null || existing.isEmpty()) && (extra == null || extra.isEmpty())) {
+            return "";
+        }
+        LinkedHashMap<String, String> merged = new LinkedHashMap<>();
+        for (String cookieHeader : new String[]{existing, extra}) {
+            if (cookieHeader == null || cookieHeader.isEmpty()) {
+                continue;
+            }
+            String[] parts = cookieHeader.split(";\\s*");
+            for (String part : parts) {
+                int index = part.indexOf('=');
+                if (index > 0) {
+                    merged.put(part.substring(0, index), part.substring(index + 1));
+                }
+            }
+        }
+        StringBuilder builder = new StringBuilder();
+        for (Map.Entry<String, String> entry : merged.entrySet()) {
+            if (builder.length() > 0) {
+                builder.append("; ");
+            }
+            builder.append(entry.getKey()).append('=').append(entry.getValue());
+        }
+        return builder.toString();
     }
 
     private void storeCookies(String finalUrl, Map<String, List<String>> headerFields) {
