@@ -1,8 +1,89 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">小猫影视</string>
+
     <string name="nav_home">推荐</string>
     <string name="nav_library">片库</string>
     <string name="nav_rank">榜单</string>
     <string name="nav_mine">我的</string>
+
+    <string name="main_search_hint">输入片名、演员、关键词</string>
+    <string name="main_search_action">搜索</string>
+    <string name="main_section_home">推荐</string>
+    <string name="main_status_preparing">正在准备片源...</string>
+    <string name="main_empty_placeholder">内容会显示在这里</string>
+
+    <string name="main_mine_current">当前配置</string>
+    <string name="main_mine_source_loading">片源：加载中</string>
+    <string name="main_mine_host_placeholder">站点：-</string>
+    <string name="main_mine_kernel_title">播放内核</string>
+    <string name="main_mine_kernel_name">当前：系统默认内核</string>
+    <string name="main_mine_kernel_tip">兼容性更稳，适合先排查问题；如果部分 m3u8 不起播，可以切到 Exo 再试。</string>
+    <string name="main_mine_kernel_switch">切换到 Exo 内核</string>
+    <string name="main_mine_source_title">片源管理</string>
+    <string name="main_mine_source_desc">管理片源、导入规则、切换播放内核，并进入设置页。</string>
+    <string name="main_mine_source_button">打开片源管理</string>
+
+    <string name="main_page_home">首页</string>
+    <string name="main_page_prev">上一页</string>
+    <string name="main_page_next">下一页</string>
+    <string name="main_page_default">第 1 页</string>
+    <string name="main_page_label">第 %1$d 页</string>
+
+    <string name="main_msg_no_source">请先添加可用片源</string>
+    <string name="main_msg_load_categories_failed">分类加载失败</string>
+    <string name="main_msg_home_cached">已显示当前推荐内容</string>
+    <string name="main_msg_library_title">片库</string>
+    <string name="main_msg_library_loading">正在加载分类...</string>
+    <string name="main_msg_library_cached">已显示当前分类内容</string>
+    <string name="main_msg_rank_title">榜单</string>
+    <string name="main_msg_rank_cached">已显示当前榜单内容</string>
+    <string name="main_msg_mine_title">我的</string>
+    <string name="main_msg_mine_status">管理片源、切换内核与常用设置</string>
+
+    <string name="main_msg_home_loading">正在加载推荐内容...</string>
+    <string name="main_msg_home_failed">推荐加载失败：%1$s</string>
+    <string name="main_msg_home_last_page">当前已经是最后一页推荐</string>
+    <string name="main_msg_home_last_page_toast">没有更多推荐了</string>
+    <string name="main_msg_home_empty">暂时没有推荐内容</string>
+    <string name="main_msg_home_status">推荐 · 第 %1$d 页</string>
+
+    <string name="main_msg_category_loading">正在加载“%1$s”...</string>
+    <string name="main_msg_category_failed">分类加载失败：%1$s</string>
+    <string name="main_msg_category_last_page">当前已经是最后一页分类内容</string>
+    <string name="main_msg_category_last_page_toast">没有更多内容了</string>
+    <string name="main_msg_category_empty">这个分类暂时没有内容</string>
+    <string name="main_msg_category_status">%1$s · 第 %2$d 页</string>
+
+    <string name="main_msg_rank_loading">正在加载榜单...</string>
+    <string name="main_msg_rank_failed">榜单加载失败：%1$s</string>
+    <string name="main_msg_rank_last_page">当前已经是最后一页榜单</string>
+    <string name="main_msg_rank_last_page_toast">没有更多榜单内容了</string>
+    <string name="main_msg_rank_empty">暂时没有榜单内容</string>
+    <string name="main_msg_rank_status">榜单 · 第 %1$d 页</string>
+
+    <string name="main_msg_search_empty_keyword">请输入搜索关键词</string>
+    <string name="main_msg_search_title">搜索：%1$s</string>
+    <string name="main_msg_search_loading">正在搜索“%1$s”...</string>
+    <string name="main_msg_search_failed">搜索失败：%1$s</string>
+    <string name="main_msg_search_last_page">当前已经是最后一页搜索结果</string>
+    <string name="main_msg_search_last_page_toast">没有更多搜索结果了</string>
+    <string name="main_msg_search_empty">没有找到匹配内容</string>
+    <string name="main_msg_search_status">搜索结果 · 第 %1$d 页</string>
+
+    <string name="main_msg_source_title">片源：%1$s</string>
+    <string name="main_msg_source_title_loading">片源：加载中</string>
+    <string name="main_msg_source_host">站点：%1$s</string>
+    <string name="main_msg_source_host_unavailable">站点：不可用</string>
+
+    <string name="main_msg_kernel_current_exo">当前：Exo 增强内核</string>
+    <string name="main_msg_kernel_current_system">当前：系统默认内核</string>
+    <string name="main_msg_kernel_tip_exo">适合 m3u8、分片流和带 Referer 的视频；如果一直转圈，可以先切回系统内核。</string>
+    <string name="main_msg_kernel_tip_system">兼容性更稳，适合先排查问题；如果部分 m3u8 不起播，可以切到 Exo 再试。</string>
+    <string name="main_msg_kernel_switch_system">切换到系统内核</string>
+    <string name="main_msg_kernel_switch_exo">切换到 Exo 内核</string>
+    <string name="main_msg_kernel_switched_system">已切换到系统默认内核</string>
+    <string name="main_msg_kernel_switched_exo">已切换到 Exo 增强内核</string>
+
+    <string name="main_msg_no_content">暂时没有内容</string>
 </resources>
