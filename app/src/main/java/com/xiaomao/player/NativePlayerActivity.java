@@ -34,7 +34,6 @@ import android.widget.Toast;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.util.ArrayList;
@@ -47,6 +46,7 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import cn.jzvd.JZDataSource;
 import cn.jzvd.Jzvd;
 import cn.jzvd.JzvdStd;
 
@@ -1043,17 +1043,9 @@ public class NativePlayerActivity extends Activity {
             return false;
         }
         try {
-            Class<?> dataSourceClass = Class.forName("cn.jzvd.JZDataSource");
-            Object dataSource = dataSourceClass.getConstructor(String.class, String.class).newInstance(playUrl, title);
-            try {
-                Field headerMapField = dataSourceClass.getField("headerMap");
-                headerMapField.set(dataSource, headers);
-            } catch (NoSuchFieldException ignored) {
-                Method setHeaderMap = dataSourceClass.getMethod("setHeaderMap", HashMap.class);
-                setHeaderMap.invoke(dataSource, new HashMap<>(headers));
-            }
-            Method setUp = playerView.getClass().getMethod("setUp", dataSourceClass, int.class);
-            setUp.invoke(playerView, dataSource, Jzvd.SCREEN_NORMAL);
+            JZDataSource dataSource = new JZDataSource(playUrl, title);
+            dataSource.headerMap = new HashMap<>(headers);
+            playerView.setUp(dataSource, Jzvd.SCREEN_NORMAL, XiaomaoMediaExo.class);
             return true;
         } catch (Throwable ignored) {
             return false;
@@ -1061,14 +1053,7 @@ public class NativePlayerActivity extends Activity {
     }
 
     private void setupPlayerSimple() throws Exception {
-        try {
-            Method method = playerView.getClass().getMethod("setUp", String.class, String.class);
-            method.invoke(playerView, playUrl, title);
-            return;
-        } catch (NoSuchMethodException ignored) {
-        }
-        Method method = playerView.getClass().getMethod("setUp", String.class, String.class, int.class);
-        method.invoke(playerView, playUrl, title, Jzvd.SCREEN_NORMAL);
+        playerView.setUp(playUrl, title, Jzvd.SCREEN_NORMAL, XiaomaoMediaExo.class);
     }
 
     private Map<String, String> parseHeaders(String rawJson) {
