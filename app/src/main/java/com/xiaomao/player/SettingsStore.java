@@ -9,6 +9,10 @@ public final class SettingsStore {
     private static final String KEY_DEFAULT_LIBRARY = "default_library";
     private static final String KEY_KEEP_LAST_SEARCH = "keep_last_search";
     private static final String KEY_LAST_SEARCH = "last_search";
+    private static final String KEY_PLAYER_KERNEL = "player_kernel";
+
+    public static final String PLAYER_KERNEL_SYSTEM = "system";
+    public static final String PLAYER_KERNEL_EXO = "exo";
 
     private SettingsStore() {
     }
@@ -50,5 +54,23 @@ public final class SettingsStore {
 
     public static void setLastSearch(Context context, String value) {
         prefs(context).edit().putString(KEY_LAST_SEARCH, value == null ? "" : value.trim()).apply();
+    }
+
+    public static String playerKernel(Context context) {
+        String kernel = prefs(context).getString(KEY_PLAYER_KERNEL, PLAYER_KERNEL_SYSTEM);
+        if (PLAYER_KERNEL_EXO.equals(kernel)) {
+            return PLAYER_KERNEL_EXO;
+        }
+        return PLAYER_KERNEL_SYSTEM;
+    }
+
+    public static void setPlayerKernel(Context context, String kernel) {
+        prefs(context).edit()
+                .putString(KEY_PLAYER_KERNEL, PLAYER_KERNEL_EXO.equals(kernel) ? PLAYER_KERNEL_EXO : PLAYER_KERNEL_SYSTEM)
+                .apply();
+    }
+
+    public static boolean useExoKernel(Context context) {
+        return PLAYER_KERNEL_EXO.equals(playerKernel(context));
     }
 }

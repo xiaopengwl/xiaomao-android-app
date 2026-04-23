@@ -1,4 +1,4 @@
-package com.xiaomao.player;
+﻿package com.xiaomao.player;
 
 import android.app.Activity;
 import android.content.Intent;
@@ -53,6 +53,8 @@ public class MainActivity extends AppCompatActivity {
     private TextView mineSourceNameView;
     private TextView mineSourceHostView;
     private TextView mineFeatureTextView;
+    private TextView mineKernelNameView;
+    private TextView mineKernelTipView;
     private View emptyContainer;
     private View loadingIndicator;
     private View pageControlsView;
@@ -62,6 +64,7 @@ public class MainActivity extends AppCompatActivity {
     private MaterialButton prevButton;
     private MaterialButton nextButton;
     private MaterialButton mineSourceManageButton;
+    private MaterialButton mineKernelSwitchButton;
     private TextInputEditText searchInput;
     private ChipGroup categoryGroup;
     private SwipeRefreshLayout swipeRefreshLayout;
@@ -123,6 +126,8 @@ public class MainActivity extends AppCompatActivity {
         mineSourceNameView = findViewById(R.id.mine_source_name);
         mineSourceHostView = findViewById(R.id.mine_source_host);
         mineFeatureTextView = findViewById(R.id.mine_feature_text);
+        mineKernelNameView = findViewById(R.id.mine_kernel_name);
+        mineKernelTipView = findViewById(R.id.mine_kernel_tip);
         emptyContainer = findViewById(R.id.empty_container);
         loadingIndicator = findViewById(R.id.loading_indicator);
         pageControlsView = findViewById(R.id.page_controls);
@@ -132,6 +137,7 @@ public class MainActivity extends AppCompatActivity {
         prevButton = findViewById(R.id.prev_button);
         nextButton = findViewById(R.id.next_button);
         mineSourceManageButton = findViewById(R.id.mine_source_manage_button);
+        mineKernelSwitchButton = findViewById(R.id.mine_kernel_switch_button);
         searchInput = findViewById(R.id.search_input);
         categoryGroup = findViewById(R.id.category_group);
         swipeRefreshLayout = findViewById(R.id.swipe_refresh);
@@ -157,6 +163,7 @@ public class MainActivity extends AppCompatActivity {
         prevButton.setOnClickListener(v -> changePage(-1));
         nextButton.setOnClickListener(v -> changePage(1));
         mineSourceManageButton.setOnClickListener(v -> openNativePage(SourceManagementActivity.class));
+        mineKernelSwitchButton.setOnClickListener(v -> togglePlayerKernel());
         swipeRefreshLayout.setOnRefreshListener(() -> reloadCurrentPage(true));
         searchInput.setOnEditorActionListener((v, actionId, event) -> {
             boolean enterPressed = event != null
@@ -203,7 +210,7 @@ public class MainActivity extends AppCompatActivity {
         sources.clear();
         sources.addAll(SourceStore.loadAll(this));
         if (sources.isEmpty()) {
-            showLoading(false, "没有找到可用片源");
+            showLoading(false, "娌℃湁鎵惧埌鍙敤鐗囨簮");
             return;
         }
         SourceStore.SourceItem selected = SourceStore.resolveSelected(this, sources);
@@ -265,7 +272,7 @@ public class MainActivity extends AppCompatActivity {
             }
             renderCategories();
             if (!TextUtils.isEmpty(err)) {
-                toast("分类加载失败");
+                toast("鍒嗙被鍔犺浇澶辫触");
             }
             if (currentTab == MainTab.LIBRARY && activeCategory == null && !categories.isEmpty()) {
                 activeCategory = categories.get(0);
@@ -285,8 +292,8 @@ public class MainActivity extends AppCompatActivity {
         if (reload || adapter.getDataCount() == 0) {
             loadHomePage(1);
         } else {
-            setSectionTitle("推荐");
-            setStatus("当前片源推荐内容");
+            setSectionTitle("鎺ㄨ崘");
+            setStatus("褰撳墠鐗囨簮鎺ㄨ崘鍐呭");
             showLoading(false, "");
         }
     }
@@ -297,9 +304,9 @@ public class MainActivity extends AppCompatActivity {
         syncBottomSelection(R.id.menu_library);
         renderCategories();
         if (categories.isEmpty()) {
-            setSectionTitle("片库");
-            setStatus("正在加载分类...");
-            showLoading(true, "正在加载分类...");
+            setSectionTitle("鐗囧簱");
+            setStatus("姝ｅ湪鍔犺浇鍒嗙被...");
+            showLoading(true, "姝ｅ湪鍔犺浇鍒嗙被...");
             loadCategories();
             return;
         }
@@ -312,7 +319,7 @@ public class MainActivity extends AppCompatActivity {
             loadCategoryPage(activeCategory, 1);
         } else {
             setSectionTitle(activeCategory.name);
-            setStatus("浏览分类内容");
+            setStatus("娴忚鍒嗙被鍐呭");
             showLoading(false, "");
         }
     }
@@ -326,8 +333,8 @@ public class MainActivity extends AppCompatActivity {
         if (reload || rankAdapter.getDataCount() == 0) {
             loadRankPage(1);
         } else {
-            setSectionTitle("热播榜单");
-            setStatus("当前片源热门内容");
+            setSectionTitle("鐑挱姒滃崟");
+            setStatus("褰撳墠鐗囨簮鐑棬鍐呭");
             showLoading(false, "");
         }
     }
@@ -336,8 +343,8 @@ public class MainActivity extends AppCompatActivity {
         currentTab = MainTab.MINE;
         applyTabState();
         syncBottomSelection(R.id.menu_mine);
-        setSectionTitle("我的");
-        setStatus("在这里打开片源管理");
+        setSectionTitle("鎴戠殑");
+        setStatus("鍦ㄨ繖閲屾墦寮€鐗囨簮绠＄悊");
         updateMinePanel();
         showLoading(false, "");
     }
@@ -355,26 +362,26 @@ public class MainActivity extends AppCompatActivity {
         currentPage = targetPage;
         applyTabState();
         syncBottomSelection(R.id.menu_home);
-        setSectionTitle("推荐");
-        showLoading(true, "正在加载推荐内容...");
+        setSectionTitle("鎺ㄨ崘");
+        showLoading(true, "姝ｅ湪鍔犺浇鎺ㄨ崘鍐呭...");
         engine.loadRecommend(targetPage, (items, err) -> {
             if (token != contentVersion || sourceToken != sourceVersion) {
                 return;
             }
             swipeRefreshLayout.setRefreshing(false);
             if (!TextUtils.isEmpty(err) && (items == null || items.isEmpty())) {
-                showLoading(false, "推荐加载失败\n" + err);
+                showLoading(false, "鎺ㄨ崘鍔犺浇澶辫触\n" + err);
                 return;
             }
             if (targetPage > 1 && (items == null || items.isEmpty())) {
-                showLoading(false, adapter.getDataCount() == 0 ? "没有更多推荐内容" : "");
-                toast("没有更多推荐内容了");
+                showLoading(false, adapter.getDataCount() == 0 ? "娌℃湁鏇村鎺ㄨ崘鍐呭" : "");
+                toast("娌℃湁鏇村鎺ㄨ崘鍐呭浜?);
                 return;
             }
             adapter.submitList(items);
             currentPage = targetPage;
-            showLoading(false, items == null || items.isEmpty() ? "当前片源没有返回推荐内容" : "");
-            setStatus("推荐内容 · 第 " + currentPage + " 页");
+            showLoading(false, items == null || items.isEmpty() ? "褰撳墠鐗囨簮娌℃湁杩斿洖鎺ㄨ崘鍐呭" : "");
+            setStatus("鎺ㄨ崘鍐呭 路 绗?" + currentPage + " 椤?);
             updatePager();
             mediaRecyclerView.scrollToPosition(0);
         });
@@ -395,25 +402,25 @@ public class MainActivity extends AppCompatActivity {
         syncBottomSelection(R.id.menu_library);
         renderCategories();
         setSectionTitle(category.name);
-        showLoading(true, "正在加载分类：" + category.name);
+        showLoading(true, "姝ｅ湪鍔犺浇鍒嗙被锛? + category.name);
         engine.loadCategoryItems(category.url, targetPage, (items, err) -> {
             if (token != contentVersion || sourceToken != sourceVersion) {
                 return;
             }
             swipeRefreshLayout.setRefreshing(false);
             if (!TextUtils.isEmpty(err) && (items == null || items.isEmpty())) {
-                showLoading(false, "分类加载失败\n" + err);
+                showLoading(false, "鍒嗙被鍔犺浇澶辫触\n" + err);
                 return;
             }
             if (targetPage > 1 && (items == null || items.isEmpty())) {
-                showLoading(false, adapter.getDataCount() == 0 ? "没有更多分类内容" : "");
-                toast("没有更多内容了");
+                showLoading(false, adapter.getDataCount() == 0 ? "娌℃湁鏇村鍒嗙被鍐呭" : "");
+                toast("娌℃湁鏇村鍐呭浜?);
                 return;
             }
             adapter.submitList(items);
             currentPage = targetPage;
-            showLoading(false, items == null || items.isEmpty() ? "当前分类暂无内容" : "");
-            setStatus(category.name + " · 第 " + currentPage + " 页");
+            showLoading(false, items == null || items.isEmpty() ? "褰撳墠鍒嗙被鏆傛棤鍐呭" : "");
+            setStatus(category.name + " 路 绗?" + currentPage + " 椤?);
             updatePager();
             mediaRecyclerView.scrollToPosition(0);
         });
@@ -431,26 +438,26 @@ public class MainActivity extends AppCompatActivity {
         currentPage = targetPage;
         applyTabState();
         syncBottomSelection(R.id.menu_rank);
-        setSectionTitle("热播榜单");
-        showLoading(true, "正在整理榜单...");
+        setSectionTitle("鐑挱姒滃崟");
+        showLoading(true, "姝ｅ湪鏁寸悊姒滃崟...");
         engine.loadRecommend(targetPage, (items, err) -> {
             if (token != contentVersion || sourceToken != sourceVersion) {
                 return;
             }
             swipeRefreshLayout.setRefreshing(false);
             if (!TextUtils.isEmpty(err) && (items == null || items.isEmpty())) {
-                showLoading(false, "榜单加载失败\n" + err);
+                showLoading(false, "姒滃崟鍔犺浇澶辫触\n" + err);
                 return;
             }
             if (targetPage > 1 && (items == null || items.isEmpty())) {
-                showLoading(false, rankAdapter.getDataCount() == 0 ? "没有更多榜单内容" : "");
-                toast("没有更多榜单内容了");
+                showLoading(false, rankAdapter.getDataCount() == 0 ? "娌℃湁鏇村姒滃崟鍐呭" : "");
+                toast("娌℃湁鏇村姒滃崟鍐呭浜?);
                 return;
             }
             rankAdapter.submitList(items);
             currentPage = targetPage;
-            showLoading(false, items == null || items.isEmpty() ? "当前片源没有可展示的榜单内容" : "");
-            setStatus("热播榜 · 第 " + currentPage + " 页");
+            showLoading(false, items == null || items.isEmpty() ? "褰撳墠鐗囨簮娌℃湁鍙睍绀虹殑姒滃崟鍐呭" : "");
+            setStatus("鐑挱姒?路 绗?" + currentPage + " 椤?);
             updatePager();
             rankRecyclerView.scrollToPosition(0);
         });
@@ -462,7 +469,7 @@ public class MainActivity extends AppCompatActivity {
         }
         String keyword = searchInput.getText() == null ? "" : searchInput.getText().toString().trim();
         if (keyword.isEmpty()) {
-            toast("请先输入搜索关键词");
+            toast("璇峰厛杈撳叆鎼滅储鍏抽敭璇?);
             return;
         }
         if (SettingsStore.keepLastSearch(this)) {
@@ -477,26 +484,26 @@ public class MainActivity extends AppCompatActivity {
         applyTabState();
         syncBottomSelection(R.id.menu_library);
         renderCategories();
-        setSectionTitle("搜索：" + keyword);
-        showLoading(true, "正在搜索 " + keyword + "...");
+        setSectionTitle("鎼滅储锛? + keyword);
+        showLoading(true, "姝ｅ湪鎼滅储 " + keyword + "...");
         engine.search(keyword, targetPage, (items, err) -> {
             if (token != contentVersion || sourceToken != sourceVersion) {
                 return;
             }
             swipeRefreshLayout.setRefreshing(false);
             if (!TextUtils.isEmpty(err) && (items == null || items.isEmpty())) {
-                showLoading(false, "搜索失败\n" + err);
+                showLoading(false, "鎼滅储澶辫触\n" + err);
                 return;
             }
             if (targetPage > 1 && (items == null || items.isEmpty())) {
-                showLoading(false, adapter.getDataCount() == 0 ? "没有更多搜索结果" : "");
-                toast("没有更多搜索结果了");
+                showLoading(false, adapter.getDataCount() == 0 ? "娌℃湁鏇村鎼滅储缁撴灉" : "");
+                toast("娌℃湁鏇村鎼滅储缁撴灉浜?);
                 return;
             }
             adapter.submitList(items);
             currentPage = targetPage;
-            showLoading(false, items == null || items.isEmpty() ? "没有匹配到搜索结果" : "");
-            setStatus("搜索结果 · 第 " + currentPage + " 页");
+            showLoading(false, items == null || items.isEmpty() ? "娌℃湁鍖归厤鍒版悳绱㈢粨鏋? : "");
+            setStatus("鎼滅储缁撴灉 路 绗?" + currentPage + " 椤?);
             updatePager();
             mediaRecyclerView.scrollToPosition(0);
         });
@@ -596,6 +603,7 @@ public class MainActivity extends AppCompatActivity {
         }
         updatePager();
         updateMinePanel();
+        updateKernelPanel();
     }
 
     private void syncBottomSelection(int itemId) {
@@ -605,11 +613,28 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void updateMinePanel() {
-        String title = currentSource == null ? "片源：加载中" : "片源：" + currentSource.title;
-        String host = currentSource == null || currentSource.host.isEmpty() ? "站点：当前片源未提供 host" : "站点：" + currentSource.host;
+        String title = currentSource == null ? "鐗囨簮锛氬姞杞戒腑" : "鐗囨簮锛? + currentSource.title;
+        String host = currentSource == null || currentSource.host.isEmpty() ? "绔欑偣锛氬綋鍓嶇墖婧愭湭鎻愪緵 host" : "绔欑偣锛? + currentSource.host;
         mineSourceNameView.setText(title);
         mineSourceHostView.setText(host);
-        mineFeatureTextView.setText("在这里切换片源、导入源和打开设置。");
+        mineFeatureTextView.setText("鍦ㄨ繖閲屽垏鎹㈢墖婧愩€佸鍏ユ簮鍜屾墦寮€璁剧疆銆?);
+    }
+
+    private void updateKernelPanel() {
+        boolean useExoKernel = SettingsStore.useExoKernel(this);
+        mineKernelNameView.setText(useExoKernel ? "\u5f53\u524d\uff1aExo \u589e\u5f3a\u5185\u6838" : "\u5f53\u524d\uff1a\u7cfb\u7edf\u9ed8\u8ba4\u5185\u6838");
+        mineKernelTipView.setText(useExoKernel
+                ? "\u9002\u5408 m3u8\u3001\u5206\u7247\u6d41\u548c\u5e26 Referer \u7684\u89c6\u9891\uff1b\u5982\u679c\u4e00\u76f4\u8f6c\u5708\uff0c\u53ef\u4ee5\u5148\u5207\u56de\u7cfb\u7edf\u5185\u6838\u3002"
+                : "\u517c\u5bb9\u6027\u66f4\u7a33\uff0c\u9002\u5408\u5148\u6392\u67e5\u95ee\u9898\uff1b\u5982\u679c\u90e8\u5206 m3u8 \u4e0d\u8d77\u64ad\uff0c\u53ef\u4ee5\u5207\u5230 Exo \u518d\u8bd5\u3002");
+        mineKernelSwitchButton.setText(useExoKernel ? "\u5207\u6362\u5230\u7cfb\u7edf\u5185\u6838" : "\u5207\u6362\u5230 Exo \u5185\u6838");
+    }
+
+    private void togglePlayerKernel() {
+        boolean useExoKernel = SettingsStore.useExoKernel(this);
+        SettingsStore.setPlayerKernel(this,
+                useExoKernel ? SettingsStore.PLAYER_KERNEL_SYSTEM : SettingsStore.PLAYER_KERNEL_EXO);
+        updateKernelPanel();
+        toast(useExoKernel ? "\u5df2\u5207\u6362\u5230\u7cfb\u7edf\u9ed8\u8ba4\u5185\u6838" : "\u5df2\u5207\u6362\u5230 Exo \u589e\u5f3a\u5185\u6838");
     }
 
     private void openDetail(NativeDrpyEngine.MediaItem item) {
@@ -654,7 +679,7 @@ public class MainActivity extends AppCompatActivity {
             emptyContainer.setVisibility(currentContentCount() == 0 ? View.VISIBLE : View.GONE);
             loadingIndicator.setVisibility(View.GONE);
             if (currentContentCount() == 0) {
-                emptyTextView.setText("这里还没有内容");
+                emptyTextView.setText("杩欓噷杩樻病鏈夊唴瀹?);
             }
         }
         updatePager();
@@ -671,7 +696,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void updatePager() {
-        pageTextView.setText("第 " + currentPage + " 页");
+        pageTextView.setText("绗?" + currentPage + " 椤?);
         boolean enabled = currentSource != null && currentTab != MainTab.MINE;
         prevButton.setEnabled(enabled && currentPage > 1);
         nextButton.setEnabled(enabled);

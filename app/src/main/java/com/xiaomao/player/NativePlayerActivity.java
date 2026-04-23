@@ -1045,7 +1045,11 @@ public class NativePlayerActivity extends Activity {
         try {
             JZDataSource dataSource = new JZDataSource(playUrl, title);
             dataSource.headerMap = new HashMap<>(headers);
-            playerView.setUp(dataSource, Jzvd.SCREEN_NORMAL, XiaomaoMediaExo.class);
+            if (SettingsStore.useExoKernel(this)) {
+                playerView.setUp(dataSource, Jzvd.SCREEN_NORMAL, XiaomaoMediaExo.class);
+            } else {
+                playerView.setUp(dataSource, Jzvd.SCREEN_NORMAL);
+            }
             return true;
         } catch (Throwable ignored) {
             return false;
@@ -1053,7 +1057,11 @@ public class NativePlayerActivity extends Activity {
     }
 
     private void setupPlayerSimple() throws Exception {
-        playerView.setUp(playUrl, title, Jzvd.SCREEN_NORMAL, XiaomaoMediaExo.class);
+        if (SettingsStore.useExoKernel(this)) {
+            playerView.setUp(playUrl, title, Jzvd.SCREEN_NORMAL, XiaomaoMediaExo.class);
+        } else {
+            playerView.setUp(playUrl, title, Jzvd.SCREEN_NORMAL);
+        }
     }
 
     private Map<String, String> parseHeaders(String rawJson) {

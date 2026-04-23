@@ -1,6 +1,6 @@
 var rule = {
   title: '吃瓜网t3-js-drpy-v32-playurl-fix',
-  host: 'https://band.nnfndyhn.cc',
+  host: 'https://hxnxz1.isppven.com',
   url: '/category/fyclass/fypage/',
   searchUrl: '/search/**/fypage/',
   searchable: 2,
@@ -11,7 +11,7 @@ var rule = {
   filter_def: {},
   headers: {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36',
-    'Referer': 'https://band.nnfndyhn.cc/'
+    'Referer': 'https://hxnxz1.isppven.com/'
   },
   timeout: 15000,
   limit: 40,
@@ -58,7 +58,7 @@ U=T(U);
 if(U){input={parse:0,jx:0,url:U,header:rule.headers};}else{input={parse:1,jx:0,url:J,header:rule.headers};}
 `,
   推荐: `js:
-var H='https://band.nnfndyhn.cc';
+var H='https://hxnxz1.isppven.com';
 var IMG_PROXY='http://tpjx.yuexiboke.com/?url=';
 var abs=function(u){u=u||'';if(u.indexOf('http://')==0||u.indexOf('https://')==0)return u;if(u.indexOf('//')==0)return 'https:'+u;if(u.charAt(0)=='/')return H+u;return H+'/'+u;};
 var txt=function(s){s=s||'';var o='';var inTag=0;for(var n=0;n<s.length;n++){var ch=s.charAt(n);if(ch=='<'){inTag=1;continue;}if(ch=='>'){inTag=0;o+=' ';continue;}if(!inTag)o+=ch;}o=o.split('&nbsp;').join(' ').split('&amp;').join('&').split('&quot;').join('"').split('&#39;').join("'");while(o.indexOf('  ')>=0)o=o.split('  ').join(' ');return o.trim();};
@@ -68,7 +68,7 @@ var parse=function(html){var out=[];var seen={};var pos=0;while(true){var a=html
 var HS=['https://band.nnfndyhn.cc','https://band.bdleshd.cc','https://band.azoxidnu.cc','https://band.atvfvqjv.cc','http://band.atvfvqjv.cc','http://chigua.com','https://chigua.com'];var html='';var used=H;for(var hi=0;hi<HS.length;hi++){try{H=HS[hi];used=H;rule.host=H;rule.headers.Referer=H+'/';html=request(H+'/',{headers:rule.headers})||'';if(html&&html.indexOf('/archives/')>=0)break;}catch(e){}}var rs=parse(html);if(rs.length<1){rs=[{title:'调试：首页href扫描失败',img:'',desc:'host '+used+' html长度 '+html.length+' archives '+html.indexOf('/archives/')+' article '+html.indexOf('<article'),url:used+'/',vod_id:used+'/',vod_name:'调试：首页href扫描失败',vod_pic:'',vod_remarks:'host '+used+' html长度 '+html.length+' archives '+html.indexOf('/archives/')+' article '+html.indexOf('<article')}];}setResult(rs);
 `,
   一级: `js:
-var H='https://band.nnfndyhn.cc';var U=input||'';var IMG_PROXY='http://tpjx.yuexiboke.com/?url=';var PG=1;var pm=U.split('/');for(var pi=0;pi<pm.length;pi++){if(pm[pi]&&pm[pi]*1>0)PG=pm[pi]*1;}if(U.indexOf('/category/')>-1&&U.lastIndexOf('/1/')==U.length-3)U=U.substring(0,U.length-3);
+var H='https://hxnxz1.isppven.com';var U=input||'';var IMG_PROXY='http://tpjx.yuexiboke.com/?url=';var PG=1;var pm=U.split('/');for(var pi=0;pi<pm.length;pi++){if(pm[pi]&&pm[pi]*1>0)PG=pm[pi]*1;}if(U.indexOf('/category/')>-1&&U.lastIndexOf('/1/')==U.length-3)U=U.substring(0,U.length-3);
 var abs=function(u){u=u||'';if(u.indexOf('http://')==0||u.indexOf('https://')==0)return u;if(u.indexOf('//')==0)return 'https:'+u;if(u.charAt(0)=='/')return H+u;return H+'/'+u;};
 var txt=function(s){s=s||'';var o='';var inTag=0;for(var n=0;n<s.length;n++){var ch=s.charAt(n);if(ch=='<'){inTag=1;continue;}if(ch=='>'){inTag=0;o+=' ';continue;}if(!inTag)o+=ch;}o=o.split('&nbsp;').join(' ').split('&amp;').join('&').split('&quot;').join('"').split('&#39;').join("'");while(o.indexOf('  ')>=0)o=o.split('  ').join(' ');return o.trim();};
 var between=function(s,a,b,from){var x=s.indexOf(a,from||0);if(x<0)return '';var y=s.indexOf('>',x);if(y<0)return '';var z=s.indexOf(b,y+1);if(z<0)return '';return s.substring(y+1,z);};
@@ -96,7 +96,7 @@ if(plays.length<1)plays.push('嗅探播放$'+input);
 VOD={vod_id:input,vod_name:title||'详情',vod_pic:img,vod_remarks:content,vod_content:content,vod_play_from:'道长在线',vod_play_url:plays.join('#'),type_name:'类型'};
 `,
   搜索: `js:
-var H='https://band.nnfndyhn.cc';var U=input||'';var IMG_PROXY='http://tpjx.yuexiboke.com/?url=';var PG=1;var pm=U.split('/');for(var pi=0;pi<pm.length;pi++){if(pm[pi]&&pm[pi]*1>0)PG=pm[pi]*1;}if(U.indexOf('/search/')>-1&&U.lastIndexOf('/1/')==U.length-3)U=U.substring(0,U.length-3);
+var H='https://hxnxz1.isppven.com';var U=input||'';var IMG_PROXY='http://tpjx.yuexiboke.com/?url=';var PG=1;var pm=U.split('/');for(var pi=0;pi<pm.length;pi++){if(pm[pi]&&pm[pi]*1>0)PG=pm[pi]*1;}if(U.indexOf('/search/')>-1&&U.lastIndexOf('/1/')==U.length-3)U=U.substring(0,U.length-3);
 var abs=function(u){u=u||'';if(u.indexOf('http://')==0||u.indexOf('https://')==0)return u;if(u.indexOf('//')==0)return 'https:'+u;if(u.charAt(0)=='/')return H+u;return H+'/'+u;};
 var txt=function(s){s=s||'';var o='';var inTag=0;for(var n=0;n<s.length;n++){var ch=s.charAt(n);if(ch=='<'){inTag=1;continue;}if(ch=='>'){inTag=0;o+=' ';continue;}if(!inTag)o+=ch;}o=o.split('&nbsp;').join(' ').split('&amp;').join('&').split('&quot;').join('"').split('&#39;').join("'");while(o.indexOf('  ')>=0)o=o.split('  ').join(' ');return o.trim();};
 var between=function(s,a,b,from){var x=s.indexOf(a,from||0);if(x<0)return '';var y=s.indexOf('>',x);if(y<0)return '';var z=s.indexOf(b,y+1);if(z<0)return '';return s.substring(y+1,z);};
@@ -105,7 +105,6 @@ var parse=function(CG_HTML){var out=[];var seen={};var pos=0;while(true){var a=C
 var HS=['https://band.nnfndyhn.cc','https://band.bdleshd.cc','https://band.azoxidnu.cc','https://band.atvfvqjv.cc','http://band.atvfvqjv.cc','http://chigua.com','https://chigua.com'];var CG_HTML='';var used=H;var path=U;if(path.indexOf('http://')==0||path.indexOf('https://')==0){var x=path.indexOf('/search/');if(x>=0)path=path.substring(x);}for(var hi=0;hi<HS.length;hi++){try{H=HS[hi];used=H;rule.host=H;rule.headers.Referer=H+'/';var full=(path.indexOf('http')==0)?path:(H+path);CG_HTML=request(full,{headers:rule.headers})||'';if(CG_HTML&&CG_HTML.indexOf('/archives/')>=0)break;}catch(e){}}var rs=parse(CG_HTML);if(rs.length<1){rs=[{title:'调试：搜索href扫描失败',img:'',desc:'host '+used+' html长度 '+CG_HTML.length+' archives '+CG_HTML.indexOf('/archives/')+' article '+CG_HTML.indexOf('<article'),url:used+path,vod_id:used+path,vod_name:'调试：搜索href扫描失败',vod_pic:'',vod_remarks:'host '+used+' html长度 '+CG_HTML.length+' archives '+CG_HTML.indexOf('/archives/')+' article '+CG_HTML.indexOf('<article')}];}try{MY_PAGE=PG;MY_PAGECOUNT=999;MY_TOTAL=99999;}catch(e){}setResult(rs);
 `
 };
-
 
 
 

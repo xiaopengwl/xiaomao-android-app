@@ -179,11 +179,12 @@ public class XiaomaoMediaExo extends JZMediaInterface {
 
     private void prepareInternal() {
         releaseInternal();
-        if (jzvd == null || jzvd.getContext() == null || jzvd.jzDataSource == null) {
+        JZDataSource dataSource = resolveDataSource();
+        if (jzvd == null || jzvd.getContext() == null || dataSource == null) {
             return;
         }
 
-        Map<String, String> requestHeaders = buildHeaders(jzvd.jzDataSource);
+        Map<String, String> requestHeaders = buildHeaders(dataSource);
         DefaultHttpDataSource.Factory httpFactory = new DefaultHttpDataSource.Factory()
                 .setAllowCrossProtocolRedirects(true);
         String userAgent = requestHeaders.get("User-Agent");
@@ -202,7 +203,7 @@ public class XiaomaoMediaExo extends JZMediaInterface {
         if (surface != null) {
             exoPlayer.setVideoSurface(surface);
         }
-        exoPlayer.setMediaItem(buildMediaItem(jzvd.jzDataSource));
+        exoPlayer.setMediaItem(buildMediaItem(dataSource));
         exoPlayer.prepare();
     }
 
@@ -258,6 +259,16 @@ public class XiaomaoMediaExo extends JZMediaInterface {
             builder.setMimeType(MimeTypes.VIDEO_MP4);
         }
         return builder.build();
+    }
+
+    private JZDataSource resolveDataSource() {
+        if (jzDataSource != null) {
+            return jzDataSource;
+        }
+        if (jzvd != null) {
+            return jzvd.jzDataSource;
+        }
+        return null;
     }
 
     private Map<String, String> buildHeaders(JZDataSource dataSource) {
