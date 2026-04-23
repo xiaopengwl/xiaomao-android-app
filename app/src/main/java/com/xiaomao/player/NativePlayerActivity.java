@@ -15,6 +15,7 @@ import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
+import android.webkit.CookieManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
@@ -51,12 +52,15 @@ import cn.jzvd.JzvdStd;
 
 public class NativePlayerActivity extends Activity {
     private JzvdStd playerView;
+    private FrameLayout playerBox;
+    private LinearLayout.LayoutParams playerBoxLayoutParams;
     private WebView sniffWeb;
     private View playerOverlay;
     private ProgressBar loading;
     private TextView titleView;
     private TextView lineView;
     private TextView stateView;
+    private TextView portraitModeButton;
     private LinearLayout episodeWrap;
 
     private NativeSource source;
@@ -66,6 +70,7 @@ public class NativePlayerActivity extends Activity {
     private String input;
     private String playUrl;
     private boolean sniffing = false;
+    private boolean portraitPlayerMode = false;
     private final java.util.LinkedHashMap<String, String> activeHeaders = new java.util.LinkedHashMap<>();
 
     private final ArrayList<String> episodeNames = new ArrayList<>();
@@ -79,12 +84,14 @@ public class NativePlayerActivity extends Activity {
     private final ArrayList<String> snifferMediaRules = new ArrayList<>();
     private final ArrayList<SniffTask> sniffQueue = new ArrayList<>();
     private final HashSet<String> sniffVisited = new HashSet<>();
+    private final ArrayList<SniffCandidate> sniffCandidates = new ArrayList<>();
     private int maxSniffDepth = 4;
     private long sniffSessionId = 0L;
     private String sniffCurrentUrl = "";
     private int sniffCurrentDepth = 0;
 
     private final Handler handler = new Handler();
+    private final Runnable playBestSniffCandidate = () -> chooseBestSniffCandidate(false);
     private final Runnable hideState = () -> {
         if (playerOverlay != null && !sniffing) {
             playerOverlay.setVisibility(View.GONE);
@@ -180,11 +187,12 @@ public class NativePlayerActivity extends Activity {
         sourceTagLp.leftMargin = dp(6);
         nav.addView(sourceTag, sourceTagLp);
 
-        FrameLayout playerBox = new FrameLayout(this);
+        playerBox = new FrameLayout(this);
         playerBox.setBackground(cardBg("#05070B", "#151B2A", 0));
-        page.addView(playerBox, new LinearLayout.LayoutParams(-1, dp(232)));
+        playerBoxLayoutParams = new LinearLayout.LayoutParams(-1, dp(232));
+        page.addView(playerBox, playerBoxLayoutParams);
 
-        playerView = new JzvdStd(this);
+        playerView = new XiaomaoJzvdStd(this);
         playerView.setBackgroundColor(Color.BLACK);
         playerBox.addView(playerView, new FrameLayout.LayoutParams(-1, -1));
 
@@ -245,6 +253,19 @@ public class NativePlayerActivity extends Activity {
         episodeTitle.setPadding(0, dp(18), 0, dp(8));
         root.addView(episodeTitle);
 
+        LinearLayout playModeRow = new LinearLayout(this);
+        playModeRow.setOrientation(LinearLayout.HORIZONTAL);
+        playModeRow.setGravity(Gravity.CENTER_VERTICAL);
+        playModeRow.setPadding(0, 0, 0, dp(8));
+        root.addView(playModeRow, new LinearLayout.LayoutParams(-1, -2));
+
+        TextView modeHint = makeText("竖屏视频可以切换更高播放区域", 12, "#9EAFD6", false);
+        playModeRow.addView(modeHint, new LinearLayout.LayoutParams(0, -2, 1));
+
+        portraitModeButton = makeChip("竖屏播放", "#1A2337", "#3D4B72", "#DCE7FF");
+        portraitModeButton.setOnClickListener(v -> togglePortraitPlayerMode());
+        playModeRow.addView(portraitModeButton, new LinearLayout.LayoutParams(-2, dp(34)));
+
         LinearLayout railCard = new LinearLayout(this);
         railCard.setOrientation(LinearLayout.VERTICAL);
         railCard.setPadding(dp(12), dp(10), dp(12), dp(12));
@@ -260,7 +281,36 @@ public class NativePlayerActivity extends Activity {
         episodeWrap.setPadding(0, dp(8), 0, 0);
         scrollRail.addView(episodeWrap, new HorizontalScrollView.LayoutParams(-2, -1));
 
+        applyPlayerBoxMode(false);
         setContentView(page);
+    }
+
+    private void togglePortraitPlayerMode() {
+        applyPlayerBoxMode(!portraitPlayerMode);
+    }
+
+    private void applyPlayerBoxMode(boolean enabled) {
+        portraitPlayerMode = enabled;
+        if (playerBoxLayoutParams != null) {
+            playerBoxLayoutParams.height = enabled ? portraitPlayerHeight() : dp(232);
+            if (playerBox != null) {
+                playerBox.setLayoutParams(playerBoxLayoutParams);
+                playerBox.requestLayout();
+            }
+        }
+        if (portraitModeButton != null) {
+            portraitModeButton.setText(enabled ? "恢复普通播放" : "竖屏播放");
+            portraitModeButton.setBackground(enabled
+                    ? cardBg("#E50914", "#FF5260", 16)
+                    : cardBg("#1A2337", "#3D4B72", 16));
+            portraitModeButton.setTextColor(Color.parseColor("#FFFFFF"));
+        }
+    }
+
+    private int portraitPlayerHeight() {
+        int screenHeight = getResources().getDisplayMetrics().heightPixels;
+        int target = (int) (screenHeight * 0.64f);
+        return Math.max(dp(360), Math.min(target, dp(560)));
     }
 
     private void updateHeader() {
@@ -404,6 +454,7 @@ public class NativePlayerActivity extends Activity {
         releaseSniffer();
         sniffQueue.clear();
         sniffVisited.clear();
+        sniffCandidates.clear();
         sniffCurrentUrl = "";
         sniffCurrentDepth = 0;
         sniffSessionId++;
@@ -436,6 +487,10 @@ public class NativePlayerActivity extends Activity {
             java.util.HashMap<String, String> headers = new java.util.HashMap<>(activeHeaders);
             if (!headers.containsKey("Referer") && source != null && !safe(source.host).isEmpty()) {
                 headers.put("Referer", source.host + "/");
+            }
+            String cookies = mergeCookieStrings(headers.get("Cookie"), collectCookieHeader(clean), collectCookieHeader(source == null ? "" : source.host));
+            if (!cookies.isEmpty()) {
+                headers.put("Cookie", cookies);
             }
             if (headers.isEmpty()) {
                 sniffWeb.loadUrl(clean);
@@ -483,17 +538,102 @@ public class NativePlayerActivity extends Activity {
         String normalized = normalizeSniffUrl(url, sniffCurrentUrl);
         if (!sniffing || !shouldSniffUrl(normalized)) return;
         if (looksLikeMedia(normalized)) {
-            runOnUiThread(() -> {
-                if (!sniffing) return;
-                sniffing = false;
-                showState("Media url found, starting playback...", true, 1f);
-                playInPlace(normalized);
-            });
+            rememberSniffCandidate(normalized, depth, fromDom ? "dom" : "resource", sniffCurrentUrl);
             return;
         }
         if (!fromDom && !shouldFollowPage(normalized)) return;
         enqueueSniffFrame(normalized, depth + 1);
         runOnUiThread(this::processNextSniffTask);
+    }
+
+    private void rememberSniffCandidate(String url, int depth, String origin, String pageUrl) {
+        final String candidateUrl = normalizeSniffUrl(url, pageUrl);
+        if (candidateUrl.isEmpty()) return;
+        final String candidateOrigin = safe(origin);
+        final String candidatePage = safe(pageUrl);
+        runOnUiThread(() -> {
+            if (!sniffing || !looksLikeMedia(candidateUrl) || !shouldSniffUrl(candidateUrl)) return;
+            int score = scoreSniffCandidate(candidateUrl, depth, candidateOrigin, candidatePage);
+            boolean updated = false;
+            for (SniffCandidate candidate : sniffCandidates) {
+                if (candidate.url.equals(candidateUrl)) {
+                    candidate.score = Math.max(candidate.score, score);
+                    candidate.depth = Math.min(candidate.depth, depth);
+                    if (candidate.pageUrl.isEmpty()) candidate.pageUrl = candidatePage;
+                    updated = true;
+                    break;
+                }
+            }
+            if (!updated) {
+                sniffCandidates.add(new SniffCandidate(candidateUrl, candidatePage, candidateOrigin, depth, score));
+            }
+            showState("Found media candidate, selecting best stream...", true, 1f);
+            handler.removeCallbacks(playBestSniffCandidate);
+            handler.postDelayed(playBestSniffCandidate, score >= 130 ? 450 : 900);
+        });
+    }
+
+    private boolean chooseBestSniffCandidate(boolean finalAttempt) {
+        handler.removeCallbacks(playBestSniffCandidate);
+        if (sniffCandidates.isEmpty()) {
+            return false;
+        }
+        SniffCandidate best = sniffCandidates.get(0);
+        for (SniffCandidate candidate : sniffCandidates) {
+            if (candidate.score > best.score) {
+                best = candidate;
+            }
+        }
+        if (!best.pageUrl.isEmpty() && !activeHeaders.containsKey("Referer")) {
+            activeHeaders.put("Referer", best.pageUrl);
+        }
+        sniffing = false;
+        showState(finalAttempt ? "Using best sniffed media url..." : "Media url found, starting playback...", true, 1f);
+        playInPlace(best.url);
+        return true;
+    }
+
+    private int scoreSniffCandidate(String url, int depth, String origin, String pageUrl) {
+        String lower = safe(url).toLowerCase(Locale.ROOT);
+        int score = 40 + mediaFingerprintScore(lower);
+        if ("intercept".equalsIgnoreCase(origin) || "resource".equalsIgnoreCase(origin)) score += 18;
+        if ("dom".equalsIgnoreCase(origin)) score += 10;
+        score -= Math.max(0, depth) * 7;
+        if (!safe(pageUrl).isEmpty() && sameHost(url, pageUrl)) score += 10;
+        if (source != null && !safe(source.host).isEmpty() && sameHost(url, source.host)) score += 6;
+        if (isAdOrNoise(lower)) score -= 70;
+        if (lower.contains("preview") || lower.contains("sample") || lower.contains("sprite") || lower.contains("storyboard")) score -= 35;
+        return score;
+    }
+
+    private int mediaFingerprintScore(String lower) {
+        if (lower.contains(".m3u8") || lower.contains("/m3u8") || lower.contains("application/vnd.apple.mpegurl")) return 90;
+        if (lower.contains(".mp4") || lower.contains("video_mp4")) return 78;
+        if (lower.contains(".flv") || lower.contains(".mkv") || lower.contains(".webm")) return 70;
+        if (lower.contains(".mpd")) return 62;
+        if (lower.contains("mime=video") || lower.contains("mime_type=video") || lower.contains("obj/tos")) return 66;
+        return 35;
+    }
+
+    private boolean isAdOrNoise(String lower) {
+        return lower.contains("googleads")
+                || lower.contains("doubleclick")
+                || lower.contains("analytics")
+                || lower.contains("tracker")
+                || lower.contains("adsystem")
+                || lower.contains("/ads/")
+                || lower.contains("advert")
+                || lower.contains("favicon");
+    }
+
+    private boolean sameHost(String left, String right) {
+        try {
+            URL leftUrl = new URL(left);
+            URL rightUrl = new URL(right);
+            return leftUrl.getHost().equalsIgnoreCase(rightUrl.getHost());
+        } catch (Exception ignored) {
+            return false;
+        }
     }
 
     private boolean looksLikeMedia(String url) {
@@ -721,6 +861,8 @@ public class NativePlayerActivity extends Activity {
     private void releaseSniffer() {
         sniffQueue.clear();
         sniffVisited.clear();
+        sniffCandidates.clear();
+        handler.removeCallbacks(playBestSniffCandidate);
         if (sniffWeb != null) {
             try {
                 ViewGroup parent = (ViewGroup) sniffWeb.getParent();
@@ -810,10 +952,54 @@ public class NativePlayerActivity extends Activity {
             if (!object.has("User-Agent")) {
                 object.put("User-Agent", "Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36");
             }
+            String cookies = mergeCookieStrings(
+                    object.optString("Cookie", ""),
+                    collectCookieHeader(playUrl),
+                    collectCookieHeader(sniffCurrentUrl),
+                    collectCookieHeader(source == null ? "" : source.host)
+            );
+            if (!cookies.isEmpty()) {
+                object.put("Cookie", cookies);
+            }
+            if (!object.has("Accept")) {
+                object.put("Accept", "*/*");
+            }
             return object.toString();
         } catch (Exception ignored) {
             return "{}";
         }
+    }
+
+    private String collectCookieHeader(String url) {
+        String clean = safe(url);
+        if (clean.isEmpty()) return "";
+        try {
+            return safe(CookieManager.getInstance().getCookie(clean));
+        } catch (Exception ignored) {
+            return "";
+        }
+    }
+
+    private String mergeCookieStrings(String... values) {
+        java.util.LinkedHashMap<String, String> merged = new java.util.LinkedHashMap<>();
+        for (String value : values) {
+            String cookieHeader = safe(value);
+            if (cookieHeader.isEmpty()) continue;
+            String[] parts = cookieHeader.split(";");
+            for (String part : parts) {
+                String item = safe(part);
+                int split = item.indexOf('=');
+                if (split <= 0) continue;
+                String name = item.substring(0, split).trim();
+                if (!name.isEmpty()) merged.put(name, item);
+            }
+        }
+        StringBuilder builder = new StringBuilder();
+        for (String item : merged.values()) {
+            if (builder.length() > 0) builder.append("; ");
+            builder.append(item);
+        }
+        return builder.toString();
     }
 
     private int dp(float value) {
@@ -860,6 +1046,22 @@ public class NativePlayerActivity extends Activity {
         SniffTask(String url, int depth) {
             this.url = url;
             this.depth = depth;
+        }
+    }
+
+    private static final class SniffCandidate {
+        final String url;
+        String pageUrl;
+        final String origin;
+        int depth;
+        int score;
+
+        SniffCandidate(String url, String pageUrl, String origin, int depth, int score) {
+            this.url = url;
+            this.pageUrl = pageUrl == null ? "" : pageUrl;
+            this.origin = origin == null ? "" : origin;
+            this.depth = depth;
+            this.score = score;
         }
     }
 }

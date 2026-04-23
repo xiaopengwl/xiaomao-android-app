@@ -13,6 +13,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.text.TextUtils;
+import android.webkit.CookieManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
@@ -44,6 +45,7 @@ import java.net.URL;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -74,6 +76,22 @@ public class MainActivity extends AppCompatActivity {
             this.url = url;
             this.depth = depth;
             this.source = source;
+        }
+    }
+
+    private static final class SniffCandidate {
+        final String url;
+        final String source;
+        final String pageUrl;
+        final int depth;
+        int score;
+
+        SniffCandidate(String url, String source, String pageUrl, int depth, int score) {
+            this.url = url;
+            this.source = source;
+            this.pageUrl = pageUrl;
+            this.depth = depth;
+            this.score = score;
         }
     }
 
@@ -463,25 +481,41 @@ public class MainActivity extends AppCompatActivity {
             final Set<String> seenUrls = new HashSet<>();
             final Set<String> visitedPages = new HashSet<>();
             final ArrayDeque<SniffTarget> pendingTargets = new ArrayDeque<>();
+            final ArrayList<SniffCandidate> candidates = new ArrayList<>();
             final AtomicReference<SniffTarget> currentTarget = new AtomicReference<>();
             final Runnable[] timeoutHolder = new Runnable[1];
             final Runnable[] advanceHolder = new Runnable[1];
             final Runnable[] pageIdleHolder = new Runnable[1];
+            final Runnable[] candidateSettleHolder = new Runnable[1];
 
             enqueueSniffTarget(pendingTargets, startUrl, 0, "root", maxDepth, excludeRules);
 
-            timeoutHolder[0] = () -> completeSniffResult(
+            candidateSettleHolder[0] = () -> completeBestSniffCandidate(
                     sniffView,
                     finished,
                     latch,
                     resultRef,
                     timeoutHolder[0],
-                    "",
-                    false,
-                    "timeout",
-                    sniffView.getUrl(),
-                    "Sniffer timed out"
+                    candidates
             );
+
+            timeoutHolder[0] = () -> {
+                if (completeBestSniffCandidate(sniffView, finished, latch, resultRef, timeoutHolder[0], candidates)) {
+                    return;
+                }
+                completeSniffResult(
+                        sniffView,
+                        finished,
+                        latch,
+                        resultRef,
+                        timeoutHolder[0],
+                        "",
+                        false,
+                        "timeout",
+                        sniffView.getUrl(),
+                        "Sniffer timed out"
+                );
+            };
 
             pageIdleHolder[0] = () -> {
                 if (!finished.get()) {
@@ -506,6 +540,9 @@ public class MainActivity extends AppCompatActivity {
                 }
 
                 if (nextTarget == null) {
+                    if (completeBestSniffCandidate(sniffView, finished, latch, resultRef, timeoutHolder[0], candidates)) {
+                        return;
+                    }
                     completeSniffResult(
                             sniffView,
                             finished,
@@ -541,18 +578,18 @@ public class MainActivity extends AppCompatActivity {
                         return;
                     }
                     if (looksLikeMediaUrl(normalized, matchRules, excludeRules)) {
-                        completeSniffResult(
-                                sniffView,
-                                finished,
-                                latch,
-                                resultRef,
-                                timeoutHolder[0],
-                                normalized,
-                                true,
-                                source,
-                                sniffView.getUrl(),
-                                ""
-                        );
+                        SniffTarget target = currentTarget.get();
+                        int depth = target == null ? 0 : target.depth;
+                        int score = scoreSniffCandidate(normalized, source, sniffView.getUrl(), depth);
+                        String pageUrl = sniffView.getUrl();
+                        mainHandler.post(() -> {
+                            if (finished.get()) {
+                                return;
+                            }
+                            rememberSniffCandidate(candidates, normalized, source, pageUrl, depth, score);
+                            mainHandler.removeCallbacks(candidateSettleHolder[0]);
+                            mainHandler.postDelayed(candidateSettleHolder[0], score >= 130 ? 450 : 900);
+                        });
                     }
                 }
 
@@ -710,6 +747,9 @@ public class MainActivity extends AppCompatActivity {
             json.put("url", mediaUrl == null ? "" : mediaUrl);
             json.put("source", source == null ? "" : source);
             json.put("pageUrl", pageUrl == null ? "" : pageUrl);
+            if (found) {
+                json.put("headers", buildSniffResultHeaders(mediaUrl, pageUrl));
+            }
             json.put("error", error == null ? "" : error);
         } catch (JSONException ignored) {
         }
@@ -724,6 +764,104 @@ public class MainActivity extends AppCompatActivity {
         latch.countDown();
     }
 
+    private boolean completeBestSniffCandidate(
+            WebView sniffView,
+            AtomicBoolean finished,
+            CountDownLatch latch,
+            AtomicReference<JSONObject> resultRef,
+            Runnable timeoutRunnable,
+            ArrayList<SniffCandidate> candidates
+    ) {
+        if (finished.get() || candidates.isEmpty()) {
+            return false;
+        }
+        SniffCandidate best = candidates.get(0);
+        for (SniffCandidate candidate : candidates) {
+            if (candidate.score > best.score) {
+                best = candidate;
+            }
+        }
+        completeSniffResult(
+                sniffView,
+                finished,
+                latch,
+                resultRef,
+                timeoutRunnable,
+                best.url,
+                true,
+                best.source,
+                TextUtils.isEmpty(best.pageUrl) ? sniffView.getUrl() : best.pageUrl,
+                ""
+        );
+        return true;
+    }
+
+    private static void rememberSniffCandidate(
+            ArrayList<SniffCandidate> candidates,
+            String url,
+            String source,
+            String pageUrl,
+            int depth,
+            int score
+    ) {
+        for (SniffCandidate candidate : candidates) {
+            if (candidate.url.equals(url)) {
+                candidate.score = Math.max(candidate.score, score);
+                return;
+            }
+        }
+        candidates.add(new SniffCandidate(url, source == null ? "" : source, pageUrl == null ? "" : pageUrl, depth, score));
+    }
+
+    private JSONObject buildSniffResultHeaders(String mediaUrl, String pageUrl) throws JSONException {
+        JSONObject headers = new JSONObject();
+        if (!TextUtils.isEmpty(pageUrl)) {
+            headers.put("Referer", pageUrl);
+        }
+        headers.put("User-Agent", "Mozilla/5.0 (Linux; Android 14; Xiaomao) AppleWebKit/537.36 Chrome/124 Mobile Safari/537.36");
+        String cookies = mergeCookieStrings(collectCookieHeader(mediaUrl), collectCookieHeader(pageUrl));
+        if (!TextUtils.isEmpty(cookies)) {
+            headers.put("Cookie", cookies);
+        }
+        headers.put("Accept", "*/*");
+        return headers;
+    }
+
+    private String collectCookieHeader(String url) {
+        if (TextUtils.isEmpty(url)) {
+            return "";
+        }
+        try {
+            String cookie = CookieManager.getInstance().getCookie(url);
+            return cookie == null ? "" : cookie.trim();
+        } catch (Exception ignored) {
+            return "";
+        }
+    }
+
+    private static String mergeCookieStrings(String... values) {
+        java.util.LinkedHashMap<String, String> merged = new java.util.LinkedHashMap<>();
+        for (String value : values) {
+            if (TextUtils.isEmpty(value)) continue;
+            String[] parts = value.split(";");
+            for (String part : parts) {
+                String item = part == null ? "" : part.trim();
+                int split = item.indexOf('=');
+                if (split <= 0) continue;
+                String name = item.substring(0, split).trim();
+                if (!TextUtils.isEmpty(name)) {
+                    merged.put(name, item);
+                }
+            }
+        }
+        StringBuilder builder = new StringBuilder();
+        for (String item : merged.values()) {
+            if (builder.length() > 0) builder.append("; ");
+            builder.append(item);
+        }
+        return builder.toString();
+    }
+
     private static boolean looksLikeMediaUrl(String url, List<String> matchRules, List<String> excludeRules) {
         if (TextUtils.isEmpty(url)) {
             return false;
@@ -736,6 +874,39 @@ public class MainActivity extends AppCompatActivity {
             return true;
         }
         return matchesAnyRule(lower, matchRules) && !isLikelyHtmlPage(lower);
+    }
+
+    private static int scoreSniffCandidate(String url, String source, String pageUrl, int depth) {
+        String lower = url == null ? "" : url.toLowerCase();
+        int score = 40 + mediaFingerprintScore(lower);
+        if ("intercept".equalsIgnoreCase(source) || "resource".equalsIgnoreCase(source)) score += 18;
+        if ("dom".equalsIgnoreCase(source)) score += 10;
+        if ("navigate".equalsIgnoreCase(source)) score += 4;
+        score -= Math.max(0, depth) * 7;
+        if (!TextUtils.isEmpty(pageUrl) && sameHost(url, pageUrl)) score += 10;
+        if (isLikelyNoiseMedia(lower)) score -= 70;
+        if (lower.contains("preview") || lower.contains("sample") || lower.contains("sprite") || lower.contains("storyboard")) score -= 35;
+        return score;
+    }
+
+    private static int mediaFingerprintScore(String lower) {
+        if (lower.contains(".m3u8") || lower.contains("/m3u8") || lower.contains("application/vnd.apple.mpegurl")) return 90;
+        if (lower.contains(".mp4") || lower.contains("video_mp4")) return 78;
+        if (lower.contains(".flv") || lower.contains(".m4v") || lower.contains(".webm")) return 70;
+        if (lower.contains(".mpd")) return 62;
+        if (lower.contains("mime=video") || lower.contains("mime_type=video") || lower.contains("obj/tos")) return 66;
+        return 35;
+    }
+
+    private static boolean isLikelyNoiseMedia(String lower) {
+        return lower.contains("googleads")
+                || lower.contains("doubleclick")
+                || lower.contains("analytics")
+                || lower.contains("tracker")
+                || lower.contains("adsystem")
+                || lower.contains("/ads/")
+                || lower.contains("advert")
+                || lower.contains("favicon");
     }
 
     private static boolean matchesAnyRule(String lowerUrl, List<String> rules) {
@@ -790,6 +961,16 @@ public class MainActivity extends AppCompatActivity {
             }
         }
         return candidate;
+    }
+
+    private static boolean sameHost(String left, String right) {
+        try {
+            URL leftUrl = new URL(left);
+            URL rightUrl = new URL(right);
+            return leftUrl.getHost().equalsIgnoreCase(rightUrl.getHost());
+        } catch (Exception ignored) {
+            return false;
+        }
     }
 
     private static void enqueueSniffTarget(

@@ -125,6 +125,17 @@
     homeItems: [],
     exploreItems: [],
     searchItems: [],
+    homePage: 1,
+    homeHasMore: true,
+    homePaging: false,
+    activeCategory: null,
+    explorePage: 1,
+    exploreHasMore: true,
+    explorePaging: false,
+    searchKeyword: "",
+    searchPage: 1,
+    searchHasMore: true,
+    searchPaging: false,
     detail: null,
     currentMode: "空闲",
     player: null,
@@ -161,15 +172,27 @@
     homeHotRail: document.getElementById("homeHotRail"),
     homeCategoryRail: document.getElementById("homeCategoryRail"),
     homeGrid: document.getElementById("homeGrid"),
+    homePager: document.getElementById("homePager"),
+    homePrevButton: document.getElementById("homePrevButton"),
+    homeNextButton: document.getElementById("homeNextButton"),
+    homePageText: document.getElementById("homePageText"),
     categoryList: document.getElementById("categoryList"),
     exploreSummaryText: document.getElementById("exploreSummaryText"),
     exploreTitle: document.getElementById("exploreTitle"),
     exploreGrid: document.getElementById("exploreGrid"),
+    explorePager: document.getElementById("explorePager"),
+    explorePrevButton: document.getElementById("explorePrevButton"),
+    exploreNextButton: document.getElementById("exploreNextButton"),
+    explorePageText: document.getElementById("explorePageText"),
     searchInput: document.getElementById("searchInput"),
     searchButton: document.getElementById("searchButton"),
     searchTitle: document.getElementById("searchTitle"),
     searchSummaryText: document.getElementById("searchSummaryText"),
     searchGrid: document.getElementById("searchGrid"),
+    searchPager: document.getElementById("searchPager"),
+    searchPrevButton: document.getElementById("searchPrevButton"),
+    searchNextButton: document.getElementById("searchNextButton"),
+    searchPageText: document.getElementById("searchPageText"),
     sourceSelect: document.getElementById("sourceSelect"),
     sourcePanelTitle: document.getElementById("sourcePanelTitle"),
     sourceKindBadge: document.getElementById("sourceKindBadge"),
@@ -280,6 +303,30 @@
       }
     });
 
+    dom.homePrevButton.addEventListener("click", async () => {
+      await turnHomePage(-1);
+    });
+
+    dom.homeNextButton.addEventListener("click", async () => {
+      await turnHomePage(1);
+    });
+
+    dom.explorePrevButton.addEventListener("click", async () => {
+      await turnExplorePage(-1);
+    });
+
+    dom.exploreNextButton.addEventListener("click", async () => {
+      await turnExplorePage(1);
+    });
+
+    dom.searchPrevButton.addEventListener("click", async () => {
+      await turnSearchPage(-1);
+    });
+
+    dom.searchNextButton.addEventListener("click", async () => {
+      await turnSearchPage(1);
+    });
+
     dom.searchButton.addEventListener("click", async () => {
       const keyword = dom.searchInput.value.trim();
       if (!keyword || !state.currentSource) {
@@ -287,12 +334,21 @@
         return;
       }
       switchPage("search");
-      setStatus("已发起搜索", "正在搜索：" + keyword);
-      const items = await loadSearch(state.currentSource, keyword, 1);
-      state.searchItems = items;
-      state.currentMode = "搜索";
-      renderSearch(keyword, items);
-      renderChrome();
+      await runSearch(keyword, 1);
+    });
+
+    dom.searchInput.addEventListener("keydown", async (event) => {
+      if (event.key !== "Enter") {
+        return;
+      }
+      event.preventDefault();
+      const keyword = dom.searchInput.value.trim();
+      if (!keyword || !state.currentSource) {
+        toast("请先输入搜索关键词");
+        return;
+      }
+      switchPage("search");
+      await runSearch(keyword, 1);
     });
 
     dom.profileOpenDetailButton.addEventListener("click", () => {
@@ -423,6 +479,7 @@
     state.searchItems = [];
     state.detail = null;
     state.featuredItem = null;
+    resetPagingState();
     closePlayer();
     switchPage("home");
     localStorage.setItem("xm_current_source", state.currentSource.id);
@@ -444,8 +501,21 @@
     }
   }
 
-  async function loadHome(source) {
-    const items = await loadRecommend(source);
+  async function loadHome(source, page) {
+    const targetPage = Math.max(1, Number(page || 1));
+    const items = await loadRecommend(source, targetPage);
+    if (targetPage > 1 && !items.length) {
+      state.homeHasMore = false;
+      if (!state.activeCategory) {
+        state.exploreHasMore = false;
+      }
+      renderHomePager();
+      renderExplorePager();
+      toast("没有更多推荐了");
+      return;
+    }
+    state.homePage = targetPage;
+    state.homeHasMore = items.length > 0 && supportsRecommendPaging(source);
     state.homeItems = items;
     state.exploreItems = items;
     state.featuredItem = items[0] || null;
@@ -454,19 +524,143 @@
     renderHomeContinueRail(items);
     renderHomeHotRail(items);
     renderHomeCategoryRail();
-    renderExplore(state.exploreItems, "最新推荐", "已加载 " + items.length + " 条推荐内容。");
+    if (!state.activeCategory) {
+      state.explorePage = targetPage;
+      state.exploreHasMore = items.length > 0 && supportsRecommendPaging(source);
+      renderExplore(state.exploreItems, "最新推荐", "第 " + targetPage + " 页，已加载 " + items.length + " 条推荐内容。");
+    }
     renderChrome();
-    setStatus("推荐加载完成", "已加载 " + items.length + " 条推荐内容。");
+    setStatus("推荐加载完成", "第 " + targetPage + " 页，已加载 " + items.length + " 条推荐内容。");
   }
 
   async function loadCategory(source, category, page) {
-    const items = await loadCategoryItems(source, category, page);
+    const targetPage = Math.max(1, Number(page || 1));
+    const items = await loadCategoryItems(source, category, targetPage);
+    if (targetPage > 1 && !items.length) {
+      state.exploreHasMore = false;
+      renderExplorePager();
+      toast("这个分类没有更多了");
+      return;
+    }
     state.exploreItems = items;
+    state.activeCategory = category;
+    state.explorePage = targetPage;
+    state.exploreHasMore = items.length > 0 && supportsCategoryPaging(source);
     state.currentMode = category.name;
-    renderExplore(items, category.name, "已加载 " + items.length + " 条内容。");
+    renderExplore(items, category.name, "第 " + targetPage + " 页，已加载 " + items.length + " 条内容。");
     renderChrome();
-    setStatus("分类加载完成", category.name);
+    setStatus("分类加载完成", category.name + " · 第 " + targetPage + " 页");
     switchPage("explore");
+  }
+
+  async function runSearch(keyword, page) {
+    const targetPage = Math.max(1, Number(page || 1));
+    if (!state.currentSource || state.searchPaging) {
+      return;
+    }
+    state.searchPaging = true;
+    updatePagerLoading("search", true);
+    try {
+      setStatus("已发起搜索", "正在搜索：" + keyword + " · 第 " + targetPage + " 页");
+      const items = await loadSearch(state.currentSource, keyword, targetPage);
+      if (targetPage > 1 && !items.length) {
+        state.searchHasMore = false;
+        renderSearchPager();
+        toast("没有更多搜索结果了");
+        return;
+      }
+      state.searchKeyword = keyword;
+      state.searchPage = targetPage;
+      state.searchHasMore = items.length > 0 && supportsSearchPaging(state.currentSource);
+      state.searchItems = items;
+      state.currentMode = "搜索";
+      renderSearch(keyword, items);
+      renderChrome();
+      setStatus("搜索完成", keyword + " · 第 " + targetPage + " 页");
+    } catch (error) {
+      setStatus("搜索失败", describeError(error));
+      toast("搜索失败");
+    } finally {
+      state.searchPaging = false;
+      renderSearchPager();
+    }
+  }
+
+  async function turnHomePage(delta) {
+    if (!state.currentSource || state.homePaging) {
+      return;
+    }
+    const targetPage = state.homePage + delta;
+    if (targetPage < 1) {
+      return;
+    }
+    state.homePaging = true;
+    updatePagerLoading("home", true);
+    try {
+      await loadHome(state.currentSource, targetPage);
+      scrollToSectionTop(dom.homeGrid);
+    } catch (error) {
+      setStatus("推荐翻页失败", describeError(error));
+      toast("推荐翻页失败");
+    } finally {
+      state.homePaging = false;
+      renderHomePager();
+    }
+  }
+
+  async function turnExplorePage(delta) {
+    if (!state.currentSource || state.explorePaging) {
+      return;
+    }
+    const targetPage = state.explorePage + delta;
+    if (targetPage < 1) {
+      return;
+    }
+    state.explorePaging = true;
+    updatePagerLoading("explore", true);
+    try {
+      if (state.activeCategory) {
+        await loadCategory(state.currentSource, state.activeCategory, targetPage);
+      } else {
+        await loadHome(state.currentSource, targetPage);
+        switchPage("explore");
+      }
+      scrollToSectionTop(dom.exploreGrid);
+    } catch (error) {
+      setStatus("分类翻页失败", describeError(error));
+      toast("分类翻页失败");
+    } finally {
+      state.explorePaging = false;
+      renderExplorePager();
+    }
+  }
+
+  async function turnSearchPage(delta) {
+    const keyword = state.searchKeyword || dom.searchInput.value.trim();
+    if (!keyword) {
+      toast("请先输入搜索关键词");
+      return;
+    }
+    const targetPage = state.searchPage + delta;
+    if (targetPage < 1) {
+      return;
+    }
+    await runSearch(keyword, targetPage);
+    scrollToSectionTop(dom.searchGrid);
+  }
+
+  function resetPagingState() {
+    state.homePage = 1;
+    state.homeHasMore = true;
+    state.homePaging = false;
+    state.activeCategory = null;
+    state.explorePage = 1;
+    state.exploreHasMore = true;
+    state.explorePaging = false;
+    state.searchKeyword = "";
+    state.searchPage = 1;
+    state.searchHasMore = true;
+    state.searchPaging = false;
   }
 
   async function openDetail(item) {
@@ -890,7 +1084,7 @@
       dom.featuredMeta.textContent = featured.vod_remarks || featured.desc || "已准备好，点击即可查看详情。";
       dom.featuredBackdrop.style.background =
         "linear-gradient(180deg, rgba(4, 10, 24, 0.15), rgba(4, 10, 24, 0.88)), url('" +
-        escapeCssUrl(featured.vod_pic || featured.img || "") +
+        escapeCssUrl(posterCssUrl(featured)) +
         "') center/cover no-repeat";
     } else {
       dom.featuredTitle.textContent = "等待加载影视源";
@@ -898,8 +1092,9 @@
       dom.featuredBackdrop.style.background =
         "linear-gradient(180deg, rgba(4, 10, 24, 0.15), rgba(4, 10, 24, 0.88)), radial-gradient(circle at top left, rgba(107, 233, 255, 0.16), transparent 26%), #0d1630";
     }
-    dom.homeSummaryText.textContent = "已加载 " + items.length + " 条推荐内容。";
+    dom.homeSummaryText.textContent = "第 " + state.homePage + " 页，已加载 " + items.length + " 条推荐内容。";
     renderCardGrid(dom.homeGrid, items, "当前片源没有返回首页推荐内容。");
+    renderHomePager();
   }
 
   function renderHomeContinueRail(items) {
@@ -956,7 +1151,7 @@
       const button = document.createElement("button");
       button.className = "home-rail-card " + (variant === "continue" ? "continue" : "hot");
       button.innerHTML =
-        '<img src="' + escapeAttr(item.vod_pic || item.img || "") + '" alt="">' +
+        posterImgHtml(item, item.vod_name || item.title || "未命名内容") +
         '<div class="home-rail-overlay">' +
         '<div class="home-rail-title">' + escapeHtml(item.vod_name || item.title || "未命名内容") + "</div>" +
         '<div class="home-rail-desc">' + escapeHtml(item.vod_remarks || item.desc || "点开查看详情") + "</div>" +
@@ -976,14 +1171,64 @@
     dom.exploreTitle.textContent = title;
     dom.exploreSummaryText.textContent = summary;
     renderCardGrid(dom.exploreGrid, items, "请选择一个分类来加载内容。");
+    renderExplorePager();
   }
 
   function renderSearch(keyword, items) {
     dom.searchTitle.textContent = keyword ? "搜索：" + keyword : "还没有搜索";
     dom.searchSummaryText.textContent = keyword
-      ? "共找到 " + items.length + " 条结果。"
+      ? "第 " + state.searchPage + " 页，共 " + items.length + " 条结果。"
       : "搜索结果会显示在这里。";
     renderCardGrid(dom.searchGrid, items, keyword ? "没有匹配到搜索结果。" : "当前没有搜索内容。");
+    renderSearchPager();
+  }
+
+  function renderHomePager() {
+    renderPager(dom.homePager, dom.homePrevButton, dom.homeNextButton, dom.homePageText, state.homePage, state.homeHasMore, state.homePaging);
+  }
+
+  function renderExplorePager() {
+    renderPager(dom.explorePager, dom.explorePrevButton, dom.exploreNextButton, dom.explorePageText, state.explorePage, state.exploreHasMore, state.explorePaging);
+  }
+
+  function renderSearchPager() {
+    if (dom.searchPager) {
+      dom.searchPager.hidden = !state.searchKeyword;
+    }
+    renderPager(dom.searchPager, dom.searchPrevButton, dom.searchNextButton, dom.searchPageText, state.searchPage, state.searchHasMore, state.searchPaging);
+  }
+
+  function renderPager(wrap, prevButton, nextButton, pageText, page, hasMore, loading) {
+    if (!wrap || !prevButton || !nextButton || !pageText) {
+      return;
+    }
+    if (wrap.hidden) {
+      return;
+    }
+    prevButton.disabled = loading || page <= 1;
+    nextButton.disabled = loading || !hasMore;
+    pageText.textContent = loading ? "加载中..." : "第 " + page + " 页";
+  }
+
+  function updatePagerLoading(kind, loading) {
+    if (kind === "home") {
+      renderPager(dom.homePager, dom.homePrevButton, dom.homeNextButton, dom.homePageText, state.homePage, state.homeHasMore, loading);
+    } else if (kind === "explore") {
+      renderPager(dom.explorePager, dom.explorePrevButton, dom.exploreNextButton, dom.explorePageText, state.explorePage, state.exploreHasMore, loading);
+    } else if (kind === "search") {
+      renderPager(dom.searchPager, dom.searchPrevButton, dom.searchNextButton, dom.searchPageText, state.searchPage, state.searchHasMore, loading);
+    }
+  }
+
+  function scrollToSectionTop(target) {
+    if (!target || typeof target.scrollIntoView !== "function") {
+      return;
+    }
+    try {
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch (error) {
+      target.scrollIntoView(true);
+    }
   }
 
   function renderCategories(activeId) {
@@ -1033,7 +1278,7 @@
 
   function renderDetail(detail) {
     dom.detailTitle.textContent = detail.vod_name || "未命名";
-    dom.detailImage.src = detail.vod_pic || "";
+    setPosterImage(dom.detailImage, detail, detail.vod_name || "未命名");
     dom.detailMeta.textContent = detail.vod_remarks || "暂无信息";
     dom.detailContent.textContent = detail.vod_content || "暂无简介";
     dom.playGroups.innerHTML = "";
@@ -1116,7 +1361,7 @@
     dom.playerModeChip.textContent = lineName;
     dom.playerBackdrop.style.background =
       "linear-gradient(180deg, rgba(4, 8, 18, 0.2), rgba(4, 8, 18, 0.92)), url('" +
-      escapeCssUrl(detail && detail.vod_pic ? detail.vod_pic : "") +
+      escapeCssUrl(posterCssUrl(detail || {})) +
       "') center/cover no-repeat";
 
     renderPlayerEpisodeRail(detail, playback);
@@ -1188,7 +1433,7 @@
       const button = document.createElement("button");
       button.className = "player-recommend-card";
       button.innerHTML =
-        '<img src="' + escapeAttr(item.vod_pic || item.img || "") + '" alt="">' +
+        posterImgHtml(item, item.vod_name || item.title || "未命名内容") +
         '<div class="player-recommend-copy">' +
         '<strong>' + escapeHtml(item.vod_name || item.title || "未命名内容") + '</strong>' +
         '<span>' + escapeHtml(item.vod_remarks || item.desc || "点击查看详情") + "</span>" +
@@ -1212,7 +1457,7 @@
       const button = document.createElement("button");
       button.className = "poster-card";
       button.innerHTML =
-        '<img src="' + escapeAttr(item.vod_pic || item.img || "") + '" alt="">' +
+        posterImgHtml(item, item.vod_name || item.title || "未命名") +
         '<div class="poster-card-body">' +
         '<div class="poster-card-title">' + escapeHtml(item.vod_name || item.title || "未命名") + "</div>" +
         '<div class="poster-card-desc">' + escapeHtml(item.vod_remarks || item.desc || "暂无简介") + "</div>" +
@@ -1222,6 +1467,29 @@
       });
       target.appendChild(button);
     });
+  }
+
+  function posterImgHtml(item, title) {
+    const fallback = posterFallbackDataUrl(title);
+    const poster = normalizePosterUrl((item && (item.vod_pic || item.img || item.pic || item.cover)) || "", state.currentSource && state.currentSource.host);
+    return '<img src="' + escapeAttr(poster || fallback) + '" data-fallback="' + escapeAttr(fallback) + '" referrerpolicy="no-referrer" loading="lazy" decoding="async" alt="" onerror="this.onerror=null;this.src=this.dataset.fallback;this.classList.add(\'poster-fallback\');">';
+  }
+
+  function setPosterImage(image, item, title) {
+    const fallback = posterFallbackDataUrl(title);
+    const poster = normalizePosterUrl((item && (item.vod_pic || item.img || item.pic || item.cover)) || "", state.currentSource && state.currentSource.host);
+    image.referrerPolicy = "no-referrer";
+    image.dataset.fallback = fallback;
+    image.onerror = function () {
+      image.onerror = null;
+      image.src = image.dataset.fallback;
+      image.classList.add("poster-fallback");
+    };
+    image.src = poster || fallback;
+  }
+
+  function posterCssUrl(item) {
+    return normalizePosterUrl((item && (item.vod_pic || item.img || item.pic || item.cover)) || "", state.currentSource && state.currentSource.host) || posterFallbackDataUrl(item && (item.vod_name || item.title));
   }
 
   function loadCustomSources() {
@@ -1305,17 +1573,19 @@
     return [];
   }
 
-  async function loadRecommend(rule) {
+  async function loadRecommend(rule, page) {
     const recommend = getRuleValue(rule, RULE_KEYS.recommend);
+    const targetPage = Math.max(1, Number(page || 1));
     if (!recommend) {
       return [];
     }
     if (typeof recommend === "string" && recommend.startsWith("js:")) {
-      const context = createExecContext(rule, rule.host || "");
+      const context = createExecContext(rule, buildRecommendUrl(rule, targetPage));
+      context.MY_PAGE = targetPage;
       await executeJsRule(recommend, context);
       return normalizeItems(context.result || []);
     }
-    const html = requestText(rule.host, { headers: rule.headers, timeout: rule.timeout });
+    const html = requestText(buildRecommendUrl(rule, targetPage), { headers: rule.headers, timeout: rule.timeout });
     return parseListBySelector(recommend, html, rule.host);
   }
 
@@ -1406,7 +1676,7 @@
       if (sniffed && sniffed.url) {
         return {
           url: sniffed.url,
-          header: sanitizeHeaders(candidate.header || {}),
+          header: sanitizeHeaders(mergeHeaders(candidate.header || {}, sniffed.headers || sniffed.header || {})),
         };
       }
       const extracted = extractMediaUrlFromHtml(rule, candidate);
@@ -1427,7 +1697,7 @@
         if (followSniff && followSniff.url) {
           return {
             url: followSniff.url,
-            header: sanitizeHeaders(candidate.header || {}),
+            header: sanitizeHeaders(mergeHeaders(candidate.header || {}, followSniff.headers || followSniff.header || {})),
           };
         }
       }
@@ -1576,10 +1846,10 @@
       id: item.vod_id || item.url || "item-" + index,
       vod_id: item.vod_id || item.url || "",
       vod_name: item.vod_name || item.title || "未命名 " + (index + 1),
-      vod_pic: item.vod_pic || item.img || "",
+      vod_pic: normalizePosterUrl(item.vod_pic || item.img || item.pic || item.cover || "", state.currentSource && state.currentSource.host),
       vod_remarks: item.vod_remarks || item.desc || "",
       title: item.title || item.vod_name || "",
-      img: item.img || item.vod_pic || "",
+      img: normalizePosterUrl(item.img || item.vod_pic || item.pic || item.cover || "", state.currentSource && state.currentSource.host),
       desc: item.desc || item.vod_remarks || "",
       url: item.url || item.vod_id || "",
     }));
@@ -1605,7 +1875,7 @@
     return {
       vod_id: detail.vod_id || "",
       vod_name: detail.vod_name || detail.title || "未命名",
-      vod_pic: detail.vod_pic || detail.img || "",
+      vod_pic: normalizePosterUrl(detail.vod_pic || detail.img || detail.pic || detail.cover || "", state.currentSource && state.currentSource.host),
       vod_remarks: detail.vod_remarks || detail.desc || "",
       vod_content: detail.vod_content || detail.content || "",
       playGroups: playGroups,
@@ -1618,6 +1888,37 @@
     url = url.replace(/fypage/g, String(page || 1));
     url = url.replace(/fyfilter/g, "");
     return absoluteUrl(url, rule.host);
+  }
+
+  function buildRecommendUrl(rule, page) {
+    let url = String(rule.homeUrl || rule.home_url || rule.host || "");
+    url = url.replace(/fypage/g, String(page || 1));
+    return absoluteUrl(url, rule.host);
+  }
+
+  function supportsRecommendPaging(rule) {
+    const recommend = getRuleValue(rule, RULE_KEYS.recommend);
+    if (typeof recommend === "string" && recommend.startsWith("js:")) {
+      return true;
+    }
+    const homeUrl = String(rule && (rule.homeUrl || rule.home_url || "") || "");
+    return /fypage/i.test(homeUrl);
+  }
+
+  function supportsCategoryPaging(rule) {
+    const firstLevel = getRuleValue(rule, RULE_KEYS.first);
+    if (typeof firstLevel === "string" && firstLevel.startsWith("js:")) {
+      return true;
+    }
+    return /fypage/i.test(String(rule && rule.url || ""));
+  }
+
+  function supportsSearchPaging(rule) {
+    const searchRule = getRuleValue(rule, RULE_KEYS.search);
+    if (typeof searchRule === "string" && searchRule.startsWith("js:")) {
+      return true;
+    }
+    return /fypage/i.test(String(rule && rule.searchUrl || ""));
   }
 
   function buildSearchUrl(rule, keyword, page) {
@@ -1897,11 +2198,51 @@
     if (attr === "Text") {
       return normalizeText(first.textContent || "");
     }
-    const value = first.getAttribute ? first.getAttribute(attr) : "";
+    const value = extractNodeAttribute(first, attr);
     if (attr === "href" || attr === "src" || attr.indexOf("data-") === 0) {
       return absoluteUrl(value || "", host);
     }
     return value || "";
+  }
+
+  function extractNodeAttribute(node, attr) {
+    if (!node || !node.getAttribute) {
+      return "";
+    }
+    const direct = node.getAttribute(attr);
+    if (direct) {
+      return direct;
+    }
+    if (attr === "src") {
+      const lazyAttrs = ["data-src", "data-original", "data-lazy", "data-lazy-src", "data-url", "data-cover", "lay-src", "srcset"];
+      for (let i = 0; i < lazyAttrs.length; i += 1) {
+        const value = node.getAttribute(lazyAttrs[i]);
+        if (value) {
+          return pickSrcsetUrl(value);
+        }
+      }
+      const styleUrl = extractStyleUrl(node.getAttribute("style"));
+      if (styleUrl) {
+        return styleUrl;
+      }
+    }
+    if (attr === "href") {
+      return node.getAttribute("data-href") || node.getAttribute("data-url") || "";
+    }
+    return "";
+  }
+
+  function pickSrcsetUrl(value) {
+    const text = String(value || "").trim();
+    if (!text) {
+      return "";
+    }
+    return text.split(",")[0].trim().split(/\s+/)[0] || text;
+  }
+
+  function extractStyleUrl(style) {
+    const match = String(style || "").match(/url\((['"]?)(.*?)\1\)/i);
+    return match ? match[2] : "";
   }
 
   function isAttributeToken(token) {
@@ -2113,23 +2454,31 @@
   }
 
   function absoluteUrl(url, host) {
-    if (!url) {
+    let nextUrl = String(url || "").trim()
+      .replace(/&amp;/g, "&")
+      .replace(/\\u002f/gi, "/")
+      .replace(/\\\//g, "/");
+    nextUrl = extractStyleUrl(nextUrl) || nextUrl;
+    if (!nextUrl) {
       return "";
     }
-    if (/^https?:\/\//i.test(url)) {
-      return url;
+    if (/^data:image\//i.test(nextUrl)) {
+      return nextUrl;
     }
-    if (url.indexOf("//") === 0) {
-      return "https:" + url;
+    if (/^https?:\/\//i.test(nextUrl)) {
+      return nextUrl;
+    }
+    if (nextUrl.indexOf("//") === 0) {
+      return "https:" + nextUrl;
     }
     if (!host) {
-      return url;
+      return nextUrl;
     }
     const base = host.endsWith("/") ? host.slice(0, -1) : host;
-    if (url.startsWith("/")) {
-      return base + url;
+    if (nextUrl.startsWith("/")) {
+      return base + nextUrl;
     }
-    return base + "/" + url;
+    return base + "/" + nextUrl;
   }
 
   function normalizeBaseUrl(host) {
@@ -2342,6 +2691,39 @@
 
   function escapeAttr(value) {
     return escapeHtml(value);
+  }
+
+  function normalizePosterUrl(value, host) {
+    let url = String(value || "").trim();
+    if (!url) {
+      return "";
+    }
+    url = extractStyleUrl(url) || url;
+    url = pickSrcsetUrl(url)
+      .replace(/&amp;/g, "&")
+      .replace(/\\u002f/gi, "/")
+      .replace(/\\\//g, "/");
+    if (/^(?:javascript:|blob:)/i.test(url)) {
+      return "";
+    }
+    if (/^data:image\//i.test(url)) {
+      return url;
+    }
+    return absoluteUrl(url, host || (state.currentSource && state.currentSource.host) || "");
+  }
+
+  function posterFallbackDataUrl(title) {
+    const label = String(title || "XIAOMAO").slice(0, 10);
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="360" height="500" viewBox="0 0 360 500"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#14213d"/><stop offset="1" stop-color="#0a0f1f"/></linearGradient></defs><rect width="360" height="500" fill="url(#g)"/><circle cx="70" cy="72" r="88" fill="#2be4ff" opacity=".12"/><circle cx="310" cy="438" r="120" fill="#72ffc7" opacity=".1"/><text x="180" y="238" fill="#dcecff" text-anchor="middle" font-family="sans-serif" font-size="34" font-weight="700">XIAOMAO</text><text x="180" y="286" fill="#8fa6ca" text-anchor="middle" font-family="sans-serif" font-size="22">' + escapeXml(label) + '</text></svg>';
+    return "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg);
+  }
+
+  function escapeXml(value) {
+    return String(value || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
   }
 
   function escapeCssUrl(value) {

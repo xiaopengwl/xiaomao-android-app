@@ -656,6 +656,11 @@ h3 {
   transform: scale(1.04);
 }
 
+img.poster-fallback {
+  object-fit: cover;
+  filter: saturate(1.08);
+}
+
 .poster-card-body {
   padding: 10px;
   display: grid;
@@ -689,6 +694,37 @@ h3 {
   border-radius: 22px;
   color: var(--muted);
   background: rgba(255, 255, 255, 0.02);
+}
+
+.pager-bar {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+
+.pager-bar .ghost-button,
+.pager-bar .primary-button {
+  min-height: 42px;
+}
+
+.pager-bar .primary-button {
+  justify-self: end;
+}
+
+.pager-text {
+  min-width: 76px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.pager-bar button:disabled {
+  opacity: 0.42;
+  filter: grayscale(0.4);
+  pointer-events: none;
 }
 
 .chip-list,
