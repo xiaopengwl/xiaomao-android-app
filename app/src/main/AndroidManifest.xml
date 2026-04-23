@@ -15,12 +15,12 @@
             android:name=".PlayerActivity"
             android:exported="false"
             android:configChanges="orientation|screenSize|keyboardHidden"
-            android:screenOrientation="fullSensor" />
+            android:screenOrientation="fullUser" />
         <activity
             android:name=".NativePlayerActivity"
             android:exported="false"
             android:configChanges="orientation|screenSize|keyboardHidden"
-            android:screenOrientation="fullSensor" />
+            android:screenOrientation="fullUser" />
         <activity
             android:name=".MainActivity"
             android:exported="true">
