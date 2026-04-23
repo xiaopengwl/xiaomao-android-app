@@ -3,13 +3,13 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#0A1018"
+    android:background="#081018"
     android:orientation="vertical">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="#111A24"
+        android:background="#111B21"
         android:gravity="center_vertical"
         android:orientation="horizontal"
         android:paddingStart="14dp"
@@ -33,7 +33,7 @@
             android:layout_weight="1"
             android:ellipsize="end"
             android:maxLines="1"
-            android:text="Details"
+            android:text="影视详情"
             android:textColor="#FFFFFF"
             android:textSize="18sp"
             android:textStyle="bold" />
@@ -42,9 +42,10 @@
             android:id="@+id/detail_play_first_button"
             android:layout_width="wrap_content"
             android:layout_height="40dp"
-            android:text="Play"
+            android:text="立即播放"
             android:textAllCaps="false"
-            app:backgroundTint="#E44F4F"
+            android:textColor="#042111"
+            app:backgroundTint="#1FCB63"
             app:cornerRadius="12dp" />
     </LinearLayout>
 
@@ -62,9 +63,9 @@
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:cardBackgroundColor="#111A24"
+                app:cardBackgroundColor="#111B21"
                 app:cardCornerRadius="24dp"
-                app:strokeColor="#223041"
+                app:strokeColor="#1F3A2A"
                 app:strokeWidth="1dp">
 
                 <LinearLayout
@@ -78,7 +79,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="240dp"
                         android:adjustViewBounds="true"
-                        android:background="#192332"
+                        android:background="#182824"
                         android:scaleType="centerCrop" />
 
                     <TextView
@@ -95,7 +96,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="6dp"
-                        android:textColor="#9CB0C9"
+                        android:textColor="#A5BDB3"
                         android:textSize="13sp" />
 
                     <TextView
@@ -104,7 +105,7 @@
                         android:layout_height="wrap_content"
                         android:layout_marginTop="12dp"
                         android:lineSpacingExtra="4dp"
-                        android:textColor="#DCE7F6"
+                        android:textColor="#DDF4E5"
                         android:textSize="14sp" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
@@ -127,8 +128,8 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="10dp"
-                    android:text="Loading details..."
-                    android:textColor="#95A4B8"
+                    android:text="正在加载详情..."
+                    android:textColor="#95A89E"
                     android:textSize="14sp" />
             </LinearLayout>
 
@@ -137,7 +138,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
-                android:text="Episodes and lines"
+                android:text="播放线路与选集"
                 android:textColor="#FFFFFF"
                 android:textSize="18sp"
                 android:textStyle="bold" />

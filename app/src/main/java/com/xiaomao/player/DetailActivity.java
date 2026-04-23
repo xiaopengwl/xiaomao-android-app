@@ -98,18 +98,18 @@ public class DetailActivity extends AppCompatActivity {
     }
 
     private void setupViews() {
-        toolbarTitleView.setText(itemTitle.isEmpty() ? "Details" : itemTitle);
-        titleView.setText(itemTitle.isEmpty() ? "Loading..." : itemTitle);
-        metaView.setText(itemRemark.isEmpty() ? "Fetching detail and playable lines" : itemRemark);
-        contentView.setText("Description, lines and episodes will show here after parsing.");
+        toolbarTitleView.setText(itemTitle.isEmpty() ? "影视详情" : itemTitle);
+        titleView.setText(itemTitle.isEmpty() ? "正在加载详情..." : itemTitle);
+        metaView.setText(itemRemark.isEmpty() ? "正在解析线路与选集" : itemRemark);
+        contentView.setText("剧情简介、播放线路和选集会在解析完成后显示。");
         PosterLoader.load(posterView, itemPoster, itemTitle);
     }
 
     private void loadDetail() {
-        showLoading("Loading details...");
+        showLoading("正在加载详情...");
         engine.loadDetail(itemUrl, itemTitle, itemPoster, (detail, err) -> {
             if (!TextUtils.isEmpty(err) && detail.playGroups.isEmpty()) {
-                showLoading("Detail load failed\n" + err);
+                showLoading("详情加载失败\n" + err);
                 return;
             }
             currentDetail = detail;
@@ -121,8 +121,8 @@ public class DetailActivity extends AppCompatActivity {
         loadingContainer.setVisibility(View.GONE);
         toolbarTitleView.setText(detail.title);
         titleView.setText(detail.title);
-        metaView.setText(detail.remark.isEmpty() ? "Playable lines loaded" : detail.remark);
-        contentView.setText(detail.content.isEmpty() ? "No description was returned by this source." : detail.content);
+        metaView.setText(detail.remark.isEmpty() ? "可播放线路已加载" : detail.remark);
+        contentView.setText(detail.content.isEmpty() ? "当前片源没有返回剧情简介。" : detail.content);
         PosterLoader.load(posterView, detail.poster, detail.title);
         renderEpisodeGroups(detail.playGroups);
         playFirstButton.setEnabled(findFirstPlayable(detail) != null);
@@ -132,8 +132,8 @@ public class DetailActivity extends AppCompatActivity {
         groupsContainer.removeAllViews();
         if (groups == null || groups.isEmpty()) {
             TextView emptyView = new TextView(this);
-            emptyView.setText("No playable lines were returned.");
-            emptyView.setTextColor(0xFF95A4B8);
+            emptyView.setText("当前片源没有返回可播放线路。");
+            emptyView.setTextColor(0xFF95A89E);
             emptyView.setTextSize(14f);
             groupsContainer.addView(emptyView);
             return;
@@ -165,12 +165,12 @@ public class DetailActivity extends AppCompatActivity {
             for (int i = 0; i < items.size(); i++) {
                 NativeDrpyEngine.EpisodeItem episode = items.get(i);
                 Chip chip = new Chip(this);
-                chip.setText(episode.name.isEmpty() ? ("Play " + (i + 1)) : episode.name);
+                chip.setText(episode.name.isEmpty() ? ("播放 " + (i + 1)) : episode.name);
                 chip.setCheckable(false);
                 chip.setClickable(true);
-                chip.setTextColor(0xFFDCE7F6);
-                chip.setChipBackgroundColor(ColorStateList.valueOf(0xFF172230));
-                chip.setChipStrokeColor(ColorStateList.valueOf(0xFF304257));
+                chip.setTextColor(0xFFDDF4E5);
+                chip.setChipBackgroundColor(ColorStateList.valueOf(0xFF122019));
+                chip.setChipStrokeColor(ColorStateList.valueOf(0xFF28523A));
                 chip.setChipStrokeWidth(dp(1));
                 final int index = i;
                 chip.setOnClickListener(v -> openNativePlayer(group, index));
@@ -182,7 +182,7 @@ public class DetailActivity extends AppCompatActivity {
     private void playFirstEpisode() {
         EpisodeTarget target = findFirstPlayable(currentDetail);
         if (target == null) {
-            toast("No playable episode");
+            toast("当前没有可播放的选集");
             return;
         }
         openNativePlayer(target.group, target.index);
@@ -205,7 +205,7 @@ public class DetailActivity extends AppCompatActivity {
 
     private void openNativePlayer(NativeDrpyEngine.EpisodeGroup group, int index) {
         if (group == null || group.items == null || index < 0 || index >= group.items.size()) {
-            toast("Invalid episode");
+            toast("选集信息无效");
             return;
         }
         ArrayList<String> names = new ArrayList<>();

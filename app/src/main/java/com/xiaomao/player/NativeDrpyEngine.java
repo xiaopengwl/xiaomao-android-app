@@ -134,11 +134,13 @@ public class NativeDrpyEngine {
                 flushPendingActions();
             }
         });
-        webView.loadDataWithBaseURL(currentHost.isEmpty() ? "https://appassets.androidplatform.net/" : currentHost,
+        webView.loadDataWithBaseURL(
+                currentHost.isEmpty() ? "https://appassets.androidplatform.net/" : currentHost,
                 "<html><body>native-runtime</body></html>",
                 "text/html",
                 "utf-8",
-                null);
+                null
+        );
     }
 
     public class Bridge {
@@ -559,7 +561,9 @@ public class NativeDrpyEngine {
     private HttpOptions parseHttpOptions(String options) {
         HttpOptions out = new HttpOptions();
         out.referer = currentHost + "/";
-        if (options == null || options.trim().isEmpty()) return out;
+        if (options == null || options.trim().isEmpty()) {
+            return out;
+        }
         try {
             JSONObject object = new JSONObject(options);
             out.method = object.optString("method", out.method);
@@ -572,18 +576,26 @@ public class NativeDrpyEngine {
                 out.readTimeout = timeout;
             }
             String referer = first(object, "referer", "Referer");
-            if (!referer.isEmpty()) out.referer = referer;
+            if (!referer.isEmpty()) {
+                out.referer = referer;
+            }
             JSONObject headers = object.optJSONObject("headers");
             if (headers != null) {
                 Iterator<String> keys = headers.keys();
                 while (keys.hasNext()) {
                     String key = keys.next();
                     String value = headers.optString(key, "");
-                    if (!value.isEmpty()) out.headers.put(key, value);
+                    if (!value.isEmpty()) {
+                        out.headers.put(key, value);
+                    }
                 }
             }
-            if (out.userAgent.isEmpty() && out.headers.containsKey("User-Agent")) out.userAgent = out.headers.get("User-Agent");
-            if (out.contentType.isEmpty() && out.headers.containsKey("Content-Type")) out.contentType = out.headers.get("Content-Type");
+            if (out.userAgent.isEmpty() && out.headers.containsKey("User-Agent")) {
+                out.userAgent = out.headers.get("User-Agent");
+            }
+            if (out.contentType.isEmpty() && out.headers.containsKey("Content-Type")) {
+                out.contentType = out.headers.get("Content-Type");
+            }
         } catch (Exception ignored) {
         }
         return out;
@@ -605,15 +617,21 @@ public class NativeDrpyEngine {
             connection.setRequestProperty("Cookie", cookie);
         }
         for (Map.Entry<String, String> entry : opt.headers.entrySet()) {
-            if (entry.getKey() == null || entry.getValue() == null || entry.getValue().isEmpty()) continue;
+            if (entry.getKey() == null || entry.getValue() == null || entry.getValue().isEmpty()) {
+                continue;
+            }
             connection.setRequestProperty(entry.getKey(), entry.getValue());
         }
         String method = opt.method == null || opt.method.trim().isEmpty() ? "GET" : opt.method.trim().toUpperCase();
         if ((!opt.body.isEmpty()) || "POST".equals(method)) {
             connection.setDoOutput(true);
             connection.setRequestMethod("POST".equals(method) ? "POST" : method);
-            if (!opt.contentType.isEmpty()) connection.setRequestProperty("Content-Type", opt.contentType);
-            if (!opt.body.isEmpty()) connection.getOutputStream().write(opt.body.getBytes(StandardCharsets.UTF_8));
+            if (!opt.contentType.isEmpty()) {
+                connection.setRequestProperty("Content-Type", opt.contentType);
+            }
+            if (!opt.body.isEmpty()) {
+                connection.getOutputStream().write(opt.body.getBytes(StandardCharsets.UTF_8));
+            }
         } else {
             connection.setRequestMethod(method);
         }
@@ -623,7 +641,9 @@ public class NativeDrpyEngine {
         if (stream != null) {
             byte[] buffer = new byte[8192];
             int size;
-            while ((size = stream.read(buffer)) > 0) output.write(buffer, 0, size);
+            while ((size = stream.read(buffer)) > 0) {
+                output.write(buffer, 0, size);
+            }
             stream.close();
         }
         HttpResult result = new HttpResult();
@@ -652,32 +672,46 @@ public class NativeDrpyEngine {
     }
 
     private void storeCookies(String finalUrl, Map<String, List<String>> headerFields) {
-        if (headerFields == null || headerFields.isEmpty()) return;
+        if (headerFields == null || headerFields.isEmpty()) {
+            return;
+        }
         String hostKey = cookieHostKey(finalUrl);
-        if (hostKey.isEmpty()) return;
+        if (hostKey.isEmpty()) {
+            return;
+        }
         LinkedHashMap<String, String> merged = new LinkedHashMap<>();
         String existing = cookieJar.get(hostKey);
         if (existing != null && !existing.isEmpty()) {
             String[] pairs = existing.split(";\\s*");
             for (String pair : pairs) {
                 int index = pair.indexOf('=');
-                if (index > 0) merged.put(pair.substring(0, index), pair.substring(index + 1));
+                if (index > 0) {
+                    merged.put(pair.substring(0, index), pair.substring(index + 1));
+                }
             }
         }
         for (Map.Entry<String, List<String>> entry : headerFields.entrySet()) {
             String key = entry.getKey();
-            if (key == null || !"set-cookie".equalsIgnoreCase(key)) continue;
+            if (key == null || !"set-cookie".equalsIgnoreCase(key)) {
+                continue;
+            }
             for (String value : entry.getValue()) {
-                if (value == null || value.isEmpty()) continue;
+                if (value == null || value.isEmpty()) {
+                    continue;
+                }
                 String pair = value.split(";", 2)[0];
                 int index = pair.indexOf('=');
-                if (index > 0) merged.put(pair.substring(0, index), pair.substring(index + 1));
+                if (index > 0) {
+                    merged.put(pair.substring(0, index), pair.substring(index + 1));
+                }
             }
         }
         if (!merged.isEmpty()) {
             StringBuilder builder = new StringBuilder();
             for (Map.Entry<String, String> entry : merged.entrySet()) {
-                if (builder.length() > 0) builder.append("; ");
+                if (builder.length() > 0) {
+                    builder.append("; ");
+                }
                 builder.append(entry.getKey()).append("=").append(entry.getValue());
             }
             cookieJar.put(hostKey, builder.toString());
@@ -685,10 +719,18 @@ public class NativeDrpyEngine {
     }
 
     private String abs(String value) {
-        if (value == null || value.isEmpty()) return currentHost;
-        if (value.startsWith("http://") || value.startsWith("https://")) return value;
-        if (value.startsWith("//")) return "https:" + value;
-        if (value.startsWith("/")) return currentHost + value;
+        if (value == null || value.isEmpty()) {
+            return currentHost;
+        }
+        if (value.startsWith("http://") || value.startsWith("https://")) {
+            return value;
+        }
+        if (value.startsWith("//")) {
+            return "https:" + value;
+        }
+        if (value.startsWith("/")) {
+            return currentHost + value;
+        }
         return currentHost + "/" + value;
     }
 
@@ -709,7 +751,9 @@ public class NativeDrpyEngine {
     private static String first(JSONObject object, String... keys) {
         for (String key : keys) {
             String value = object.optString(key, "");
-            if (!value.isEmpty()) return value;
+            if (!value.isEmpty()) {
+                return value;
+            }
         }
         return "";
     }

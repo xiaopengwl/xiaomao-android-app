@@ -3,7 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#0A1018"
+    android:background="#081018"
     android:orientation="vertical">
 
     <com.google.android.material.card.MaterialCardView
@@ -12,9 +12,9 @@
         android:layout_marginStart="14dp"
         android:layout_marginTop="14dp"
         android:layout_marginEnd="14dp"
-        app:cardBackgroundColor="#111A24"
-        app:cardCornerRadius="24dp"
-        app:strokeColor="#223041"
+        app:cardBackgroundColor="#111B21"
+        app:cardCornerRadius="26dp"
+        app:strokeColor="#1F3A2A"
         app:strokeWidth="1dp">
 
         <LinearLayout
@@ -23,28 +23,68 @@
             android:orientation="vertical"
             android:padding="16dp">
 
-            <TextView
-                android:id="@+id/main_title"
-                android:layout_width="wrap_content"
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Xiaomao"
-                android:textColor="#FFFFFF"
-                android:textSize="24sp"
-                android:textStyle="bold" />
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <com.google.android.material.card.MaterialCardView
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    app:cardBackgroundColor="#1FCB63"
+                    app:cardCornerRadius="18dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:gravity="center"
+                        android:text="猫"
+                        android:textColor="#062110"
+                        android:textSize="22sp"
+                        android:textStyle="bold" />
+                </com.google.android.material.card.MaterialCardView>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/main_title"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="小猫影视"
+                        android:textColor="#FFFFFF"
+                        android:textSize="22sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/main_subtitle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="原生聚合 · 中文界面 · 直接播放"
+                        android:textColor="#93A8A0"
+                        android:textSize="12sp" />
+                </LinearLayout>
+            </LinearLayout>
 
             <TextView
-                android:id="@+id/main_subtitle"
-                android:layout_width="wrap_content"
+                android:id="@+id/header_source_text"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:text="Native browse, search, detail and player"
-                android:textColor="#91A3BC"
+                android:layout_marginTop="12dp"
+                android:text="当前片源：正在加载"
+                android:textColor="#D7E5DE"
                 android:textSize="13sp" />
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
+                android:layout_marginTop="12dp"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
 
@@ -56,7 +96,7 @@
                     android:background="@android:drawable/editbox_background_normal"
                     android:paddingStart="12dp"
                     android:paddingEnd="12dp"
-                    android:popupBackground="#15202D" />
+                    android:popupBackground="#13221A" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/refresh_button"
@@ -64,11 +104,11 @@
                     android:layout_width="wrap_content"
                     android:layout_height="48dp"
                     android:layout_marginStart="10dp"
-                    android:text="Refresh"
+                    android:text="刷新"
                     android:textAllCaps="false"
-                    android:textColor="#DCE7F6"
-                    app:cornerRadius="14dp"
-                    app:strokeColor="#39526E" />
+                    android:textColor="#E7F7ED"
+                    app:cornerRadius="16dp"
+                    app:strokeColor="#2A6340" />
             </LinearLayout>
 
             <LinearLayout
@@ -83,14 +123,14 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:hint="Search title, actor, keyword"
-                    app:boxBackgroundColor="#0C141E"
-                    app:boxCornerRadiusBottomEnd="16dp"
-                    app:boxCornerRadiusBottomStart="16dp"
-                    app:boxCornerRadiusTopEnd="16dp"
-                    app:boxCornerRadiusTopStart="16dp"
-                    app:boxStrokeColor="#314559"
-                    app:hintTextColor="#7C8FA8">
+                    android:hint="输入片名、演员、关键词"
+                    app:boxBackgroundColor="#0B1613"
+                    app:boxCornerRadiusBottomEnd="18dp"
+                    app:boxCornerRadiusBottomStart="18dp"
+                    app:boxCornerRadiusTopEnd="18dp"
+                    app:boxCornerRadiusTopStart="18dp"
+                    app:boxStrokeColor="#246940"
+                    app:hintTextColor="#86A995">
 
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/search_input"
@@ -100,7 +140,7 @@
                         android:inputType="text"
                         android:maxLines="1"
                         android:textColor="#FFFFFF"
-                        android:textColorHint="#7C8FA8" />
+                        android:textColorHint="#86A995" />
                 </com.google.android.material.textfield.TextInputLayout>
 
                 <com.google.android.material.button.MaterialButton
@@ -108,11 +148,43 @@
                     android:layout_width="wrap_content"
                     android:layout_height="48dp"
                     android:layout_marginStart="10dp"
-                    android:text="Search"
+                    android:text="搜索"
                     android:textAllCaps="false"
-                    app:backgroundTint="#E44F4F"
-                    app:cornerRadius="14dp" />
+                    android:textColor="#042111"
+                    app:backgroundTint="#1FCB63"
+                    app:cornerRadius="18dp" />
             </LinearLayout>
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                app:cardBackgroundColor="#173024"
+                app:cardCornerRadius="20dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="14dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="推荐、片库、榜单、我的"
+                        android:textColor="#F3FFF8"
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:text="保留原有源解析与播放器能力，界面切成更接近原生视频 App 的中文样式。"
+                        android:textColor="#B9DCC5"
+                        android:textSize="13sp" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
 
@@ -123,9 +195,9 @@
         android:layout_marginStart="18dp"
         android:layout_marginTop="14dp"
         android:layout_marginEnd="18dp"
-        android:text="Home"
+        android:text="推荐"
         android:textColor="#FFFFFF"
-        android:textSize="18sp"
+        android:textSize="19sp"
         android:textStyle="bold" />
 
     <TextView
@@ -135,17 +207,18 @@
         android:layout_marginStart="18dp"
         android:layout_marginTop="4dp"
         android:layout_marginEnd="18dp"
-        android:text="Preparing sources..."
-        android:textColor="#92A2B8"
+        android:text="正在准备片源..."
+        android:textColor="#8FA79D"
         android:textSize="13sp" />
 
     <HorizontalScrollView
         android:id="@+id/category_scroll"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
+        android:layout_marginTop="10dp"
         android:fillViewport="true"
-        android:scrollbars="none">
+        android:scrollbars="none"
+        android:visibility="gone">
 
         <com.google.android.material.chip.ChipGroup
             android:id="@+id/category_group"
@@ -158,14 +231,14 @@
             app:singleSelection="true" />
     </HorizontalScrollView>
 
-    <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
-        android:id="@+id/swipe_refresh"
+    <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_marginTop="8dp"
         android:layout_weight="1">
 
-        <FrameLayout
+        <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+            android:id="@+id/swipe_refresh"
             android:layout_width="match_parent"
             android:layout_height="match_parent">
 
@@ -178,53 +251,216 @@
                 android:paddingTop="6dp"
                 android:paddingEnd="14dp"
                 android:paddingBottom="18dp" />
+        </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rank_recycler"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:clipToPadding="false"
+            android:paddingStart="14dp"
+            android:paddingTop="6dp"
+            android:paddingEnd="14dp"
+            android:paddingBottom="18dp"
+            android:visibility="gone" />
+
+        <ScrollView
+            android:id="@+id/mine_scroll"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:fillViewport="true"
+            android:visibility="gone">
 
             <LinearLayout
-                android:id="@+id/empty_container"
                 android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:gravity="center"
+                android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="32dp"
-                android:visibility="gone">
+                android:paddingStart="14dp"
+                android:paddingTop="6dp"
+                android:paddingEnd="14dp"
+                android:paddingBottom="18dp">
 
-                <ProgressBar
-                    android:id="@+id/loading_indicator"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content" />
-
-                <TextView
-                    android:id="@+id/empty_text"
-                    android:layout_width="wrap_content"
+                <com.google.android.material.card.MaterialCardView
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="14dp"
-                    android:gravity="center"
-                    android:text="Content will appear here"
-                    android:textColor="#95A4B8"
-                    android:textSize="14sp" />
+                    android:layout_marginBottom="12dp"
+                    app:cardBackgroundColor="#111B21"
+                    app:cardCornerRadius="22dp"
+                    app:strokeColor="#1F3A2A"
+                    app:strokeWidth="1dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="16dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="当前配置"
+                            android:textColor="#FFFFFF"
+                            android:textSize="17sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/mine_source_name"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="10dp"
+                            android:text="片源：加载中"
+                            android:textColor="#D7E5DE"
+                            android:textSize="14sp" />
+
+                        <TextView
+                            android:id="@+id/mine_source_host"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
+                            android:text="站点：--"
+                            android:textColor="#8FA79D"
+                            android:textSize="13sp" />
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+                <com.google.android.material.card.MaterialCardView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="12dp"
+                    app:cardBackgroundColor="#111B21"
+                    app:cardCornerRadius="22dp"
+                    app:strokeColor="#1F3A2A"
+                    app:strokeWidth="1dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="16dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="已接入能力"
+                            android:textColor="#FFFFFF"
+                            android:textSize="17sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/mine_feature_text"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="10dp"
+                            android:lineSpacingExtra="4dp"
+                            android:text="原生详情页、选集、倍速、长按加速、竖屏播放入口、广告层自动尝试点击与增强嗅探。"
+                            android:textColor="#D7E5DE"
+                            android:textSize="14sp" />
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+                <com.google.android.material.card.MaterialCardView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    app:cardBackgroundColor="#111B21"
+                    app:cardCornerRadius="22dp"
+                    app:strokeColor="#1F3A2A"
+                    app:strokeWidth="1dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="16dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="快捷入口"
+                            android:textColor="#FFFFFF"
+                            android:textSize="17sp"
+                            android:textStyle="bold" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="12dp"
+                            android:orientation="horizontal">
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/mine_recommend_button"
+                                android:layout_width="0dp"
+                                android:layout_height="46dp"
+                                android:layout_weight="1"
+                                android:text="打开推荐"
+                                android:textAllCaps="false"
+                                android:textColor="#042111"
+                                app:backgroundTint="#1FCB63"
+                                app:cornerRadius="16dp" />
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/mine_library_button"
+                                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                                android:layout_width="0dp"
+                                android:layout_height="46dp"
+                                android:layout_marginStart="10dp"
+                                android:layout_weight="1"
+                                android:text="打开片库"
+                                android:textAllCaps="false"
+                                android:textColor="#E7F7ED"
+                                app:cornerRadius="16dp"
+                                app:strokeColor="#2A6340" />
+                        </LinearLayout>
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
             </LinearLayout>
-        </FrameLayout>
-    </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
+        </ScrollView>
+
+        <LinearLayout
+            android:id="@+id/empty_container"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:padding="32dp"
+            android:visibility="gone">
+
+            <ProgressBar
+                android:id="@+id/loading_indicator"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+
+            <TextView
+                android:id="@+id/empty_text"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:gravity="center"
+                android:text="内容会显示在这里"
+                android:textColor="#95A89E"
+                android:textSize="14sp" />
+        </LinearLayout>
+    </FrameLayout>
 
     <LinearLayout
+        android:id="@+id/page_controls"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="#101822"
+        android:background="#10181D"
         android:gravity="center_vertical"
         android:orientation="horizontal"
         android:paddingStart="14dp"
         android:paddingTop="10dp"
         android:paddingEnd="14dp"
-        android:paddingBottom="12dp">
+        android:paddingBottom="10dp">
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/home_button"
             style="@style/Widget.MaterialComponents.Button.TextButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Home"
+            android:text="回推荐"
             android:textAllCaps="false"
-            android:textColor="#DCE7F6" />
+            android:textColor="#DDF4E5" />
 
         <Space
             android:layout_width="0dp"
@@ -236,11 +472,11 @@
             style="@style/Widget.MaterialComponents.Button.OutlinedButton"
             android:layout_width="wrap_content"
             android:layout_height="40dp"
-            android:text="Prev"
+            android:text="上一页"
             android:textAllCaps="false"
-            android:textColor="#DCE7F6"
+            android:textColor="#E7F7ED"
             app:cornerRadius="12dp"
-            app:strokeColor="#39526E" />
+            app:strokeColor="#2A6340" />
 
         <TextView
             android:id="@+id/page_text"
@@ -248,8 +484,8 @@
             android:layout_height="wrap_content"
             android:layout_marginStart="12dp"
             android:layout_marginEnd="12dp"
-            android:text="Page 1"
-            android:textColor="#DCE7F6"
+            android:text="第 1 页"
+            android:textColor="#DDF4E5"
             android:textSize="14sp"
             android:textStyle="bold" />
 
@@ -258,11 +494,21 @@
             style="@style/Widget.MaterialComponents.Button.OutlinedButton"
             android:layout_width="wrap_content"
             android:layout_height="40dp"
-            android:text="Next"
+            android:text="下一页"
             android:textAllCaps="false"
-            android:textColor="#DCE7F6"
+            android:textColor="#E7F7ED"
             app:cornerRadius="12dp"
-            app:strokeColor="#39526E" />
+            app:strokeColor="#2A6340" />
     </LinearLayout>
+
+    <com.google.android.material.bottomnavigation.BottomNavigationView
+        android:id="@+id/bottom_nav"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="#0E151A"
+        app:itemIconTint="@color/bottom_nav_tint"
+        app:itemTextColor="@color/bottom_nav_tint"
+        app:labelVisibilityMode="labeled"
+        app:menu="@menu/main_bottom_nav" />
 
 </LinearLayout>
