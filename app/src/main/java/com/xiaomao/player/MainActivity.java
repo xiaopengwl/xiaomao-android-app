@@ -210,7 +210,7 @@ public class MainActivity extends AppCompatActivity {
         sources.clear();
         sources.addAll(SourceStore.loadAll(this));
         if (sources.isEmpty()) {
-            showLoading(false, "娌℃湁鎵惧埌鍙敤鐗囨簮");
+            showLoading(false, getString(R.string.main_msg_no_source));
             return;
         }
         SourceStore.SourceItem selected = SourceStore.resolveSelected(this, sources);
@@ -272,7 +272,7 @@ public class MainActivity extends AppCompatActivity {
             }
             renderCategories();
             if (!TextUtils.isEmpty(err)) {
-                toast("鍒嗙被鍔犺浇澶辫触");
+                toast(getString(R.string.main_msg_load_categories_failed));
             }
             if (currentTab == MainTab.LIBRARY && activeCategory == null && !categories.isEmpty()) {
                 activeCategory = categories.get(0);
@@ -292,8 +292,8 @@ public class MainActivity extends AppCompatActivity {
         if (reload || adapter.getDataCount() == 0) {
             loadHomePage(1);
         } else {
-            setSectionTitle("鎺ㄨ崘");
-            setStatus("褰撳墠鐗囨簮鎺ㄨ崘鍐呭");
+            setSectionTitle(getString(R.string.main_section_home));
+            setStatus(getString(R.string.main_msg_home_cached));
             showLoading(false, "");
         }
     }
@@ -304,9 +304,9 @@ public class MainActivity extends AppCompatActivity {
         syncBottomSelection(R.id.menu_library);
         renderCategories();
         if (categories.isEmpty()) {
-            setSectionTitle("鐗囧簱");
-            setStatus("姝ｅ湪鍔犺浇鍒嗙被...");
-            showLoading(true, "姝ｅ湪鍔犺浇鍒嗙被...");
+            setSectionTitle(getString(R.string.main_msg_library_title));
+            setStatus(getString(R.string.main_msg_library_loading));
+            showLoading(true, getString(R.string.main_msg_library_loading));
             loadCategories();
             return;
         }
@@ -319,7 +319,7 @@ public class MainActivity extends AppCompatActivity {
             loadCategoryPage(activeCategory, 1);
         } else {
             setSectionTitle(activeCategory.name);
-            setStatus("娴忚鍒嗙被鍐呭");
+            setStatus(getString(R.string.main_msg_library_cached));
             showLoading(false, "");
         }
     }
@@ -333,8 +333,8 @@ public class MainActivity extends AppCompatActivity {
         if (reload || rankAdapter.getDataCount() == 0) {
             loadRankPage(1);
         } else {
-            setSectionTitle("鐑挱姒滃崟");
-            setStatus("褰撳墠鐗囨簮鐑棬鍐呭");
+            setSectionTitle(getString(R.string.main_msg_rank_title));
+            setStatus(getString(R.string.main_msg_rank_cached));
             showLoading(false, "");
         }
     }
@@ -343,8 +343,8 @@ public class MainActivity extends AppCompatActivity {
         currentTab = MainTab.MINE;
         applyTabState();
         syncBottomSelection(R.id.menu_mine);
-        setSectionTitle("鎴戠殑");
-        setStatus("鍦ㄨ繖閲屾墦寮€鐗囨簮绠＄悊");
+        setSectionTitle(getString(R.string.main_msg_mine_title));
+        setStatus(getString(R.string.main_msg_mine_status));
         updateMinePanel();
         showLoading(false, "");
     }
@@ -362,26 +362,26 @@ public class MainActivity extends AppCompatActivity {
         currentPage = targetPage;
         applyTabState();
         syncBottomSelection(R.id.menu_home);
-        setSectionTitle("鎺ㄨ崘");
-        showLoading(true, "姝ｅ湪鍔犺浇鎺ㄨ崘鍐呭...");
+        setSectionTitle(getString(R.string.main_section_home));
+        showLoading(true, getString(R.string.main_msg_home_loading));
         engine.loadRecommend(targetPage, (items, err) -> {
             if (token != contentVersion || sourceToken != sourceVersion) {
                 return;
             }
             swipeRefreshLayout.setRefreshing(false);
             if (!TextUtils.isEmpty(err) && (items == null || items.isEmpty())) {
-                showLoading(false, "鎺ㄨ崘鍔犺浇澶辫触\n" + err);
+                showLoading(false, getString(R.string.main_msg_home_failed, err));
                 return;
             }
             if (targetPage > 1 && (items == null || items.isEmpty())) {
-                showLoading(false, adapter.getDataCount() == 0 ? "娌℃湁鏇村鎺ㄨ崘鍐呭" : "");
-                toast("No more recommended items");
+                showLoading(false, adapter.getDataCount() == 0 ? getString(R.string.main_msg_home_last_page) : "");
+                toast(getString(R.string.main_msg_home_last_page_toast));
                 return;
             }
             adapter.submitList(items);
             currentPage = targetPage;
-            showLoading(false, items == null || items.isEmpty() ? "褰撳墠鐗囨簮娌℃湁杩斿洖鎺ㄨ崘鍐呭" : "");
-            setStatus("Recommended · Page " + currentPage);
+            showLoading(false, items == null || items.isEmpty() ? getString(R.string.main_msg_home_empty) : "");
+            setStatus(getString(R.string.main_msg_home_status, currentPage));
             updatePager();
             mediaRecyclerView.scrollToPosition(0);
         });
@@ -402,25 +402,25 @@ public class MainActivity extends AppCompatActivity {
         syncBottomSelection(R.id.menu_library);
         renderCategories();
         setSectionTitle(category.name);
-        showLoading(true, "Loading category: " + category.name);
+        showLoading(true, getString(R.string.main_msg_category_loading, category.name));
         engine.loadCategoryItems(category.url, targetPage, (items, err) -> {
             if (token != contentVersion || sourceToken != sourceVersion) {
                 return;
             }
             swipeRefreshLayout.setRefreshing(false);
             if (!TextUtils.isEmpty(err) && (items == null || items.isEmpty())) {
-                showLoading(false, "鍒嗙被鍔犺浇澶辫触\n" + err);
+                showLoading(false, getString(R.string.main_msg_category_failed, err));
                 return;
             }
             if (targetPage > 1 && (items == null || items.isEmpty())) {
-                showLoading(false, adapter.getDataCount() == 0 ? "娌℃湁鏇村鍒嗙被鍐呭" : "");
-                toast("No more items");
+                showLoading(false, adapter.getDataCount() == 0 ? getString(R.string.main_msg_category_last_page) : "");
+                toast(getString(R.string.main_msg_category_last_page_toast));
                 return;
             }
             adapter.submitList(items);
             currentPage = targetPage;
-            showLoading(false, items == null || items.isEmpty() ? "褰撳墠鍒嗙被鏆傛棤鍐呭" : "");
-            setStatus(category.name + " · Page " + currentPage);
+            showLoading(false, items == null || items.isEmpty() ? getString(R.string.main_msg_category_empty) : "");
+            setStatus(getString(R.string.main_msg_category_status, category.name, currentPage));
             updatePager();
             mediaRecyclerView.scrollToPosition(0);
         });
@@ -438,26 +438,26 @@ public class MainActivity extends AppCompatActivity {
         currentPage = targetPage;
         applyTabState();
         syncBottomSelection(R.id.menu_rank);
-        setSectionTitle("鐑挱姒滃崟");
-        showLoading(true, "姝ｅ湪鏁寸悊姒滃崟...");
+        setSectionTitle(getString(R.string.main_msg_rank_title));
+        showLoading(true, getString(R.string.main_msg_rank_loading));
         engine.loadRecommend(targetPage, (items, err) -> {
             if (token != contentVersion || sourceToken != sourceVersion) {
                 return;
             }
             swipeRefreshLayout.setRefreshing(false);
             if (!TextUtils.isEmpty(err) && (items == null || items.isEmpty())) {
-                showLoading(false, "姒滃崟鍔犺浇澶辫触\n" + err);
+                showLoading(false, getString(R.string.main_msg_rank_failed, err));
                 return;
             }
             if (targetPage > 1 && (items == null || items.isEmpty())) {
-                showLoading(false, rankAdapter.getDataCount() == 0 ? "娌℃湁鏇村姒滃崟鍐呭" : "");
-                toast("No more ranked items");
+                showLoading(false, rankAdapter.getDataCount() == 0 ? getString(R.string.main_msg_rank_last_page) : "");
+                toast(getString(R.string.main_msg_rank_last_page_toast));
                 return;
             }
             rankAdapter.submitList(items);
             currentPage = targetPage;
-            showLoading(false, items == null || items.isEmpty() ? "褰撳墠鐗囨簮娌℃湁鍙睍绀虹殑姒滃崟鍐呭" : "");
-            setStatus("Rank · Page " + currentPage);
+            showLoading(false, items == null || items.isEmpty() ? getString(R.string.main_msg_rank_empty) : "");
+            setStatus(getString(R.string.main_msg_rank_status, currentPage));
             updatePager();
             rankRecyclerView.scrollToPosition(0);
         });
@@ -469,7 +469,7 @@ public class MainActivity extends AppCompatActivity {
         }
         String keyword = searchInput.getText() == null ? "" : searchInput.getText().toString().trim();
         if (keyword.isEmpty()) {
-            toast("Please enter a search keyword");
+            toast(getString(R.string.main_msg_search_empty_keyword));
             return;
         }
         if (SettingsStore.keepLastSearch(this)) {
@@ -484,26 +484,26 @@ public class MainActivity extends AppCompatActivity {
         applyTabState();
         syncBottomSelection(R.id.menu_library);
         renderCategories();
-        setSectionTitle("Search: " + keyword);
-        showLoading(true, "姝ｅ湪鎼滅储 " + keyword + "...");
+        setSectionTitle(getString(R.string.main_msg_search_title, keyword));
+        showLoading(true, getString(R.string.main_msg_search_loading, keyword));
         engine.search(keyword, targetPage, (items, err) -> {
             if (token != contentVersion || sourceToken != sourceVersion) {
                 return;
             }
             swipeRefreshLayout.setRefreshing(false);
             if (!TextUtils.isEmpty(err) && (items == null || items.isEmpty())) {
-                showLoading(false, "鎼滅储澶辫触\n" + err);
+                showLoading(false, getString(R.string.main_msg_search_failed, err));
                 return;
             }
             if (targetPage > 1 && (items == null || items.isEmpty())) {
-                showLoading(false, adapter.getDataCount() == 0 ? "娌℃湁鏇村鎼滅储缁撴灉" : "");
-                toast("No more search results");
+                showLoading(false, adapter.getDataCount() == 0 ? getString(R.string.main_msg_search_last_page) : "");
+                toast(getString(R.string.main_msg_search_last_page_toast));
                 return;
             }
             adapter.submitList(items);
             currentPage = targetPage;
-            showLoading(false, items == null || items.isEmpty() ? "No matching results" : "");
-            setStatus("Search results · Page " + currentPage);
+            showLoading(false, items == null || items.isEmpty() ? getString(R.string.main_msg_search_empty) : "");
+            setStatus(getString(R.string.main_msg_search_status, currentPage));
             updatePager();
             mediaRecyclerView.scrollToPosition(0);
         });
@@ -613,20 +613,28 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void updateMinePanel() {
-        String title = currentSource == null ? "Source: loading" : "Source: " + currentSource.title;
-        String host = currentSource == null || currentSource.host.isEmpty() ? "Host: unavailable" : "Host: " + currentSource.host;
+        String title = currentSource == null
+                ? getString(R.string.main_msg_source_title_loading)
+                : getString(R.string.main_msg_source_title, currentSource.title);
+        String host = currentSource == null || currentSource.host.isEmpty()
+                ? getString(R.string.main_msg_source_host_unavailable)
+                : getString(R.string.main_msg_source_host, currentSource.host);
         mineSourceNameView.setText(title);
         mineSourceHostView.setText(host);
-        mineFeatureTextView.setText("Manage sources, import rules, switch playback kernel, and open settings.");
+        mineFeatureTextView.setText(getString(R.string.main_mine_source_desc));
     }
 
     private void updateKernelPanel() {
         boolean useExoKernel = SettingsStore.useExoKernel(this);
-        mineKernelNameView.setText(useExoKernel ? "\u5f53\u524d\uff1aExo \u589e\u5f3a\u5185\u6838" : "\u5f53\u524d\uff1a\u7cfb\u7edf\u9ed8\u8ba4\u5185\u6838");
+        mineKernelNameView.setText(useExoKernel
+                ? getString(R.string.main_msg_kernel_current_exo)
+                : getString(R.string.main_msg_kernel_current_system));
         mineKernelTipView.setText(useExoKernel
-                ? "\u9002\u5408 m3u8\u3001\u5206\u7247\u6d41\u548c\u5e26 Referer \u7684\u89c6\u9891\uff1b\u5982\u679c\u4e00\u76f4\u8f6c\u5708\uff0c\u53ef\u4ee5\u5148\u5207\u56de\u7cfb\u7edf\u5185\u6838\u3002"
-                : "\u517c\u5bb9\u6027\u66f4\u7a33\uff0c\u9002\u5408\u5148\u6392\u67e5\u95ee\u9898\uff1b\u5982\u679c\u90e8\u5206 m3u8 \u4e0d\u8d77\u64ad\uff0c\u53ef\u4ee5\u5207\u5230 Exo \u518d\u8bd5\u3002");
-        mineKernelSwitchButton.setText(useExoKernel ? "\u5207\u6362\u5230\u7cfb\u7edf\u5185\u6838" : "\u5207\u6362\u5230 Exo \u5185\u6838");
+                ? getString(R.string.main_msg_kernel_tip_exo)
+                : getString(R.string.main_msg_kernel_tip_system));
+        mineKernelSwitchButton.setText(useExoKernel
+                ? getString(R.string.main_msg_kernel_switch_system)
+                : getString(R.string.main_msg_kernel_switch_exo));
     }
 
     private void togglePlayerKernel() {
@@ -634,7 +642,9 @@ public class MainActivity extends AppCompatActivity {
         SettingsStore.setPlayerKernel(this,
                 useExoKernel ? SettingsStore.PLAYER_KERNEL_SYSTEM : SettingsStore.PLAYER_KERNEL_EXO);
         updateKernelPanel();
-        toast(useExoKernel ? "\u5df2\u5207\u6362\u5230\u7cfb\u7edf\u9ed8\u8ba4\u5185\u6838" : "\u5df2\u5207\u6362\u5230 Exo \u589e\u5f3a\u5185\u6838");
+        toast(useExoKernel
+                ? getString(R.string.main_msg_kernel_switched_system)
+                : getString(R.string.main_msg_kernel_switched_exo));
     }
 
     private void openDetail(NativeDrpyEngine.MediaItem item) {
@@ -679,7 +689,7 @@ public class MainActivity extends AppCompatActivity {
             emptyContainer.setVisibility(currentContentCount() == 0 ? View.VISIBLE : View.GONE);
             loadingIndicator.setVisibility(View.GONE);
             if (currentContentCount() == 0) {
-                emptyTextView.setText("No content here yet");
+                emptyTextView.setText(getString(R.string.main_msg_no_content));
             }
         }
         updatePager();
@@ -696,7 +706,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void updatePager() {
-        pageTextView.setText("Page " + currentPage);
+        pageTextView.setText(getString(R.string.main_page_label, currentPage));
         boolean enabled = currentSource != null && currentTab != MainTab.MINE;
         prevButton.setEnabled(enabled && currentPage > 1);
         nextButton.setEnabled(enabled);
