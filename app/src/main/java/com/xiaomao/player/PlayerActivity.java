@@ -14,12 +14,12 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import org.json.JSONObject;
 
-import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 
+import cn.jzvd.JZDataSource;
 import cn.jzvd.Jzvd;
 import cn.jzvd.JzvdStd;
 
@@ -83,17 +83,9 @@ public class PlayerActivity extends AppCompatActivity {
             return false;
         }
         try {
-            Class<?> dataSourceClass = Class.forName("cn.jzvd.JZDataSource");
-            Object dataSource = dataSourceClass.getConstructor(String.class, String.class).newInstance(playUrl, titleText);
-            try {
-                Field headerMapField = dataSourceClass.getField("headerMap");
-                headerMapField.set(dataSource, headers);
-            } catch (NoSuchFieldException ignored) {
-                Method setHeaderMap = dataSourceClass.getMethod("setHeaderMap", HashMap.class);
-                setHeaderMap.invoke(dataSource, new HashMap<>(headers));
-            }
-            Method setUp = playerView.getClass().getMethod("setUp", dataSourceClass, int.class);
-            setUp.invoke(playerView, dataSource, Jzvd.SCREEN_NORMAL);
+            JZDataSource dataSource = new JZDataSource(playUrl, titleText);
+            dataSource.headerMap = new HashMap<>(headers);
+            playerView.setUp(dataSource, Jzvd.SCREEN_NORMAL, XiaomaoMediaExo.class);
             return true;
         } catch (Throwable ignored) {
             return false;
@@ -101,14 +93,7 @@ public class PlayerActivity extends AppCompatActivity {
     }
 
     private void setupSimple() throws Exception {
-        try {
-            Method method = playerView.getClass().getMethod("setUp", String.class, String.class);
-            method.invoke(playerView, playUrl, titleText);
-            return;
-        } catch (NoSuchMethodException ignored) {
-        }
-        Method method = playerView.getClass().getMethod("setUp", String.class, String.class, int.class);
-        method.invoke(playerView, playUrl, titleText, Jzvd.SCREEN_NORMAL);
+        playerView.setUp(playUrl, titleText, Jzvd.SCREEN_NORMAL, XiaomaoMediaExo.class);
     }
 
     private void openExternal() {
