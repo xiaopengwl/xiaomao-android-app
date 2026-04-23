@@ -1,5 +1,6 @@
 package com.xiaomao.player;
 
+import android.graphics.SurfaceTexture;
 import android.net.Uri;
 import android.text.TextUtils;
 import android.view.Surface;
@@ -26,6 +27,7 @@ import cn.jzvd.Jzvd;
 public class XiaomaoMediaExo extends JZMediaInterface {
     private ExoPlayer exoPlayer;
     private Surface surface;
+    private SurfaceTexture surfaceTexture;
     private boolean preparedNotified = false;
     private float speed = 1.0f;
 
@@ -154,6 +156,9 @@ public class XiaomaoMediaExo extends JZMediaInterface {
 
     @Override
     public void setSurface(Surface surface) {
+        if (this.surface != null && this.surface != surface) {
+            this.surface.release();
+        }
         this.surface = surface;
         postToUi(() -> {
             if (exoPlayer != null) {
@@ -209,6 +214,33 @@ public class XiaomaoMediaExo extends JZMediaInterface {
         exoPlayer.removeListener(playerListener);
         exoPlayer.release();
         exoPlayer = null;
+    }
+
+    @Override
+    public void onSurfaceTextureAvailable(SurfaceTexture surfaceTexture, int width, int height) {
+        this.surfaceTexture = surfaceTexture;
+        setSurface(new Surface(surfaceTexture));
+    }
+
+    @Override
+    public void onSurfaceTextureSizeChanged(SurfaceTexture surfaceTexture, int width, int height) {
+    }
+
+    @Override
+    public boolean onSurfaceTextureDestroyed(SurfaceTexture surfaceTexture) {
+        if (exoPlayer != null) {
+            exoPlayer.setVideoSurface(null);
+        }
+        if (surface != null) {
+            surface.release();
+            surface = null;
+        }
+        this.surfaceTexture = null;
+        return true;
+    }
+
+    @Override
+    public void onSurfaceTextureUpdated(SurfaceTexture surfaceTexture) {
     }
 
     private MediaItem buildMediaItem(JZDataSource dataSource) {
