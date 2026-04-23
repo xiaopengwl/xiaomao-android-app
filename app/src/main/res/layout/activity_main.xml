@@ -70,6 +70,17 @@
                         android:textColor="#93A8A0"
                         android:textSize="12sp" />
                 </LinearLayout>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/refresh_button"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="44dp"
+                    android:text="刷新"
+                    android:textAllCaps="false"
+                    android:textColor="#E7F7ED"
+                    app:cornerRadius="14dp"
+                    app:strokeColor="#2A6340" />
             </LinearLayout>
 
             <TextView
@@ -81,79 +92,57 @@
                 android:textColor="#D7E5DE"
                 android:textSize="13sp" />
 
-            <LinearLayout
+            <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
+                android:layout_marginTop="14dp"
+                app:cardBackgroundColor="#102116"
+                app:cardCornerRadius="22dp"
+                app:strokeColor="#1FCB63"
+                app:strokeWidth="2dp">
 
-                <Spinner
-                    android:id="@+id/source_spinner"
-                    android:layout_width="0dp"
-                    android:layout_height="48dp"
-                    android:layout_weight="1"
-                    android:background="@android:drawable/editbox_background_normal"
-                    android:paddingStart="12dp"
-                    android:paddingEnd="12dp"
-                    android:popupBackground="#13221A" />
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/refresh_button"
-                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="48dp"
-                    android:layout_marginStart="10dp"
-                    android:text="刷新"
-                    android:textAllCaps="false"
-                    android:textColor="#E7F7ED"
-                    app:cornerRadius="16dp"
-                    app:strokeColor="#2A6340" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
-
-                <com.google.android.material.textfield.TextInputLayout
-                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense"
-                    android:layout_width="0dp"
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:hint="输入片名、演员、关键词"
-                    app:boxBackgroundColor="#0B1613"
-                    app:boxCornerRadiusBottomEnd="18dp"
-                    app:boxCornerRadiusBottomStart="18dp"
-                    app:boxCornerRadiusTopEnd="18dp"
-                    app:boxCornerRadiusTopStart="18dp"
-                    app:boxStrokeColor="#246940"
-                    app:hintTextColor="#86A995">
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingStart="14dp"
+                    android:paddingTop="12dp"
+                    android:paddingEnd="12dp"
+                    android:paddingBottom="12dp">
+
+                    <ImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:src="@android:drawable/ic_menu_search"
+                        android:tint="#B8FFD0" />
 
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/search_input"
-                        android:layout_width="match_parent"
+                        android:layout_width="0dp"
                         android:layout_height="wrap_content"
+                        android:layout_marginStart="10dp"
+                        android:layout_weight="1"
+                        android:background="@android:color/transparent"
+                        android:hint="输入片名、演员、关键词，回车直接搜索"
                         android:imeOptions="actionSearch"
                         android:inputType="text"
                         android:maxLines="1"
                         android:textColor="#FFFFFF"
-                        android:textColorHint="#86A995" />
-                </com.google.android.material.textfield.TextInputLayout>
+                        android:textColorHint="#B8FFD0"
+                        android:textSize="15sp" />
 
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/search_button"
-                    android:layout_width="wrap_content"
-                    android:layout_height="48dp"
-                    android:layout_marginStart="10dp"
-                    android:text="搜索"
-                    android:textAllCaps="false"
-                    android:textColor="#042111"
-                    app:backgroundTint="#1FCB63"
-                    app:cornerRadius="18dp" />
-            </LinearLayout>
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/search_button"
+                        android:layout_width="wrap_content"
+                        android:layout_height="44dp"
+                        android:text="搜索"
+                        android:textAllCaps="false"
+                        android:textColor="#042111"
+                        app:backgroundTint="#1FCB63"
+                        app:cornerRadius="16dp" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
 
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
@@ -180,7 +169,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="6dp"
-                        android:text="保留原有源解析与播放器能力，界面切成更接近原生视频 App 的中文样式。"
+                        android:text="首页只看片，“我的”里统一管理片源、导入源和设置。"
                         android:textColor="#B9DCC5"
                         android:textSize="13sp" />
                 </LinearLayout>
@@ -341,7 +330,7 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="已接入能力"
+                            android:text="原生页面"
                             android:textColor="#FFFFFF"
                             android:textSize="17sp"
                             android:textStyle="bold" />
@@ -352,64 +341,21 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="10dp"
                             android:lineSpacingExtra="4dp"
-                            android:text="原生详情页、选集、倍速、长按加速、竖屏播放入口、广告层自动尝试点击与增强嗅探。"
+                            android:text="把片源管理、导入源、设置都放到原生页面里，首页不再显示顶部下拉选择框。"
                             android:textColor="#D7E5DE"
                             android:textSize="14sp" />
-                    </LinearLayout>
-                </com.google.android.material.card.MaterialCardView>
 
-                <com.google.android.material.card.MaterialCardView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    app:cardBackgroundColor="#111B21"
-                    app:cardCornerRadius="22dp"
-                    app:strokeColor="#1F3A2A"
-                    app:strokeWidth="1dp">
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="vertical"
-                        android:padding="16dp">
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="快捷入口"
-                            android:textColor="#FFFFFF"
-                            android:textSize="17sp"
-                            android:textStyle="bold" />
-
-                        <LinearLayout
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/mine_source_manage_button"
                             android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="12dp"
-                            android:orientation="horizontal">
+                            android:layout_height="48dp"
+                            android:layout_marginTop="14dp"
+                            android:text="片源管理"
+                            android:textAllCaps="false"
+                            android:textColor="#042111"
+                            app:backgroundTint="#1FCB63"
+                            app:cornerRadius="16dp" />
 
-                            <com.google.android.material.button.MaterialButton
-                                android:id="@+id/mine_recommend_button"
-                                android:layout_width="0dp"
-                                android:layout_height="46dp"
-                                android:layout_weight="1"
-                                android:text="打开推荐"
-                                android:textAllCaps="false"
-                                android:textColor="#042111"
-                                app:backgroundTint="#1FCB63"
-                                app:cornerRadius="16dp" />
-
-                            <com.google.android.material.button.MaterialButton
-                                android:id="@+id/mine_library_button"
-                                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                                android:layout_width="0dp"
-                                android:layout_height="46dp"
-                                android:layout_marginStart="10dp"
-                                android:layout_weight="1"
-                                android:text="打开片库"
-                                android:textAllCaps="false"
-                                android:textColor="#E7F7ED"
-                                app:cornerRadius="16dp"
-                                app:strokeColor="#2A6340" />
-                        </LinearLayout>
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
             </LinearLayout>

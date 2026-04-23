@@ -25,6 +25,15 @@
             android:name=".DetailActivity"
             android:exported="false" />
         <activity
+            android:name=".SettingsActivity"
+            android:exported="false" />
+        <activity
+            android:name=".ImportSourceActivity"
+            android:exported="false" />
+        <activity
+            android:name=".SourceManagementActivity"
+            android:exported="false" />
+        <activity
             android:name=".MainActivity"
             android:exported="true">
             <intent-filter>

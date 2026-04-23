@@ -1,5 +1,6 @@
 package com.xiaomao.player;
 
+import android.app.Activity;
 import android.content.Intent;
 import android.content.res.ColorStateList;
 import android.os.Bundle;
@@ -8,14 +9,13 @@ import android.util.DisplayMetrics;
 import android.view.KeyEvent;
 import android.view.MenuItem;
 import android.view.View;
-import android.view.ViewGroup;
 import android.view.inputmethod.EditorInfo;
-import android.widget.ArrayAdapter;
 import android.widget.HorizontalScrollView;
-import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.GridLayoutManager;
@@ -29,16 +29,7 @@ import com.google.android.material.chip.Chip;
 import com.google.android.material.chip.ChipGroup;
 import com.google.android.material.textfield.TextInputEditText;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Comparator;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 public class MainActivity extends AppCompatActivity {
     private enum BrowseMode {
@@ -55,9 +46,6 @@ public class MainActivity extends AppCompatActivity {
         MINE
     }
 
-    private static final Pattern TITLE_PATTERN = Pattern.compile("title\\s*:\\s*['\"]([^'\"]+)['\"]");
-    private static final Pattern HOST_PATTERN = Pattern.compile("host\\s*:\\s*['\"]([^'\"]+)['\"]");
-
     private TextView mainTitleView;
     private TextView mainSubtitleView;
     private TextView headerSourceTextView;
@@ -72,14 +60,12 @@ public class MainActivity extends AppCompatActivity {
     private View loadingIndicator;
     private View pageControlsView;
     private HorizontalScrollView categoryScrollView;
-    private Spinner sourceSpinner;
     private MaterialButton refreshButton;
     private MaterialButton searchButton;
     private MaterialButton homeButton;
     private MaterialButton prevButton;
     private MaterialButton nextButton;
-    private MaterialButton mineRecommendButton;
-    private MaterialButton mineLibraryButton;
+    private MaterialButton mineSourceManageButton;
     private TextInputEditText searchInput;
     private ChipGroup categoryGroup;
     private SwipeRefreshLayout swipeRefreshLayout;
@@ -88,21 +74,26 @@ public class MainActivity extends AppCompatActivity {
     private View mineScrollView;
     private BottomNavigationView bottomNavigationView;
 
-    private final ArrayList<SourceRecord> sources = new ArrayList<>();
+    private final ArrayList<SourceStore.SourceItem> sources = new ArrayList<>();
     private final ArrayList<NativeDrpyEngine.Category> categories = new ArrayList<>();
     private final MediaGridAdapter adapter = new MediaGridAdapter();
     private final RankListAdapter rankAdapter = new RankListAdapter();
 
+    private final ActivityResultLauncher<Intent> pageLauncher =
+            registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
+                if (result.getResultCode() == Activity.RESULT_OK) {
+                    loadSources();
+                }
+            });
+
     private NativeDrpyEngine engine;
-    private SourceRecord currentSource;
+    private SourceStore.SourceItem currentSource;
     private NativeDrpyEngine.Category activeCategory;
     private BrowseMode browseMode = BrowseMode.HOME;
     private MainTab currentTab = MainTab.HOME;
-    private String currentKeyword = "";
     private int currentPage = 1;
     private int sourceVersion = 0;
     private int contentVersion = 0;
-    private boolean ignoreSourceSelection = false;
     private boolean ignoreBottomSelection = false;
 
     @Override
@@ -112,6 +103,9 @@ public class MainActivity extends AppCompatActivity {
         bindViews();
         setupRecycler();
         setupEvents();
+        if (SettingsStore.keepLastSearch(this)) {
+            searchInput.setText(SettingsStore.lastSearch(this));
+        }
         applyTabState();
         loadSources();
     }
@@ -140,14 +134,12 @@ public class MainActivity extends AppCompatActivity {
         loadingIndicator = findViewById(R.id.loading_indicator);
         pageControlsView = findViewById(R.id.page_controls);
         categoryScrollView = findViewById(R.id.category_scroll);
-        sourceSpinner = findViewById(R.id.source_spinner);
         refreshButton = findViewById(R.id.refresh_button);
         searchButton = findViewById(R.id.search_button);
         homeButton = findViewById(R.id.home_button);
         prevButton = findViewById(R.id.prev_button);
         nextButton = findViewById(R.id.next_button);
-        mineRecommendButton = findViewById(R.id.mine_recommend_button);
-        mineLibraryButton = findViewById(R.id.mine_library_button);
+        mineSourceManageButton = findViewById(R.id.mine_source_manage_button);
         searchInput = findViewById(R.id.search_input);
         categoryGroup = findViewById(R.id.category_group);
         swipeRefreshLayout = findViewById(R.id.swipe_refresh);
@@ -173,8 +165,7 @@ public class MainActivity extends AppCompatActivity {
         homeButton.setOnClickListener(v -> openHomeTab(true));
         prevButton.setOnClickListener(v -> changePage(-1));
         nextButton.setOnClickListener(v -> changePage(1));
-        mineRecommendButton.setOnClickListener(v -> openHomeTab(true));
-        mineLibraryButton.setOnClickListener(v -> openLibraryTab(true));
+        mineSourceManageButton.setOnClickListener(v -> openNativePage(SourceManagementActivity.class));
         swipeRefreshLayout.setOnRefreshListener(() -> reloadCurrentPage(true));
         searchInput.setOnEditorActionListener((v, actionId, event) -> {
             boolean enterPressed = event != null
@@ -185,21 +176,6 @@ public class MainActivity extends AppCompatActivity {
                 return true;
             }
             return false;
-        });
-        sourceSpinner.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
-            @Override
-            public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
-                if (ignoreSourceSelection) {
-                    return;
-                }
-                if (position >= 0 && position < sources.size()) {
-                    switchSource(sources.get(position));
-                }
-            }
-
-            @Override
-            public void onNothingSelected(android.widget.AdapterView<?> parent) {
-            }
         });
         bottomNavigationView.setOnItemSelectedListener(this::onBottomNavigationSelected);
     }
@@ -228,75 +204,61 @@ public class MainActivity extends AppCompatActivity {
         return false;
     }
 
+    private void openNativePage(Class<?> cls) {
+        pageLauncher.launch(new Intent(this, cls));
+    }
+
     private void loadSources() {
-        try {
-            String[] names = getAssets().list("sources");
-            if (names == null) {
-                showLoading(false, "没有找到内置片源");
-                return;
-            }
-            Arrays.sort(names, Comparator.naturalOrder());
-            sources.clear();
-            for (String name : names) {
-                if (!name.endsWith(".js")) {
-                    continue;
-                }
-                String raw = readAssetText("sources/" + name);
-                String title = matchFirst(raw, TITLE_PATTERN);
-                if (title.isEmpty()) {
-                    title = name.replace(".js", "");
-                }
-                String host = matchFirst(raw, HOST_PATTERN);
-                sources.add(new SourceRecord(name, title, host, raw));
-            }
-            if (sources.isEmpty()) {
-                showLoading(false, "当前没有可用片源");
-                return;
-            }
-            bindSourceSpinner();
-            switchSource(sources.get(0));
-        } catch (Exception e) {
-            showLoading(false, "片源加载失败：" + e.getMessage());
-        }
-    }
-
-    private void bindSourceSpinner() {
-        ignoreSourceSelection = true;
-        sourceSpinner.setAdapter(new SourceAdapter(sources));
-        sourceSpinner.setSelection(0, false);
-        ignoreSourceSelection = false;
-    }
-
-    private void switchSource(SourceRecord record) {
-        if (record == null) {
+        sources.clear();
+        sources.addAll(SourceStore.loadAll(this));
+        if (sources.isEmpty()) {
+            showLoading(false, "没有找到可用片源");
             return;
         }
-        if (currentSource != null && currentSource.fileName.equals(record.fileName)) {
+        SourceStore.SourceItem selected = SourceStore.resolveSelected(this, sources);
+        if (selected == null) {
+            selected = sources.get(0);
+        }
+        switchSource(selected);
+    }
+
+    private void switchSource(SourceStore.SourceItem record) {
+        if (record == null) {
             return;
         }
         if (engine != null) {
             engine.release();
         }
         currentSource = record;
+        SourceStore.setSelectedSourceId(this, record.id);
         engine = new NativeDrpyEngine(this, record.toNativeSource());
         sourceVersion += 1;
         contentVersion += 1;
-        currentKeyword = "";
-        currentPage = 1;
         browseMode = BrowseMode.HOME;
         currentTab = MainTab.HOME;
         activeCategory = null;
+        currentPage = 1;
         categories.clear();
         adapter.submitList(new ArrayList<>());
         rankAdapter.submitList(new ArrayList<>());
         mainTitleView.setText(getString(R.string.app_name));
         mainSubtitleView.setText("原生聚合 · 中文界面 · 直接播放");
+        if (!SettingsStore.keepLastSearch(this)) {
+            searchInput.setText("");
+        } else {
+            searchInput.setText(SettingsStore.lastSearch(this));
+        }
         updateSourceSummary();
         renderCategories();
         applyTabState();
-        syncBottomSelection(R.id.menu_home);
         loadCategories();
-        loadHomePage(1);
+        if (SettingsStore.defaultLibrary(this)) {
+            syncBottomSelection(R.id.menu_library);
+            openLibraryTab(true);
+        } else {
+            syncBottomSelection(R.id.menu_home);
+            loadHomePage(1);
+        }
     }
 
     private void loadCategories() {
@@ -326,8 +288,8 @@ public class MainActivity extends AppCompatActivity {
     private void openHomeTab(boolean reload) {
         currentTab = MainTab.HOME;
         browseMode = BrowseMode.HOME;
-        currentPage = 1;
         activeCategory = null;
+        currentPage = 1;
         applyTabState();
         syncBottomSelection(R.id.menu_home);
         renderCategories();
@@ -348,7 +310,7 @@ public class MainActivity extends AppCompatActivity {
         if (categories.isEmpty()) {
             setSectionTitle("片库");
             setStatus("正在加载分类...");
-            showLoading(categories.isEmpty(), categories.isEmpty() ? "正在加载分类..." : "");
+            showLoading(true, "正在加载分类...");
             loadCategories();
             return;
         }
@@ -356,8 +318,8 @@ public class MainActivity extends AppCompatActivity {
             activeCategory = categories.get(0);
         }
         browseMode = BrowseMode.CATEGORY;
-        currentKeyword = "";
-        if (reload || adapter.getDataCount() == 0 || currentTab != MainTab.LIBRARY) {
+        currentPage = 1;
+        if (reload || adapter.getDataCount() == 0) {
             loadCategoryPage(activeCategory, 1);
         } else {
             setSectionTitle(activeCategory.name);
@@ -386,7 +348,7 @@ public class MainActivity extends AppCompatActivity {
         applyTabState();
         syncBottomSelection(R.id.menu_mine);
         setSectionTitle("我的");
-        setStatus("片源、播放器与使用说明");
+        setStatus("在这里管理片源、导入源和设置");
         updateMinePanel();
         showLoading(false, "");
     }
@@ -440,7 +402,6 @@ public class MainActivity extends AppCompatActivity {
         browseMode = BrowseMode.CATEGORY;
         activeCategory = category;
         currentPage = targetPage;
-        currentKeyword = "";
         applyTabState();
         syncBottomSelection(R.id.menu_library);
         renderCategories();
@@ -515,12 +476,14 @@ public class MainActivity extends AppCompatActivity {
             toast("请先输入搜索关键词");
             return;
         }
+        if (SettingsStore.keepLastSearch(this)) {
+            SettingsStore.setLastSearch(this, keyword);
+        }
         final int targetPage = Math.max(1, page);
         final int token = ++contentVersion;
         final int sourceToken = sourceVersion;
         currentTab = MainTab.LIBRARY;
         browseMode = BrowseMode.SEARCH;
-        currentKeyword = keyword;
         currentPage = targetPage;
         applyTabState();
         syncBottomSelection(R.id.menu_library);
@@ -653,18 +616,18 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void updateSourceSummary() {
-        String title = currentSource == null ? "未选择" : currentSource.title;
-        String host = currentSource == null || currentSource.host.isEmpty() ? "站点地址未提供" : currentSource.host;
+        String title = currentSource == null ? "未选择片源" : currentSource.title;
+        String host = currentSource == null || currentSource.host.isEmpty() ? "未提供站点地址" : currentSource.host;
         headerSourceTextView.setText("当前片源：" + title + " · " + host);
         updateMinePanel();
     }
 
     private void updateMinePanel() {
         String title = currentSource == null ? "片源：加载中" : "片源：" + currentSource.title;
-        String host = currentSource == null || currentSource.host.isEmpty() ? "站点：当前源未提供 host" : "站点：" + currentSource.host;
+        String host = currentSource == null || currentSource.host.isEmpty() ? "站点：当前片源未提供 host" : "站点：" + currentSource.host;
         mineSourceNameView.setText(title);
         mineSourceHostView.setText(host);
-        mineFeatureTextView.setText("原生详情页、选集、倍速、长按加速、竖屏播放入口、广告层自动尝试点击与增强嗅探。");
+        mineFeatureTextView.setText("把片源管理、导入源、设置都放到原生页面里，首页不再显示顶部下拉选择框。");
     }
 
     private void openDetail(NativeDrpyEngine.MediaItem item) {
@@ -745,81 +708,5 @@ public class MainActivity extends AppCompatActivity {
 
     private int dp(int value) {
         return (int) (value * getResources().getDisplayMetrics().density + 0.5f);
-    }
-
-    private String readAssetText(String path) throws IOException {
-        try (InputStream inputStream = getAssets().open(path);
-             InputStreamReader reader = new InputStreamReader(inputStream, StandardCharsets.UTF_8);
-             BufferedReader bufferedReader = new BufferedReader(reader)) {
-            StringBuilder builder = new StringBuilder();
-            String line;
-            while ((line = bufferedReader.readLine()) != null) {
-                builder.append(line).append('\n');
-            }
-            return builder.toString();
-        }
-    }
-
-    private String matchFirst(String text, Pattern pattern) {
-        Matcher matcher = pattern.matcher(text == null ? "" : text);
-        if (matcher.find()) {
-            return matcher.group(1).trim();
-        }
-        return "";
-    }
-
-    private static final class SourceRecord {
-        final String fileName;
-        final String title;
-        final String host;
-        final String raw;
-
-        SourceRecord(String fileName, String title, String host, String raw) {
-            this.fileName = fileName == null ? "" : fileName;
-            this.title = title == null ? "" : title;
-            this.host = host == null ? "" : host;
-            this.raw = raw == null ? "" : raw;
-        }
-
-        NativeSource toNativeSource() {
-            return new NativeSource(title, host, raw);
-        }
-
-        @NonNull
-        @Override
-        public String toString() {
-            return title;
-        }
-    }
-
-    private final class SourceAdapter extends ArrayAdapter<SourceRecord> {
-        SourceAdapter(ArrayList<SourceRecord> items) {
-            super(MainActivity.this, android.R.layout.simple_spinner_item, items);
-            setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        }
-
-        @NonNull
-        @Override
-        public View getView(int position, View convertView, @NonNull ViewGroup parent) {
-            View view = super.getView(position, convertView, parent);
-            styleTextView(view, 0xFFFFFFFF, 0x00000000);
-            return view;
-        }
-
-        @Override
-        public View getDropDownView(int position, View convertView, @NonNull ViewGroup parent) {
-            View view = super.getDropDownView(position, convertView, parent);
-            styleTextView(view, 0xFFFFFFFF, 0xFF13221A);
-            return view;
-        }
-
-        private void styleTextView(View view, int textColor, int backgroundColor) {
-            if (view instanceof TextView) {
-                TextView textView = (TextView) view;
-                textView.setTextColor(textColor);
-                textView.setBackgroundColor(backgroundColor);
-                textView.setPadding(dp(12), dp(10), dp(12), dp(10));
-            }
-        }
     }
 }
