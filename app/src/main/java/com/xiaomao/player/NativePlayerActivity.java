@@ -52,8 +52,10 @@ import cn.jzvd.JzvdStd;
 
 public class NativePlayerActivity extends Activity {
     private JzvdStd playerView;
+    private LinearLayout navBar;
     private FrameLayout playerBox;
     private LinearLayout.LayoutParams playerBoxLayoutParams;
+    private ScrollView contentScrollView;
     private WebView sniffWeb;
     private View playerOverlay;
     private ProgressBar loading;
@@ -61,6 +63,7 @@ public class NativePlayerActivity extends Activity {
     private TextView lineView;
     private TextView stateView;
     private TextView portraitModeButton;
+    private TextView portraitExitButton;
     private LinearLayout episodeWrap;
 
     private NativeSource source;
@@ -150,7 +153,8 @@ public class NativePlayerActivity extends Activity {
         page.setOrientation(LinearLayout.VERTICAL);
         page.setBackgroundColor(Color.parseColor("#090B10"));
 
-        LinearLayout nav = new LinearLayout(this);
+        navBar = new LinearLayout(this);
+        LinearLayout nav = navBar;
         nav.setOrientation(LinearLayout.HORIZONTAL);
         nav.setGravity(Gravity.CENTER_VERTICAL);
         nav.setPadding(dp(12), dp(10), dp(12), dp(10));
@@ -205,6 +209,14 @@ public class NativePlayerActivity extends Activity {
         playerOverlay = overlay;
         playerBox.addView(overlay, new FrameLayout.LayoutParams(-1, -1));
 
+        portraitExitButton = makeChip("退出竖屏", "#B5121F", "#FF5E6C", "#FFFFFF");
+        portraitExitButton.setVisibility(View.GONE);
+        portraitExitButton.setOnClickListener(v -> applyPlayerBoxMode(false));
+        FrameLayout.LayoutParams portraitExitLp = new FrameLayout.LayoutParams(-2, dp(34), Gravity.TOP | Gravity.END);
+        portraitExitLp.topMargin = dp(12);
+        portraitExitLp.rightMargin = dp(12);
+        playerBox.addView(portraitExitButton, portraitExitLp);
+
         loading = new ProgressBar(this);
         overlay.addView(loading, new LinearLayout.LayoutParams(dp(38), dp(38)));
 
@@ -213,7 +225,8 @@ public class NativePlayerActivity extends Activity {
         stateView.setPadding(dp(14), dp(14), dp(14), 0);
         overlay.addView(stateView, new LinearLayout.LayoutParams(-2, -2));
 
-        ScrollView scrollView = new ScrollView(this);
+        contentScrollView = new ScrollView(this);
+        ScrollView scrollView = contentScrollView;
         scrollView.setFillViewport(true);
         page.addView(scrollView, new LinearLayout.LayoutParams(-1, 0, 1));
 
@@ -292,14 +305,32 @@ public class NativePlayerActivity extends Activity {
     private void applyPlayerBoxMode(boolean enabled) {
         portraitPlayerMode = enabled;
         if (playerBoxLayoutParams != null) {
-            playerBoxLayoutParams.height = enabled ? portraitPlayerHeight() : dp(232);
+            playerBoxLayoutParams.height = enabled ? 0 : dp(232);
+            playerBoxLayoutParams.weight = enabled ? 1f : 0f;
             if (playerBox != null) {
                 playerBox.setLayoutParams(playerBoxLayoutParams);
                 playerBox.requestLayout();
             }
         }
+        if (navBar != null) {
+            navBar.setVisibility(enabled ? View.GONE : View.VISIBLE);
+        }
+        if (contentScrollView != null) {
+            contentScrollView.setVisibility(enabled ? View.GONE : View.VISIBLE);
+        }
+        if (portraitExitButton != null) {
+            portraitExitButton.setVisibility(enabled ? View.VISIBLE : View.GONE);
+            portraitExitButton.bringToFront();
+        }
+        if (enabled) {
+            getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+        } else {
+            getWindow().clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+            getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        }
         if (portraitModeButton != null) {
             portraitModeButton.setText(enabled ? "恢复普通播放" : "竖屏播放");
+            portraitModeButton.setText(enabled ? "退出竖屏全屏" : "竖屏全屏");
             portraitModeButton.setBackground(enabled
                     ? cardBg("#E50914", "#FF5260", 16)
                     : cardBg("#1A2337", "#3D4B72", 16));
@@ -521,15 +552,25 @@ public class NativePlayerActivity extends Activity {
 
     private void probeCurrentPage(String url, int depth) {
         if (sniffWeb == null) return;
-        String js = "(function(){try{var out=[];"
-                + "function add(u,t){u=String(u||'').trim();if(!u)return;out.push({url:u,type:t||''});try{if(/%[0-9a-f]{2}/i.test(u)){var du=decodeURIComponent(u);if(du&&du!==u)out.push({url:du,type:(t||'')+'-decoded'});}}catch(e){}}"
+        String js = "(function(){try{"
+                + "function clickAdControls(){try{var sels=['.skip','.skip-btn','.skipad','.btn-skip','.ad-skip','.video-ad-skip','.close','.close-btn','.close-icon','.layui-layer-close','.icon-close','[class*=skip]','[class*=close]','[id*=skip]','[id*=close]'];"
+                + "for(var i=0;i<sels.length;i++){var nodes=document.querySelectorAll(sels[i]);for(var j=0;j<nodes.length;j++){var el=nodes[j];var text=((el.innerText||el.textContent||'')+' '+(el.value||'')).toLowerCase();if(!text||/skip|close|jump|跳过|关闭|继续播放|立即播放|进入播放|我已看完/.test(text)){try{el.click();}catch(e){}}}}"
+                + "var taps=document.querySelectorAll('button,a,div,span');for(var k=0;k<taps.length;k++){var item=taps[k];var label=((item.innerText||item.textContent||'')+' '+(item.value||'')).trim();if(label&&/跳过|关闭|继续播放|立即播放|进入播放|我已看完广告|skip|close/i.test(label)){try{item.click();}catch(e){}}}"
+                + "}catch(e){}}"
+                + "function report(tag){try{var out=[];var seen={};"
+                + "function add(u,t){u=String(u||'').trim();if(!u||seen[u])return;seen[u]=1;out.push({url:u,type:t||''});try{if(/%[0-9a-f]{2}/i.test(u)){var du=decodeURIComponent(u);if(du&&du!==u&&!seen[du]){seen[du]=1;out.push({url:du,type:(t||'')+'-decoded'});}}}catch(e){}}"
                 + "var vids=document.querySelectorAll('video,source,audio');for(var i=0;i<vids.length;i++){add(vids[i].currentSrc||vids[i].src,'video');add(vids[i].getAttribute('src'),'media');add(vids[i].getAttribute('data-src'),'media');}"
-                + "var links=document.querySelectorAll('a[href],iframe[src],iframe[data-src],embed[src],object[data],[data-play],[data-url],[data-player],[data-play-url]');"
-                + "for(var k=0;k<links.length;k++){var n=links[k];add(n.getAttribute('href')||n.getAttribute('src')||n.getAttribute('data')||n.getAttribute('data-play')||n.getAttribute('data-url')||n.getAttribute('data-player')||n.getAttribute('data-play-url'), n.tagName.toLowerCase());}"
+                + "var links=document.querySelectorAll('a[href],iframe[src],iframe[data-src],embed[src],object[data],[data-play],[data-url],[data-player],[data-play-url],[data-href],[onclick]');"
+                + "for(var k=0;k<links.length;k++){var n=links[k];add(n.getAttribute('href')||n.getAttribute('src')||n.getAttribute('data')||n.getAttribute('data-play')||n.getAttribute('data-url')||n.getAttribute('data-player')||n.getAttribute('data-play-url')||n.getAttribute('data-href'), n.tagName.toLowerCase());add(n.getAttribute('onclick'),'onclick');}"
                 + "var html=document.documentElement?document.documentElement.outerHTML:'';"
-                + "var regs=[/https?:\\/\\/[^\\s\"'<>]+/g,/(?:thisUrl|video_src|videoUrl)\\s*[:=]\\s*[\\\"']([^\\\"']+)[\\\"']/ig,/(?:player_aaaa|player_data|__PLAYER__|MacPlayerConfig)\\s*=\\s*\\{[\\s\\S]*?(?:url|src|video_url|parse_api)\\s*[:=]\\s*[\\\"']([^\\\"']+)[\\\"'][\\s\\S]*?\\}/ig,/src\\s*:\\s*[\\\"']([^\\\"']+)[\\\"']/ig,/[\\\"'](%[0-9a-f]{2}[^\\\"']*(?:%6d%33%75%38|%6d%70%34)[^\\\"']*)[\\\"']/ig];"
-                + "for(var r=0;r<regs.length;r++){var m;while((m=regs[r].exec(html))){add(m[1]||m[0],'html');}}"
-                + "HermesPlayer.onSniffResult(JSON.stringify(out)," + depth + "," + JSONObject.quote(url == null ? "" : url) + ");"
+                + "var regs=[/https?:\\/\\/[^\\s\"'<>]+/g,/(?:thisUrl|video_src|videoUrl|play_url|playUrl)\\s*[:=]\\s*[\\\"']([^\\\"']+)[\\\"']/ig,/(?:player_aaaa|player_data|__PLAYER__|MacPlayerConfig)\\s*=\\s*\\{[\\s\\S]*?(?:url|src|video_url|parse_api|link_next)\\s*[:=]\\s*[\\\"']([^\\\"']+)[\\\"'][\\s\\S]*?\\}/ig,/src\\s*:\\s*[\\\"']([^\\\"']+)[\\\"']/ig,/[\\\"'](%[0-9a-f]{2}[^\\\"']*(?:%6d%33%75%38|%6d%70%34)[^\\\"']*)[\\\"']/ig];"
+                + "for(var r=0;r<regs.length;r++){var m;while((m=regs[r].exec(html))){add(m[1]||m[0],'html-'+tag);}}"
+                + "HermesPlayer.onSniffResult(JSON.stringify(out)," + depth + ",location.href||" + JSONObject.quote(url == null ? "" : url) + ");"
+                + "}catch(e){HermesPlayer.onSniffResult('[]'," + depth + ",location.href||" + JSONObject.quote(url == null ? "" : url) + ");}}}"
+                + "if(!window.__xmSniffHooked){window.__xmSniffHooked=1;try{var rawFetch=window.fetch;if(rawFetch){window.fetch=function(){try{var target=arguments[0];var hookUrl=(typeof target==='string'?target:(target&&target.url)||'');if(hookUrl){HermesPlayer.onSniffResult(JSON.stringify([{url:hookUrl,type:'fetch-call'}])," + depth + ",location.href||" + JSONObject.quote(url == null ? "" : url) + ");}}catch(e){}return rawFetch.apply(this,arguments).then(function(resp){try{if(resp&&resp.url){HermesPlayer.onSniffResult(JSON.stringify([{url:resp.url,type:'fetch'}])," + depth + ",location.href||" + JSONObject.quote(url == null ? "" : url) + ");}}catch(e){}return resp;});};}}catch(e){}"
+                + "try{var xhrOpen=XMLHttpRequest.prototype.open;XMLHttpRequest.prototype.open=function(method,u){this.__xmUrl=u;return xhrOpen.apply(this,arguments);};var xhrSend=XMLHttpRequest.prototype.send;XMLHttpRequest.prototype.send=function(){var xhr=this;function done(){try{var finalUrl=xhr.responseURL||xhr.__xmUrl||'';if(finalUrl){HermesPlayer.onSniffResult(JSON.stringify([{url:finalUrl,type:'xhr'}])," + depth + ",location.href||" + JSONObject.quote(url == null ? "" : url) + ");}}catch(e){}}xhr.addEventListener('load',done);return xhrSend.apply(this,arguments);};}catch(e){}"
+                + "}"
+                + "clickAdControls();report('now');setTimeout(function(){clickAdControls();report('delay1');},1200);setTimeout(function(){clickAdControls();report('delay2');},3200);setTimeout(function(){clickAdControls();report('delay3');},5600);"
                 + "}catch(e){HermesPlayer.onSniffResult('[]'," + depth + "," + JSONObject.quote(url == null ? "" : url) + ");}})();";
         sniffWeb.evaluateJavascript(js, null);
     }
@@ -877,6 +918,10 @@ public class NativePlayerActivity extends Activity {
     }
     @Override
     public void onBackPressed() {
+        if (portraitPlayerMode) {
+            applyPlayerBoxMode(false);
+            return;
+        }
         if (Jzvd.backPress()) {
             return;
         }
@@ -900,6 +945,7 @@ public class NativePlayerActivity extends Activity {
     @Override
     protected void onDestroy() {
         getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        getWindow().clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
         handler.removeCallbacksAndMessages(null);
         releaseSniffer();
         Jzvd.releaseAllVideos();

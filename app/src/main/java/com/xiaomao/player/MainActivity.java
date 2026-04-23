@@ -627,24 +627,29 @@ public class MainActivity extends AppCompatActivity {
                 public void onPageFinished(WebView view, String url) {
                     mainHandler.removeCallbacks(pageIdleHolder[0]);
                     String js = "(function(){try{var out=[];var pages=[];var seen={};var seenPages={};"
+                            + "function clickAdControls(){try{var sels=['.skip','.skip-btn','.skipad','.btn-skip','.ad-skip','.video-ad-skip','.close','.close-btn','.close-icon','.layui-layer-close','.icon-close','[class*=skip]','[class*=close]','[id*=skip]','[id*=close]'];"
+                            + "for(var a=0;a<sels.length;a++){var nodes=document.querySelectorAll(sels[a]);for(var b=0;b<nodes.length;b++){var el=nodes[b];var text=((el.innerText||el.textContent||'')+' '+(el.value||'')).toLowerCase();if(!text||/skip|close|jump|跳过|关闭|继续播放|立即播放|进入播放|我已看完/.test(text)){try{el.click();}catch(e){}}}}"
+                            + "var taps=document.querySelectorAll('button,a,div,span');for(var c=0;c<taps.length;c++){var item=taps[c];var label=((item.innerText||item.textContent||'')+' '+(item.value||'')).trim();if(label&&/跳过|关闭|继续播放|立即播放|进入播放|我已看完广告|skip|close/i.test(label)){try{item.click();}catch(e){}}}"
+                            + "}catch(e){}}"
                             + "function add(u){u=String(u||'').trim();if(!u||seen[u])return;seen[u]=1;out.push(u);try{if(/%[0-9a-f]{2}/i.test(u)){var du=decodeURIComponent(u);if(du&&!seen[du]){seen[du]=1;out.push(du);}}}catch(e){}}"
                             + "function addPage(u){if(!u||seenPages[u])return;seenPages[u]=1;pages.push(u);}"
+                            + "clickAdControls();"
                             + "var nodes=document.querySelectorAll('video,source,audio,iframe,embed');"
                             + "for(var i=0;i<nodes.length;i++){"
                             + "add(nodes[i].src);add(nodes[i].getAttribute('src'));add(nodes[i].getAttribute('data-src'));add(nodes[i].currentSrc);"
                             + "if(nodes[i].tagName==='IFRAME'){addPage(nodes[i].src);addPage(nodes[i].getAttribute('src'));addPage(nodes[i].getAttribute('data-src'));}"
                             + "}"
                             + "var attrs=['data-config','data-play','data-url','data-src','data-player','data-from','data-href','data-play-url','data-player-url','data-target'];"
-                            + "var vids=document.querySelectorAll('[data-config],[data-play],[data-url],[data-src],[data-player],[data-from],[data-href],[data-play-url],[data-player-url],[data-target],a[href],iframe[src],iframe[data-src],script[src]');"
+                            + "var vids=document.querySelectorAll('[data-config],[data-play],[data-url],[data-src],[data-player],[data-from],[data-href],[data-play-url],[data-player-url],[data-target],a[href],iframe[src],iframe[data-src],script[src],[onclick]');"
                             + "for(var j=0;j<vids.length;j++){"
                             + "for(var k=0;k<attrs.length;k++){var val=vids[j].getAttribute(attrs[k]);add(val);addPage(val);}"
                             + "add(vids[j].href);addPage(vids[j].href);add(vids[j].src);addPage(vids[j].src);"
                             + "}"
                             + "var html=document.documentElement?document.documentElement.innerHTML:'';"
                             + "var patterns=["
-                            + "/(?:url|playurl|video_url|video|src)\\\\s*[:=]\\\\s*[\\\"']([^\\\"'<>\\\\s]+)[\\\"']/ig,"
+                            + "/(?:url|playurl|video_url|video|src|play_url|playUrl)\\\\s*[:=]\\\\s*[\\\"']([^\\\"'<>\\\\s]+)[\\\"']/ig,"
                             + "/(?:player_?[a-z0-9]*)\\\\s*=\\\\s*\\\\{[\\\\s\\\\S]*?(?:url|src)\\\\s*[:=]\\\\s*[\\\"']([^\\\"']+)[\\\"'][\\\\s\\\\S]*?\\\\}/ig,"
-                            + "/(?:player_aaaa|player_data|__PLAYER__|MacPlayerConfig)\\\\s*=\\\\s*\\\\{[\\\\s\\\\S]*?(?:url|src|link_next|parse|parse_api)\\\\s*[:=]\\\\s*[\\\"']([^\\\"']+)[\\\"'][\\\\s\\\\S]*?\\\\}/ig,"
+                            + "/(?:player_aaaa|player_data|__PLAYER__|MacPlayerConfig)\\\\s*=\\\\s*\\\\{[\\\\s\\\\S]*?(?:url|src|link_next|parse|parse_api|play_url)\\\\s*[:=]\\\\s*[\\\"']([^\\\"']+)[\\\"'][\\\\s\\\\S]*?\\\\}/ig,"
                             + "/(?:thisUrl|video_src|videoUrl)\\\\s*[:=]\\\\s*[\\\"']([^\\\"']+)[\\\"']/ig,"
                             + "/src\\\\s*:\\\\s*[\\\"']([^\\\"']+)[\\\"']/ig,"
                             + "/[\\\"'](https?:\\\\/\\\\/[^\\\"']+?(?:m3u8|mp4|m4v|flv|mpd|webm)[^\\\"']*)[\\\"']/ig,"
@@ -679,7 +684,7 @@ public class MainActivity extends AppCompatActivity {
                         } catch (Exception ignored) {
                         }
                         if (!finished.get()) {
-                            mainHandler.postDelayed(pageIdleHolder[0], 900);
+                            mainHandler.postDelayed(pageIdleHolder[0], 2600);
                         }
                     });
                     super.onPageFinished(view, url);
