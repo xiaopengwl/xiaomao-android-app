@@ -329,7 +329,6 @@ public class NativePlayerActivity extends Activity {
             getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         }
         if (portraitModeButton != null) {
-            portraitModeButton.setText(enabled ? "恢复普通播放" : "竖屏播放");
             portraitModeButton.setText(enabled ? "退出竖屏全屏" : "竖屏全屏");
             portraitModeButton.setBackground(enabled
                     ? cardBg("#E50914", "#FF5260", 16)
@@ -925,7 +924,16 @@ public class NativePlayerActivity extends Activity {
         if (Jzvd.backPress()) {
             return;
         }
-        super.onBackPressed();
+        returnToMainPage();
+    }
+
+    private void returnToMainPage() {
+        releaseSniffer();
+        Jzvd.releaseAllVideos();
+        Intent intent = new Intent(this, MainActivity.class);
+        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        startActivity(intent);
+        finish();
     }
 
     @Override

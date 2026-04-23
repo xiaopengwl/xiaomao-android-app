@@ -53,7 +53,7 @@ public class PlayerActivity extends AppCompatActivity {
         titleView.setText(titleText);
         subtitleView.setText(parseHeaders(headersJson).isEmpty() ? "JZVideo 原生播放" : "JZVideo 原生播放 · 已附带请求头");
 
-        backButton.setOnClickListener(v -> finish());
+        backButton.setOnClickListener(v -> returnToMainPage());
         externalButton.setOnClickListener(v -> openExternal());
 
         startPlayback();
@@ -126,7 +126,15 @@ public class PlayerActivity extends AppCompatActivity {
         if (Jzvd.backPress()) {
             return;
         }
-        super.onBackPressed();
+        returnToMainPage();
+    }
+
+    private void returnToMainPage() {
+        Jzvd.releaseAllVideos();
+        Intent intent = new Intent(this, MainActivity.class);
+        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        startActivity(intent);
+        finish();
     }
 
     @Override
