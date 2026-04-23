@@ -74,6 +74,95 @@ function __xmNormalizePosterUrl(value, host) {
   return __xmAbsoluteUrl(url, host || "");
 }
 
+function __xmDecodeBase64Safe(value) {
+  try {
+    return atob(String(value || "").trim());
+  } catch (error) {
+    return "";
+  }
+}
+
+function __xmLooksLikeMediaUrl(url) {
+  var lower = String(url || "").toLowerCase();
+  return lower.indexOf(".m3u8") >= 0
+    || lower.indexOf(".mp4") >= 0
+    || lower.indexOf(".flv") >= 0
+    || lower.indexOf(".mpd") >= 0
+    || lower.indexOf("/m3u8") >= 0
+    || lower.indexOf("application/vnd.apple.mpegurl") >= 0
+    || lower.indexOf("mime=video") >= 0
+    || lower.indexOf("video_mp4") >= 0
+    || lower.indexOf("obj/tos") >= 0;
+}
+
+function __xmDecodeMacPlayerUrl(url, encrypt) {
+  var value = String(url || "").trim();
+  var encryptFlag = String(encrypt == null ? "" : encrypt).trim();
+  if (!value) {
+    return "";
+  }
+  try {
+    if (encryptFlag === "1") {
+      value = unescape(value);
+    } else if (encryptFlag === "2") {
+      var decoded = __xmDecodeBase64Safe(value);
+      value = decoded || value;
+      try {
+        value = unescape(value);
+      } catch (ignored) {
+      }
+    }
+  } catch (ignored2) {
+  }
+  return String(value || "")
+    .replace(/\\u002f/gi, "/")
+    .replace(/\\u003a/gi, ":")
+    .replace(/\\u0026/gi, "&")
+    .replace(/\\\//g, "/")
+    .trim();
+}
+
+function __xmExtractPlayerConfig(html) {
+  var text = String(html || "");
+  if (!text) {
+    return null;
+  }
+  var patterns = [
+    /(?:var\s+)?(?:player_aaaa|player_data|MacPlayerConfig)\s*=\s*(\{[\s\S]*?\})\s*;/i,
+    /(?:var\s+)?(?:player_aaaa|player_data|MacPlayerConfig)\s*=\s*(\{[\s\S]*?\})\s*</i
+  ];
+  for (var i = 0; i < patterns.length; i += 1) {
+    var match = text.match(patterns[i]);
+    if (!match || !match[1]) {
+      continue;
+    }
+    try {
+      return JSON.parse(match[1]);
+    } catch (error) {
+    }
+  }
+  return null;
+}
+
+function __xmBuildLazyFallback(html, pageUrl, host, headers) {
+  var config = __xmExtractPlayerConfig(html);
+  if (!config) {
+    return null;
+  }
+  var rawUrl = config.url || config.src || config.video_url || config.file || "";
+  var decodedUrl = __xmDecodeMacPlayerUrl(rawUrl, config.encrypt);
+  var absoluteUrl = __xmAbsoluteUrl(decodedUrl, host || pageUrl || "");
+  if (!absoluteUrl || !__xmLooksLikeMediaUrl(absoluteUrl)) {
+    return null;
+  }
+  return {
+    url: absoluteUrl,
+    parse: 0,
+    jx: 0,
+    header: headers || {}
+  };
+}
+
 function __xmGetRuleValue(ruleObject, keys) {
   for (var i = 0; i < keys.length; i += 1) {
     if (Object.prototype.hasOwnProperty.call(ruleObject, keys[i])) {

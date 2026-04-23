@@ -551,6 +551,10 @@ public class NativePlayerActivity extends Activity {
 
     private void probeCurrentPage(String url, int depth) {
         if (sniffWeb == null) return;
+        if (Build.VERSION.SDK_INT >= 0) {
+            sniffWeb.evaluateJavascript(buildProbeScript(url, depth), null);
+            return;
+        }
         String js = "(function(){try{"
                 + "function clickAdControls(){try{var sels=['.skip','.skip-btn','.skipad','.btn-skip','.ad-skip','.video-ad-skip','.close','.close-btn','.close-icon','.layui-layer-close','.icon-close','[class*=skip]','[class*=close]','[id*=skip]','[id*=close]'];"
                 + "for(var i=0;i<sels.length;i++){var nodes=document.querySelectorAll(sels[i]);for(var j=0;j<nodes.length;j++){var el=nodes[j];var text=((el.innerText||el.textContent||'')+' '+(el.value||'')).toLowerCase();if(!text||/skip|close|jump|跳过|关闭|继续播放|立即播放|进入播放|我已看完/.test(text)){try{el.click();}catch(e){}}}}"
@@ -574,11 +578,229 @@ public class NativePlayerActivity extends Activity {
         sniffWeb.evaluateJavascript(js, null);
     }
 
+    private String buildProbeScript(String url, int depth) {
+        String fallbackUrl = JSONObject.quote(url == null ? "" : url);
+        return """
+                (function(){
+                  try{
+                    var fallback = __FALLBACK__;
+                    var depth = __DEPTH__;
+                    function emit(items, page){
+                      try{
+                        if(!items || !items.length) return;
+                        HermesPlayer.onSniffResult(JSON.stringify(items), depth, page || location.href || fallback);
+                      }catch(e){}
+                    }
+                    function createCollector(){
+                      var out = [];
+                      var seen = {};
+                      function add(u, t){
+                        u = String(u || '').trim();
+                        if(!u || seen[u] || /^(javascript:|about:blank|blob:|data:)/i.test(u)) return;
+                        seen[u] = 1;
+                        out.push({url:u, type:t || ''});
+                        try{
+                          if(/\\\\u002f|\\\\u003a|\\\\u0026/i.test(u)){
+                            var unicodeUrl = u.replace(/\\\\u002f/ig, '/').replace(/\\\\u003a/ig, ':').replace(/\\\\u0026/ig, '&');
+                            if(unicodeUrl && unicodeUrl !== u && !seen[unicodeUrl]){
+                              seen[unicodeUrl] = 1;
+                              out.push({url:unicodeUrl, type:(t || '') + '-unicode'});
+                            }
+                          }
+                        }catch(e){}
+                        try{
+                          if(/%[0-9a-f]{2}/i.test(u)){
+                            var decoded = decodeURIComponent(u);
+                            if(decoded && decoded !== u && !seen[decoded]){
+                              seen[decoded] = 1;
+                              out.push({url:decoded, type:(t || '') + '-decoded'});
+                            }
+                          }
+                        }catch(e){}
+                        try{
+                          var slashDecoded = u.replace(/\\\\\\//g, '/');
+                          if(slashDecoded && slashDecoded !== u && !seen[slashDecoded]){
+                            seen[slashDecoded] = 1;
+                            out.push({url:slashDecoded, type:(t || '') + '-slashes'});
+                          }
+                        }catch(e){}
+                      }
+                      return {out:out, add:add};
+                    }
+                    function collectFromText(text, tag, collector){
+                      try{
+                        text = text == null ? '' : String(text);
+                        if(!text) return;
+                        if(text.length > 400000) text = text.slice(0, 400000);
+                        var normalized = text
+                          .replace(/\\\\u002f/ig, '/')
+                          .replace(/\\\\u003a/ig, ':')
+                          .replace(/\\\\u0026/ig, '&')
+                          .replace(/\\\\\\//g, '/');
+                        var patterns = [
+                          /https?:\\/\\/[^\\s"'<>\\\\]+/ig,
+                          /(?:thisUrl|video_src|videoUrl|play_url|playUrl|url|src|video_url|file|hls|hls_url|stream_url|link_next|jump|videoLink)\\s*[:=]\\s*["']([^"'<>]+)["']/ig,
+                          /(?:player_aaaa|player_data|__PLAYER__|MacPlayerConfig)\\s*=\\s*\\{[\\s\\S]*?(?:url|src|video_url|parse_api|link_next)\\s*[:=]\\s*["']([^"']+)["'][\\s\\S]*?\\}/ig,
+                          /["'](%[0-9a-f]{2}[^"']*(?:%6d%33%75%38|%6d%70%34|%66%6c%76|%6d%70%64)[^"']*)["']/ig,
+                          /["']((?:\\\\\\/|\\/|https?:\\/\\/)?[^"'\\s<>]+\\.(?:m3u8|mp4|flv|mpd)(?:\\?[^"'<>]*)?)["']/ig,
+                          /(?:url|src|video|play|source)=((?:https?:)?%2f%2f[^&"']+)/ig
+                        ];
+                        for(var i = 0; i < patterns.length; i++){
+                          var match;
+                          while((match = patterns[i].exec(normalized))){
+                            collector.add(match[1] || match[0], tag);
+                          }
+                        }
+                      }catch(e){}
+                    }
+                    function shouldInspectBody(targetUrl, contentType){
+                      var lowerUrl = String(targetUrl || '').toLowerCase();
+                      var lowerType = String(contentType || '').toLowerCase();
+                      if(lowerUrl.indexOf('.m3u8') >= 0 || lowerUrl.indexOf('.mp4') >= 0 || lowerUrl.indexOf('.flv') >= 0 || lowerUrl.indexOf('.mpd') >= 0) return true;
+                      if(lowerType.indexOf('json') >= 0 || lowerType.indexOf('text') >= 0 || lowerType.indexOf('javascript') >= 0) return true;
+                      if(lowerType.indexOf('html') >= 0 || lowerType.indexOf('xml') >= 0 || lowerType.indexOf('mpegurl') >= 0) return true;
+                      return /player|parse|video|api|play|source|stream/.test(lowerUrl);
+                    }
+                    function clickAdControls(){
+                      try{
+                        var sels = ['.skip','.skip-btn','.skipad','.btn-skip','.ad-skip','.video-ad-skip','.close','.close-btn','.close-icon','.layui-layer-close','.icon-close','[class*=skip]','[class*=close]','[id*=skip]','[id*=close]'];
+                        for(var i = 0; i < sels.length; i++){
+                          var nodes = document.querySelectorAll(sels[i]);
+                          for(var j = 0; j < nodes.length; j++){
+                            var el = nodes[j];
+                            var text = ((el.innerText || el.textContent || '') + ' ' + (el.value || '')).toLowerCase();
+                            if(!text || /skip|close|jump|璺宠繃|鍏抽棴|缁х画鎾斁|绔嬪嵆鎾斁|杩涘叆鎾斁|鎴戝凡鐪嬪畬/.test(text)){
+                              try{ el.click(); }catch(e){}
+                            }
+                          }
+                        }
+                        var taps = document.querySelectorAll('button,a,div,span');
+                        for(var k = 0; k < taps.length; k++){
+                          var item = taps[k];
+                          var label = ((item.innerText || item.textContent || '') + ' ' + (item.value || '')).trim();
+                          if(label && /璺宠繃|鍏抽棴|缁х画鎾斁|绔嬪嵆鎾斁|杩涘叆鎾斁|鎴戝凡鐪嬪畬骞垮憡|skip|close/i.test(label)){
+                            try{ item.click(); }catch(e){}
+                          }
+                        }
+                      }catch(e){}
+                    }
+                    function report(tag){
+                      try{
+                        var collector = createCollector();
+                        var vids = document.querySelectorAll('video,source,audio');
+                        for(var i = 0; i < vids.length; i++){
+                          collector.add(vids[i].currentSrc || vids[i].src, 'video');
+                          collector.add(vids[i].getAttribute('src'), 'media');
+                          collector.add(vids[i].getAttribute('data-src'), 'media');
+                        }
+                        var links = document.querySelectorAll('a[href],iframe[src],iframe[data-src],embed[src],object[data],[data-play],[data-url],[data-player],[data-play-url],[data-href],[onclick]');
+                        for(var k = 0; k < links.length; k++){
+                          var node = links[k];
+                          collector.add(node.getAttribute('href') || node.getAttribute('src') || node.getAttribute('data') || node.getAttribute('data-play') || node.getAttribute('data-url') || node.getAttribute('data-player') || node.getAttribute('data-play-url') || node.getAttribute('data-href'), node.tagName.toLowerCase());
+                          collector.add(node.getAttribute('onclick'), 'onclick');
+                        }
+                        collectFromText(document.documentElement ? document.documentElement.outerHTML : '', 'html-' + tag, collector);
+                        emit(collector.out);
+                      }catch(e){
+                        emit([], fallback);
+                      }
+                    }
+                    if(!window.__xmSniffHooked){
+                      window.__xmSniffHooked = 1;
+                      try{
+                        var rawFetch = window.fetch;
+                        if(rawFetch){
+                          window.fetch = function(){
+                            var requestUrl = '';
+                            try{
+                              var target = arguments[0];
+                              requestUrl = (typeof target === 'string' ? target : (target && target.url) || '');
+                              if(requestUrl) emit([{url:requestUrl, type:'fetch-call'}], requestUrl);
+                            }catch(e){}
+                            return rawFetch.apply(this, arguments).then(function(resp){
+                              try{
+                                var finalUrl = (resp && resp.url) || requestUrl || '';
+                                if(finalUrl) emit([{url:finalUrl, type:'fetch'}], finalUrl);
+                                var contentType = '';
+                                try{ contentType = (resp && resp.headers && resp.headers.get && resp.headers.get('content-type')) || ''; }catch(e){}
+                                if(resp && resp.clone && shouldInspectBody(finalUrl, contentType)){
+                                  resp.clone().text().then(function(text){
+                                    var collector = createCollector();
+                                    collectFromText(text, 'fetch-body', collector);
+                                    emit(collector.out, finalUrl);
+                                  }).catch(function(){});
+                                }
+                              }catch(e){}
+                              return resp;
+                            });
+                          };
+                        }
+                      }catch(e){}
+                      try{
+                        var xhrOpen = XMLHttpRequest.prototype.open;
+                        XMLHttpRequest.prototype.open = function(method, u){
+                          this.__xmUrl = u;
+                          return xhrOpen.apply(this, arguments);
+                        };
+                        var xhrSend = XMLHttpRequest.prototype.send;
+                        XMLHttpRequest.prototype.send = function(){
+                          var xhr = this;
+                          function done(){
+                            try{
+                              var finalUrl = xhr.responseURL || xhr.__xmUrl || '';
+                              if(finalUrl) emit([{url:finalUrl, type:'xhr'}], finalUrl);
+                              var responseType = xhr.responseType || '';
+                              var contentType = '';
+                              try{ contentType = xhr.getResponseHeader('content-type') || ''; }catch(e){}
+                              if(!responseType || responseType === 'text' || responseType === 'json' || shouldInspectBody(finalUrl, contentType)){
+                                var body = '';
+                                try{
+                                  if(responseType === 'json' && xhr.response){
+                                    body = JSON.stringify(xhr.response);
+                                  }else if(typeof xhr.responseText === 'string'){
+                                    body = xhr.responseText;
+                                  }else if(typeof xhr.response === 'string'){
+                                    body = xhr.response;
+                                  }
+                                }catch(e){}
+                                if(body){
+                                  var collector = createCollector();
+                                  collectFromText(body, 'xhr-body', collector);
+                                  emit(collector.out, finalUrl);
+                                }
+                              }
+                            }catch(e){}
+                          }
+                          xhr.addEventListener('load', done);
+                          return xhrSend.apply(this, arguments);
+                        };
+                      }catch(e){}
+                    }
+                    clickAdControls();
+                    report('now');
+                    setTimeout(function(){ clickAdControls(); report('delay1'); }, 1200);
+                    setTimeout(function(){ clickAdControls(); report('delay2'); }, 3200);
+                    setTimeout(function(){ clickAdControls(); report('delay3'); }, 5600);
+                  }catch(e){
+                    HermesPlayer.onSniffResult('[]', __DEPTH__, __FALLBACK__);
+                  }
+                })();
+                """
+                .replace("__FALLBACK__", fallbackUrl)
+                .replace("__DEPTH__", String.valueOf(depth));
+    }
+
     private void captureSniff(String url, int depth, boolean fromDom) {
+        captureSniff(url, depth, fromDom, fromDom ? "dom" : "resource");
+    }
+
+    private void captureSniff(String url, int depth, boolean fromDom, String origin) {
         String normalized = normalizeSniffUrl(url, sniffCurrentUrl);
         if (!sniffing || !shouldSniffUrl(normalized)) return;
         if (looksLikeMedia(normalized)) {
-            rememberSniffCandidate(normalized, depth, fromDom ? "dom" : "resource", sniffCurrentUrl);
+            String sniffOrigin = safe(origin);
+            if (sniffOrigin.isEmpty()) sniffOrigin = fromDom ? "dom" : "resource";
+            rememberSniffCandidate(normalized, depth, sniffOrigin, sniffCurrentUrl);
             return;
         }
         if (!fromDom && !shouldFollowPage(normalized)) return;
@@ -635,9 +857,14 @@ public class NativePlayerActivity extends Activity {
 
     private int scoreSniffCandidate(String url, int depth, String origin, String pageUrl) {
         String lower = safe(url).toLowerCase(Locale.ROOT);
+        String originLower = safe(origin).toLowerCase(Locale.ROOT);
         int score = 40 + mediaFingerprintScore(lower);
         if ("intercept".equalsIgnoreCase(origin) || "resource".equalsIgnoreCase(origin)) score += 18;
         if ("dom".equalsIgnoreCase(origin)) score += 10;
+        if (originLower.startsWith("fetch") || originLower.startsWith("xhr")) score += 16;
+        if (originLower.contains("body")) score += 24;
+        if (originLower.startsWith("html")) score += 12;
+        if (originLower.contains("decoded") || originLower.contains("unicode")) score += 4;
         score -= Math.max(0, depth) * 7;
         if (!safe(pageUrl).isEmpty() && sameHost(url, pageUrl)) score += 10;
         if (source != null && !safe(source.host).isEmpty() && sameHost(url, source.host)) score += 6;
@@ -1070,6 +1297,7 @@ public class NativePlayerActivity extends Activity {
         public void onSniffResult(String payload, int depth, String pageUrl) {
             if (!sniffing) return;
             ArrayList<String> nested = new ArrayList<>();
+            boolean foundMedia = false;
             try {
                 JSONArray array = new JSONArray(payload == null ? "[]" : payload);
                 for (int i = 0; i < array.length(); i++) {
@@ -1077,8 +1305,9 @@ public class NativePlayerActivity extends Activity {
                     String url = object == null ? array.optString(i) : object.optString("url");
                     String type = object == null ? "" : object.optString("type");
                     if (looksLikeMedia(url) && shouldSniffUrl(url)) {
-                        captureSniff(url, depth, true);
-                        return;
+                        captureSniff(url, depth, true, type);
+                        foundMedia = true;
+                        continue;
                     }
                     if ("iframe".equalsIgnoreCase(type) || "embed".equalsIgnoreCase(type) || shouldFollowPage(url)) {
                         nested.add(url);
@@ -1086,6 +1315,7 @@ public class NativePlayerActivity extends Activity {
                 }
             } catch (Exception ignored) {
             }
+            if (foundMedia) return;
             for (String next : nested) {
                 if (shouldSniffUrl(next)) enqueueSniffFrame(next, depth + 1);
             }
