@@ -142,8 +142,10 @@ public class NativePlayerActivity extends Activity {
         );
         engine = new NativeDrpyEngine(this, source);
         loadSnifferRules();
+        normalizePlaybackDefaultsSafe();
         buildUi();
         updateHeader();
+        refreshHeaderTextSafe();
         buildEpisodeButtons();
         resolveAndPlay();
     }
@@ -377,8 +379,139 @@ public class NativePlayerActivity extends Activity {
         currentIndex = index;
         input = safe(episodeInputs.get(index));
         updateHeader();
+        refreshHeaderTextSafe();
         buildEpisodeButtons();
         resolveAndPlay();
+    }
+
+    /*
+    private void normalizePlaybackDefaults() {
+        if (title.isEmpty() || looksBrokenPlaybackText(title)) {
+            title = "视频播放";
+        }
+        if (line.isEmpty() || looksBrokenPlaybackText(line)) {
+            line = "默认线路";
+        }
+        if (seriesTitle.isEmpty() || looksBrokenPlaybackText(seriesTitle)) {
+            seriesTitle = title;
+        }
+        if (episodeInputs.isEmpty()) {
+            episodeInputs.add(input);
+        }
+        if (episodeNames.isEmpty()) {
+            episodeNames.add("播放");
+        }
+        int count = Math.min(episodeNames.size(), episodeInputs.size());
+        for (int i = 0; i < count; i++) {
+            String name = safe(episodeNames.get(i));
+            if (name.isEmpty() || looksBrokenPlaybackText(name)) {
+                episodeNames.set(i, count > 1 ? ("第" + (i + 1) + "集") : "播放");
+            }
+        }
+        if (currentIndex < 0 || currentIndex >= episodeInputs.size()) {
+            currentIndex = 0;
+        }
+    }
+
+    private void refreshHeaderText() {
+        String episodeName = currentIndex >= 0 && currentIndex < episodeNames.size()
+                ? safe(episodeNames.get(currentIndex))
+                : "播放";
+        if (episodeName.isEmpty()) {
+            episodeName = "播放";
+        }
+        seriesTitle = safe(seriesTitle).isEmpty() ? title : seriesTitle;
+        title = seriesTitle + " · " + episodeName;
+        if (titleView != null) {
+            titleView.setText(title);
+        }
+        if (lineView != null) {
+            lineView.setText("线路: " + line + " · 源: " + source.title + " · 共 " + episodeInputs.size() + " 集 · 嗅探深度 " + maxSniffDepth);
+        }
+    }
+
+    private boolean looksBrokenPlaybackText(String value) {
+        String text = safe(value);
+        if (text.isEmpty()) {
+            return false;
+        }
+        return text.contains("鏅")
+                || text.contains("榛")
+                || text.contains("鎾")
+                || text.contains("绾")
+                || text.contains("婧")
+                || text.contains("闆")
+                || text.contains("鍡")
+                || text.contains("瑙")
+                || text.contains("瓒")
+                || text.contains("鏈")
+                || text.contains("娌");
+    }
+
+    */
+    private void normalizePlaybackDefaultsSafe() {
+        if (title.isEmpty() || looksBrokenPlaybackTextSafe(title)) {
+            title = "\u89c6\u9891\u64ad\u653e";
+        }
+        if (line.isEmpty() || looksBrokenPlaybackTextSafe(line)) {
+            line = "\u9ed8\u8ba4\u7ebf\u8def";
+        }
+        if (seriesTitle.isEmpty() || looksBrokenPlaybackTextSafe(seriesTitle)) {
+            seriesTitle = title;
+        }
+        if (episodeInputs.isEmpty()) {
+            episodeInputs.add(input);
+        }
+        if (episodeNames.isEmpty()) {
+            episodeNames.add("\u64ad\u653e");
+        }
+        int count = Math.min(episodeNames.size(), episodeInputs.size());
+        for (int i = 0; i < count; i++) {
+            String name = safe(episodeNames.get(i));
+            if (name.isEmpty() || looksBrokenPlaybackTextSafe(name)) {
+                episodeNames.set(i, count > 1 ? ("\u7b2c" + (i + 1) + "\u96c6") : "\u64ad\u653e");
+            }
+        }
+        if (currentIndex < 0 || currentIndex >= episodeInputs.size()) {
+            currentIndex = 0;
+        }
+    }
+
+    private void refreshHeaderTextSafe() {
+        String episodeName = currentIndex >= 0 && currentIndex < episodeNames.size()
+                ? safe(episodeNames.get(currentIndex))
+                : "\u64ad\u653e";
+        if (episodeName.isEmpty()) {
+            episodeName = "\u64ad\u653e";
+        }
+        seriesTitle = safe(seriesTitle).isEmpty() ? title : seriesTitle;
+        title = seriesTitle + " \u00b7 " + episodeName;
+        if (titleView != null) {
+            titleView.setText(title);
+        }
+        if (lineView != null) {
+            lineView.setText("\u7ebf\u8def: " + line
+                    + " \u00b7 \u6e90: " + source.title
+                    + " \u00b7 \u5171 " + episodeInputs.size() + " \u96c6"
+                    + " \u00b7 \u55c5\u63a2\u6df1\u5ea6 " + maxSniffDepth);
+        }
+    }
+
+    private boolean looksBrokenPlaybackTextSafe(String value) {
+        String text = safe(value);
+        if (text.isEmpty()) {
+            return false;
+        }
+        return text.contains("\u93c5")
+                || text.contains("\u59d2")
+                || text.contains("\u93b4")
+                || text.contains("\u7efe")
+                || text.contains("\u5a67")
+                || text.contains("\u95c6")
+                || text.contains("\u95b8")
+                || text.contains("\u9421")
+                || text.contains("\u9422")
+                || text.contains("\ufffd");
     }
 
     private WebView createSnifferWebView() {
@@ -411,22 +544,58 @@ public class NativePlayerActivity extends Activity {
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
                 if (!sniffing) return;
-                showState("Sniffing page resources...", true, 1f);
+                autoDismissAgeAndAdLayers(view);
+                showState("正在嗅探页面资源…", true, 1f);
+                showState("正在嗅探页面资源…", true, 1f);
+                showState("\u6b63\u5728\u55c5\u63a2\u9875\u9762\u8d44\u6e90\u2026", true, 1f);
+                showState("\u6b63\u5728\u55c5\u63a2\u9875\u9762\u8d44\u6e90\u2026", true, 1f);
                 probeCurrentPage(url, sniffCurrentDepth);
             }
         });
         return web;
     }
 
+    private void autoDismissAgeAndAdLayers(WebView view) {
+        if (view == null) {
+            return;
+        }
+        if (System.currentTimeMillis() >= 0) {
+            String strongScript = "(function(){try{"
+                    + "try{document.cookie='user-choose=true; path=/; SameSite=Lax';document.cookie='newuser=1; path=/; SameSite=Lax';localStorage.setItem('newuser','1');sessionStorage.setItem('newuser','1');}catch(e){}"
+                    + "function tapAll(selectors){for(var i=0;i<selectors.length;i++){var nodes=document.querySelectorAll(selectors[i]);for(var j=0;j<nodes.length;j++){try{nodes[j].click();}catch(e){}}}}"
+                    + "function shouldTap(label){label=String(label||'').trim();if(!label)return false;return /(?:18|adult|continue|confirm|agree|allow|enter|play|skip|close|warning|visit|\\u6211\\u5df2\\u6ee118\\u5468\\u5c81|\\u8fdb\\u5165|\\u786e\\u8ba4|\\u540c\\u610f|\\u7ee7\\u7eed\\u8bbf\\u95ee|\\u7ee7\\u7eed\\u64ad\\u653e|\\u7acb\\u5373\\u64ad\\u653e|\\u8df3\\u8fc7|\\u5173\\u95ed)/i.test(label);}"
+                    + "var selectors=['#wanrningconfirm','#warningconfirm','.confirm','.btn-confirm','.popup-confirm','.dialog-confirm','.enter','.enter-btn','.skip','.skip-btn','.skipad','.btn-skip','.ad-skip','.video-ad-skip','.close','.close-btn','.close-icon','.layui-layer-close','.icon-close','[data-dismiss]','[class*=confirm]','[id*=confirm]','[class*=skip]','[id*=skip]','[class*=close]','[id*=close]'];"
+                    + "tapAll(selectors);"
+                    + "var taps=document.querySelectorAll('button,a,div,span,input');"
+                    + "for(var k=0;k<taps.length;k++){var el=taps[k];var label=((el.innerText||el.textContent||'')+' '+(el.value||'')).trim();if(shouldTap(label)){try{el.click();}catch(e){}}}"
+                    + "setTimeout(function(){tapAll(selectors);},600);setTimeout(function(){tapAll(selectors);},1600);setTimeout(function(){tapAll(selectors);},3200);"
+                    + "}catch(e){}})();";
+            view.evaluateJavascript(strongScript, null);
+            return;
+        }
+        String script = "(function(){try{"
+                + "try{document.cookie='user-choose=true; path=/';localStorage.setItem('newuser','1');}catch(e){}"
+                + "var selectors=['#wanrningconfirm','.confirm','.skip','.skip-btn','.skipad','.btn-skip','.ad-skip','.video-ad-skip','.close','.close-btn','.close-icon','.layui-layer-close','.icon-close'];"
+                + "for(var i=0;i<selectors.length;i++){var nodes=document.querySelectorAll(selectors[i]);for(var j=0;j<nodes.length;j++){try{nodes[j].click();}catch(e){}}}"
+                + "var taps=document.querySelectorAll('button,a,div,span,input');"
+                + "for(var k=0;k<taps.length;k++){var el=taps[k];var label=((el.innerText||el.textContent||'')+' '+(el.value||'')).trim();"
+                + "if(label&&/我已年满18岁|进入|确认|同意|继续访问|继续播放|立即播放|跳过|关闭|enter|confirm|skip|close/i.test(label)){try{el.click();}catch(e){}}}"
+                + "}catch(e){}})();";
+        view.evaluateJavascript(script, null);
+    }
+
     private void resolveAndPlay() {
         releaseSniffer();
         playUrl = null;
         activeHeaders.clear();
-        showState("Resolving play url...", true, 1f);
+        showState("正在解析播放地址…", true, 1f);
+        showState("正在解析播放地址…", true, 1f);
+        showState("正在解析播放地址…", true, 1f);
+        showState("\u6b63\u5728\u89e3\u6790\u64ad\u653e\u5730\u5740\u2026", true, 1f);
         if (source.raw != null && source.raw.contains("var rule")) {
             engine.runLazy(input, (result, err) -> runOnUiThread(() -> {
                 if ((result == null || safe(result.url).isEmpty()) && err != null && !err.isEmpty()) {
-                    showError("解析失败: " + err);
+                    showError("\u89e3\u6790\u5931\u8d25: " + err);
                 } else {
                     if (result != null) {
                         activeHeaders.clear();
@@ -446,11 +615,11 @@ public class NativePlayerActivity extends Activity {
         String next = safe(url).isEmpty() ? input : safe(url);
         playUrl = next;
         if (playUrl.isEmpty()) {
-            showError("未获取到可播放地址");
+            showError("\u672a\u83b7\u53d6\u5230\u53ef\u64ad\u653e\u5730\u5740");
             return;
         }
         if (forceSniff || !looksLikeMedia(playUrl)) {
-            startSniff(playUrl, "解析结果不是直链，正在按规则网页嗅探…");
+            startSniff(playUrl, "\u89e3\u6790\u7ed3\u679c\u4e0d\u662f\u76f4\u94fe\uff0c\u6b63\u5728\u6309\u89c4\u5219\u7f51\u9875\u55c5\u63a2\u2026");
             return;
         }
         playInPlace(playUrl);
@@ -460,7 +629,10 @@ public class NativePlayerActivity extends Activity {
         sniffing = false;
         releaseSniffer();
         playUrl = mediaUrl;
-        showState("Loading player...", true, 1f);
+        showState("正在加载播放器…", true, 1f);
+        showState("正在加载播放器…", true, 1f);
+        showState("正在加载播放器…", true, 1f);
+        showState("\u6b63\u5728\u52a0\u8f7d\u64ad\u653e\u5668\u2026", true, 1f);
         Jzvd.releaseAllVideos();
         try {
             Map<String, String> headers = parseHeaders(buildHeadersJson());
@@ -470,14 +642,14 @@ public class NativePlayerActivity extends Activity {
             playerView.startVideo();
             showReadyState();
         } catch (Throwable error) {
-            Toast.makeText(this, "JZPlayer init failed, trying external player", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "\u64ad\u653e\u5668\u521d\u59cb\u5316\u5931\u8d25\uff0c\u5c1d\u8bd5\u5916\u90e8\u64ad\u653e\u5668", Toast.LENGTH_SHORT).show();
             openExternalPlayer();
         }
     }
 
     private void startSniff(String pageUrl, String message) {
         if (safe(pageUrl).isEmpty()) {
-            showError("没有可嗅探的页面地址");
+            showError("\u6ca1\u6709\u53ef\u55c5\u63a2\u7684\u9875\u9762\u5730\u5740");
             return;
         }
         sniffing = true;
@@ -494,7 +666,7 @@ public class NativePlayerActivity extends Activity {
         loadSniffFrame(pageUrl, 0);
         final long token = sniffSessionId;
         handler.postDelayed(() -> {
-            if (sniffing && token == sniffSessionId) showError("嗅探超时，请换线路再试");
+            if (sniffing && token == sniffSessionId) showError("\u55c5\u63a2\u8d85\u65f6\uff0c\u8bf7\u6362\u7ebf\u8def\u518d\u8bd5");
         }, 22000);
     }
 
@@ -514,6 +686,8 @@ public class NativePlayerActivity extends Activity {
         sniffCurrentUrl = clean;
         sniffCurrentDepth = depth;
         try {
+            ensureAdultGateBypass(clean);
+            ensureAdultGateBypass(source == null ? "" : source.host);
             java.util.HashMap<String, String> headers = new java.util.HashMap<>(activeHeaders);
             if (!headers.containsKey("Referer") && source != null && !safe(source.host).isEmpty()) {
                 headers.put("Referer", source.host + "/");
@@ -663,12 +837,16 @@ public class NativePlayerActivity extends Activity {
                     }
                     function clickAdControls(){
                       try{
-                        var sels = ['.skip','.skip-btn','.skipad','.btn-skip','.ad-skip','.video-ad-skip','.close','.close-btn','.close-icon','.layui-layer-close','.icon-close','[class*=skip]','[class*=close]','[id*=skip]','[id*=close]'];
+                        var sels = ['#wanrningconfirm','#warningconfirm','.confirm','.btn-confirm','.popup-confirm','.dialog-confirm','.enter','.enter-btn','.skip','.skip-btn','.skipad','.btn-skip','.ad-skip','.video-ad-skip','.close','.close-btn','.close-icon','.layui-layer-close','.icon-close','[data-dismiss]','[class*=confirm]','[id*=confirm]','[class*=skip]','[class*=close]','[id*=skip]','[id*=close]'];
                         for(var i = 0; i < sels.length; i++){
                           var nodes = document.querySelectorAll(sels[i]);
                           for(var j = 0; j < nodes.length; j++){
                             var el = nodes[j];
                             var text = ((el.innerText || el.textContent || '') + ' ' + (el.value || '')).toLowerCase();
+                            if(!text || /skip|close|jump|continue|confirm|agree|allow|enter|play|warning|adult|18/.test(text)){
+                              try{ el.click(); }catch(e){}
+                              continue;
+                            }
                             if(!text || /skip|close|jump|璺宠繃|鍏抽棴|缁х画鎾斁|绔嬪嵆鎾斁|杩涘叆鎾斁|鎴戝凡鐪嬪畬/.test(text)){
                               try{ el.click(); }catch(e){}
                             }
@@ -678,6 +856,10 @@ public class NativePlayerActivity extends Activity {
                         for(var k = 0; k < taps.length; k++){
                           var item = taps[k];
                           var label = ((item.innerText || item.textContent || '') + ' ' + (item.value || '')).trim();
+                          if(label && /skip|close|continue|confirm|agree|allow|enter|play|warning|adult|18/i.test(label)){
+                            try{ item.click(); }catch(e){}
+                            continue;
+                          }
                           if(label && /璺宠繃|鍏抽棴|缁х画鎾斁|绔嬪嵆鎾斁|杩涘叆鎾斁|鎴戝凡鐪嬪畬骞垮憡|skip|close/i.test(label)){
                             try{ item.click(); }catch(e){}
                           }
@@ -829,7 +1011,7 @@ public class NativePlayerActivity extends Activity {
             if (!updated) {
                 sniffCandidates.add(new SniffCandidate(candidateUrl, candidatePage, candidateOrigin, depth, score));
             }
-            showState("Found media candidate, selecting best stream...", true, 1f);
+            showState("已找到媒体地址，正在选择最佳清晰度…", true, 1f);
             handler.removeCallbacks(playBestSniffCandidate);
             handler.postDelayed(playBestSniffCandidate, score >= 130 ? 450 : 900);
         });
@@ -850,7 +1032,7 @@ public class NativePlayerActivity extends Activity {
             activeHeaders.put("Referer", best.pageUrl);
         }
         sniffing = false;
-        showState(finalAttempt ? "Using best sniffed media url..." : "Media url found, starting playback...", true, 1f);
+        showState(finalAttempt ? "使用最佳嗅探地址开始播放…" : "已找到媒体地址，开始播放…", true, 1f);
         playInPlace(best.url);
         return true;
     }
@@ -1089,13 +1271,13 @@ public class NativePlayerActivity extends Activity {
             intent.setDataAndType(Uri.parse(playUrl), "video/*");
             startActivity(intent);
         } catch (ActivityNotFoundException e) {
-            Toast.makeText(this, "No external player found", Toast.LENGTH_SHORT).show();
-            showError("No external player found");
+            Toast.makeText(this, "未找到可用的外部播放器", Toast.LENGTH_SHORT).show();
+            showError("未找到可用的外部播放器");
         }
     }
 
     private void showReadyState() {
-        showState("Playing", false, 1f);
+        showState("开始播放", false, 1f);
         handler.removeCallbacks(hideState);
         handler.postDelayed(hideState, 1200);
     }
@@ -1244,11 +1426,67 @@ public class NativePlayerActivity extends Activity {
         }
     }
 
+    private void ensureAdultGateBypass(String url) {
+        String clean = safe(url);
+        if (!isAdultGateHost(clean)) {
+            return;
+        }
+        try {
+            CookieManager manager = CookieManager.getInstance();
+            manager.setAcceptCookie(true);
+            if (sniffWeb != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                manager.setAcceptThirdPartyCookies(sniffWeb, true);
+            }
+            for (String target : adultGateCookieTargets(clean)) {
+                manager.setCookie(target, "user-choose=true; Path=/");
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                manager.flush();
+            }
+        } catch (Exception ignored) {
+        }
+    }
+
+    private boolean isAdultGateHost(String url) {
+        String lower = safe(url).toLowerCase(Locale.ROOT);
+        return lower.contains("51cg1.com")
+                || lower.contains("isppven.com")
+                || lower.contains("51cg");
+    }
+
+    private ArrayList<String> adultGateCookieTargets(String url) {
+        ArrayList<String> targets = new ArrayList<>();
+        try {
+            URL parsed = new URL(url);
+            String protocol = parsed.getProtocol();
+            String host = parsed.getHost();
+            if (!host.isEmpty()) {
+                targets.add(protocol + "://" + host + "/");
+                String[] parts = host.split("\\.");
+                if (parts.length >= 2) {
+                    String root = parts[parts.length - 2] + "." + parts[parts.length - 1];
+                    targets.add(protocol + "://" + root + "/");
+                    targets.add("https://" + root + "/");
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        if (targets.isEmpty() && !safe(url).isEmpty()) {
+            targets.add(url);
+        }
+        return targets;
+    }
+
     private String collectCookieHeader(String url) {
         String clean = safe(url);
         if (clean.isEmpty()) return "";
         try {
-            return safe(CookieManager.getInstance().getCookie(clean));
+            ensureAdultGateBypass(clean);
+            String cookies = safe(CookieManager.getInstance().getCookie(clean));
+            if (isAdultGateHost(clean)) {
+                return mergeCookieStrings(cookies, "user-choose=true");
+            }
+            return cookies;
         } catch (Exception ignored) {
             return "";
         }
