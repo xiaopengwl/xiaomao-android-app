@@ -290,7 +290,7 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="10dp"
-                            android:lineSpacingExtra="4dp"
+                            android:text="Manage sources, import rules, switch playback kernel, and open settings."
                             android:text="鍦ㄨ繖閲屽垏鎹㈢墖婧愩€佸鍏ユ簮鍜屾墦寮€璁剧疆銆?
                             android:textColor="#D7E5DE"
                             android:textSize="14sp" />
