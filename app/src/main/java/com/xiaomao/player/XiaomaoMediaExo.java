@@ -262,8 +262,14 @@ public class XiaomaoMediaExo extends JZMediaInterface {
     }
 
     private JZDataSource resolveDataSource() {
-        if (jzDataSource != null) {
-            return jzDataSource;
+        try {
+            java.lang.reflect.Field field = JZMediaInterface.class.getDeclaredField("jzDataSource");
+            field.setAccessible(true);
+            Object value = field.get(this);
+            if (value instanceof JZDataSource) {
+                return (JZDataSource) value;
+            }
+        } catch (Throwable ignored) {
         }
         if (jzvd != null) {
             return jzvd.jzDataSource;
