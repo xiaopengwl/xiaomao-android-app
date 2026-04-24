@@ -2,6 +2,7 @@ package com.xiaomao.player;
 
 import android.app.Activity;
 import android.text.TextUtils;
+import android.util.Base64;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -26,6 +27,7 @@ public class NativeDrpyEngine {
     private final WebView webView;
     private final NativeSource source;
     private final String helperJs;
+    private final String cryptoJs;
     private final ArrayList<Runnable> pendingActions = new ArrayList<>();
     private String lastResult = "";
     private String currentHost = "";
@@ -122,6 +124,7 @@ public class NativeDrpyEngine {
         this.source = source;
         this.currentHost = source == null ? "" : source.host;
         this.helperJs = readAssetText("runtime/native_rule_runtime.js");
+        this.cryptoJs = readAssetText("web/vendor/crypto-js.js");
         this.webView = new WebView(activity);
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
@@ -150,6 +153,37 @@ public class NativeDrpyEngine {
                 HttpResult result = requestRaw(abs(url), parseHttpOptions(options));
                 updateCurrentHost(result.finalUrl);
                 return result.body;
+            } catch (Exception e) {
+                return "";
+            }
+        }
+
+        @JavascriptInterface
+        public String requestMeta(String url, String options) {
+            try {
+                HttpResult result = requestRaw(abs(url), parseHttpOptions(options));
+                updateCurrentHost(result.finalUrl);
+                JSONObject object = new JSONObject();
+                object.put("body", result.body);
+                object.put("contentType", result.contentType);
+                object.put("finalUrl", result.finalUrl);
+                object.put("code", result.code);
+                JSONObject headers = new JSONObject();
+                for (Map.Entry<String, String> entry : result.headers.entrySet()) {
+                    headers.put(entry.getKey(), entry.getValue());
+                }
+                object.put("headers", headers);
+                return object.toString();
+            } catch (Exception e) {
+                return "{\"body\":\"\",\"headers\":{},\"contentType\":\"\",\"finalUrl\":\"\",\"code\":0}";
+            }
+        }
+
+        @JavascriptInterface
+        public String getCookie(String url) {
+            try {
+                String target = abs(url);
+                return mergeCookieHeader(cookieJar.get(cookieHostKey(target)), defaultCookieForUrl(target));
             } catch (Exception e) {
                 return "";
             }
@@ -298,7 +332,7 @@ public class NativeDrpyEngine {
                 + "var payload2=__xmParseDetailObject(cfg, html, rule.host||HOST, detailUrl);"
                 + "Android.setResult(JSON.stringify({detail:__xmNormalizeDetail(payload2, rule.host||HOST, " + quote(safeTitle) + ", " + quote(safePic) + ", detailUrl)}));"
                 + "}else{"
-                + "Android.setResult(JSON.stringify({detail:__xmNormalizeDetail({vod_id:detailUrl,vod_name:" + quote(safeTitle) + ",vod_pic:" + quote(safePic) + ",playGroups:[{name:'默认线路',items:[{name:'播放',url:detailUrl}]}]}, rule.host||HOST, " + quote(safeTitle) + ", " + quote(safePic) + ", detailUrl)}));"
+                + "Android.setResult(JSON.stringify({detail:__xmNormalizeDetail({vod_id:detailUrl,vod_name:" + quote(safeTitle) + ",vod_pic:" + quote(safePic) + ",playGroups:[{name:'Default',items:[{name:'Play',url:detailUrl}]}]}, rule.host||HOST, " + quote(safeTitle) + ", " + quote(safePic) + ", detailUrl)}));"
                 + "}";
         runJsonRule(safeUrl, body, (json, err) -> {
             if (!err.isEmpty()) {
@@ -538,19 +572,31 @@ public class NativeDrpyEngine {
     private String baseJs(String input) {
         String raw = source == null || source.raw == null ? "" : source.raw;
         String host = source == null ? "" : source.host;
+        String vendorJs = raw.contains("CryptoJS") ? cryptoJs : "";
         return "var input=" + quote(input) + ";var MY_PAGE=1;var MY_PAGECOUNT=999;var MY_TOTAL=99999;"
                 + "var MOBILE_UA='Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36';"
                 + "var PC_UA='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36';"
                 + "var HOST='" + js(host) + "';var rule_fetch_params={headers:{}};var fetch_params={headers:{}};"
-                + "var document={html:''};var localStore={};"
-                + "function getItem(k){return localStore[k]||'';}function setItem(k,v){localStore[k]=String(v||'');}"
-                + "var jsp={};var $={};var $js={toString:function(fn){var s=String(fn);var a=s.indexOf('{'),b=s.lastIndexOf('}');return 'js:'+(a>=0&&b>a?s.substring(a+1,b):s);}};"
-                + "function mergeHeaders(){var out={},arr=[rule&&rule.headers,rule_fetch_params&&rule_fetch_params.headers,fetch_params&&fetch_params.headers];for(var i=0;i<arr.length;i++){var hs=arr[i]||{};for(var k in hs){if(Object.prototype.hasOwnProperty.call(hs,k)&&hs[k]!=null&&String(hs[k]).length>0)out[k]=String(hs[k]);}}return out;}"
-                + "function mergeReqOpt(opt){var cfg=opt&&typeof opt==='object'?opt:{};var merged={};for(var k in cfg){if(Object.prototype.hasOwnProperty.call(cfg,k))merged[k]=cfg[k];}merged.headers=mergeHeaders();if(cfg.headers){for(var hk in cfg.headers){if(Object.prototype.hasOwnProperty.call(cfg.headers,hk))merged.headers[hk]=String(cfg.headers[hk]);}}if(!merged.headers['User-Agent'])merged.headers['User-Agent']=MOBILE_UA;return merged;}"
-                + "function request(url,opt){var cfg=mergeReqOpt(opt||{});var r=Android.request(String(url||''),JSON.stringify(cfg||{}));document.html=r;return r;}"
-                + "function requestRaw(url,opt){return request(url,opt);}function fetch(u,o){return request(u,o);}function post(u,o){return request(u,o);}function getHtml(u,o){return request(u,o);}"
+                + "if(typeof document!=='undefined'){document.html=document.html||'';}var localStore=(typeof globalThis.__xmLocalStore==='object'&&globalThis.__xmLocalStore)?globalThis.__xmLocalStore:{};"
+                + "function getItem(k){return localStore[k]||'';}function setItem(k,v){localStore[k]=String(v==null?'':v);}"
+                + "var local={get:getItem,set:setItem,delete:function(k){delete localStore[k];},clear:function(){localStore={};globalThis.__xmLocalStore=localStore;}};"
+                + "globalThis.__xmLocalStore=localStore;var jsp={};var $={};var $js={toString:function(fn){var s=String(fn);var a=s.indexOf('{'),b=s.lastIndexOf('}');return 'js:'+(a>=0&&b>a?s.substring(a+1,b):s);}};"
+                + "if(typeof JSON5==='undefined'){var JSON5={parse:function(v){return JSON.parse(v);},stringify:function(v){return JSON.stringify(v);}};}"
+                + "function __xmResolveUaValue(v){var text=String(v==null?'':v);if(text==='MOBILE_UA')return MOBILE_UA;if(text==='PC_UA')return PC_UA;return text;}"
+                + "function __xmNormalizeHeaders(headers){var out={};var src=headers&&typeof headers==='object'?headers:{};for(var key in src){if(!Object.prototype.hasOwnProperty.call(src,key)||src[key]==null)continue;var val=String(src[key]);out[key]=val;var lower=String(key).toLowerCase();if(!(lower in out))out[lower]=val;}return out;}"
+                + "function mergeHeaders(){var out={},arr=[rule&&rule.headers,rule_fetch_params&&rule_fetch_params.headers,fetch_params&&fetch_params.headers];for(var i=0;i<arr.length;i++){var hs=arr[i]||{};for(var k in hs){if(Object.prototype.hasOwnProperty.call(hs,k)&&hs[k]!=null&&String(hs[k]).length>0)out[k]=__xmResolveUaValue(hs[k]);}}if(!out['Accept']&&!out['accept'])out['Accept']='*/*';return out;}"
+                + "function mergeReqOpt(opt){var cfg=opt&&typeof opt==='object'?opt:{};var merged={};for(var k in cfg){if(Object.prototype.hasOwnProperty.call(cfg,k))merged[k]=cfg[k];}merged.headers=mergeHeaders();if(cfg.headers){for(var hk in cfg.headers){if(Object.prototype.hasOwnProperty.call(cfg.headers,hk)&&cfg.headers[hk]!=null)merged.headers[hk]=__xmResolveUaValue(cfg.headers[hk]);}}if(merged.ua&&!merged.userAgent)merged.userAgent=merged.ua;if(merged.userAgent)merged.userAgent=__xmResolveUaValue(merged.userAgent);if(merged['User-Agent']&&!merged.userAgent)merged.userAgent=__xmResolveUaValue(merged['User-Agent']);if(!merged.headers['User-Agent']&&!merged.headers['user-agent'])merged.headers['User-Agent']=merged.userAgent||MOBILE_UA;return merged;}"
+                + "function __xmToQuery(data){if(data==null)return '';if(typeof data==='string')return data;var out=[];for(var k in data){if(!Object.prototype.hasOwnProperty.call(data,k))continue;var v=data[k];if(v==null)continue;out.push(encodeURIComponent(k)+'='+encodeURIComponent(String(v)));}return out.join('&');}"
+                + "function __xmPrepareReqOpt(opt,forceMethod,forceUa){var obj=mergeReqOpt(opt||{});if(forceUa){obj.headers=obj.headers||{};obj.headers['User-Agent']=forceUa;obj.userAgent=forceUa;}if(forceMethod&&!obj.method)obj.method=forceMethod;if(obj.postData!=null&&obj.body==null)obj.body=obj.postData;if(obj.data!=null&&obj.body==null)obj.body=obj.data;if(obj.body!=null&&typeof obj.body==='object'){var headers=obj.headers||{};var ctype=headers['Content-Type']||headers['content-type']||obj.contentType||'';var isForm=obj.postType==='form'||String(ctype||'').indexOf('application/x-www-form-urlencoded')===0;if(isForm){headers['Content-Type']='application/x-www-form-urlencoded';obj.body=__xmToQuery(obj.body);}else{if(!headers['Content-Type']&&!headers['content-type'])headers['Content-Type']='application/json';obj.body=JSON.stringify(obj.body);}obj.headers=headers;}if(obj.method==null||String(obj.method).trim()===''){obj.method=obj.body!=null&&String(obj.body).length>0?'POST':'GET';}if(Object.prototype.hasOwnProperty.call(obj,'redirect'))obj.redirect=!!obj.redirect;return obj;}"
+                + "function __xmMeta(url,opt){var obj=__xmPrepareReqOpt(opt||{});var raw=Android.requestMeta(String(url||''),JSON.stringify(obj||{}));var meta={body:'',headers:{},contentType:'',finalUrl:String(url||''),code:0};try{meta=JSON.parse(raw||'{}')||meta;}catch(e){}meta.headers=__xmNormalizeHeaders(meta.headers);meta.body=String(meta.body||'');meta.content=meta.body;meta.url=meta.finalUrl||String(url||'');document.html=meta.body;return meta;}"
+                + "function __xmReturn(meta,opt){var cfg=opt&&typeof opt==='object'?opt:{};if(cfg.onlyHeaders)return meta.headers||{};if(cfg.withHeaders||cfg.withStatusCode)return meta;return meta.body||'';}"
+                + "function request(url,opt){var meta=__xmMeta(url,opt||{});return __xmReturn(meta,opt||{});}"
+                + "function req(url,cobj){return __xmMeta(url,cobj||{});}"
+                + "function batchFetch(list){var arr=Array.isArray(list)?list:[];var out=[];for(var i=0;i<arr.length;i++){var item=arr[i]||{};var url='';var opt={};if(typeof item==='string'){url=item;}else if(Array.isArray(item)){url=item[0]||'';opt=item[1]||{};}else{url=item.url||item.input||'';opt=item.options||item.opt||item.config||item;}out.push(__xmMeta(url,opt));}return out;}var bf=batchFetch;"
+                + "function requestRaw(url,opt){return __xmMeta(url,opt||{});}function fetch(u,o){return request(u,o);}function post(u,o){var cfg=o&&typeof o==='object'?o:{};cfg.method=cfg.method||'POST';var meta=__xmMeta(u,cfg);return __xmReturn(meta,cfg);}function getHtml(u,o){return request(u,o);}function fetchPC(u,o){var cfg=o&&typeof o==='object'?o:{};cfg.headers=cfg.headers||{};cfg.headers['User-Agent']=PC_UA;return request(u,cfg);}function postPC(u,o){var cfg=o&&typeof o==='object'?o:{};cfg.method=cfg.method||'POST';cfg.headers=cfg.headers||{};cfg.headers['User-Agent']=PC_UA;var meta=__xmMeta(u,cfg);return __xmReturn(meta,cfg);}function fetchCookie(u,o){__xmMeta(u,o||{});return Android.getCookie(String(u||''));}function convertBase64Image(u,o){var cfg=o&&typeof o==='object'?o:{};cfg.buffer=2;var meta=__xmMeta(u,cfg);if(!meta.body)return '';if(/^data:/i.test(meta.body))return meta.body;var type=String(meta.contentType||'').split(';')[0]||'image/jpeg';return 'data:'+type+';base64,'+meta.body;}"
                 + "function setResult(v){Android.setResult(JSON.stringify(v||[]));}function setResult2(v){setResult(v);}function log(v){Android.log(String(v));}"
                 + jsRuntime()
+                + vendorJs
                 + helperJs
                 + raw
                 + "\n;";
@@ -560,7 +606,7 @@ public class NativeDrpyEngine {
         return "if(!String.prototype.strip){String.prototype.strip=function(){return String(this).trim();};}"
                 + "function normalizeUrl(rel,base){try{return new URL(String(rel||''), String(base||rule.host||HOST)).toString();}catch(e){rel=String(rel||'');if(/^https?:/i.test(rel))return rel;if(rel.indexOf('//')===0)return 'https:'+rel;if(rel.charAt(0)==='/')return String(base||rule.host||HOST).replace(/\\/$/,'')+rel;return String(base||rule.host||HOST).replace(/\\/$/,'')+'/'+rel.replace(/^\\//,'');}}"
                 + "function absu(u,base){u=String(u||'');if(!u)return '';return normalizeUrl(u, base||rule.host||HOST);}"
-                + "function buildUrl(u,base){return absu(u,base);}function urljoin(a,b){return absu(b||a,a||rule.host||HOST);}function getHome(){return rule.host||HOST;}function getHost(){return rule.host||HOST;}"
+                + "function buildUrl(u,base){return absu(u,base);}function urljoin(a,b){return absu(b||a,a||rule.host||HOST);}function joinUrl(a,b){return absu(b||a,a||rule.host||HOST);}function getHome(){return rule.host||HOST;}function getHost(){return rule.host||HOST;}"
                 + "function realInput(k){return absu(input&&input!=='/'?input:(rule.homeUrl||rule.host), rule.host||HOST);}";
     }
 
@@ -576,6 +622,12 @@ public class NativeDrpyEngine {
             out.body = first(object, "body", "data", "postData");
             out.userAgent = first(object, "ua", "userAgent", "User-Agent");
             out.contentType = first(object, "contentType", "mime", "Content-Type");
+            out.withHeaders = object.optBoolean("withHeaders", false);
+            out.onlyHeaders = object.optBoolean("onlyHeaders", false);
+            out.withStatusCode = object.optBoolean("withStatusCode", false);
+            out.followRedirects = !object.has("redirect") || object.optBoolean("redirect", true);
+            out.toHex = object.optBoolean("toHex", false);
+            out.buffer = object.optInt("buffer", 0);
             int timeout = object.optInt("timeout", 0);
             if (timeout > 0) {
                 out.connectTimeout = timeout;
@@ -596,11 +648,11 @@ public class NativeDrpyEngine {
                     }
                 }
             }
-            if (out.userAgent.isEmpty() && out.headers.containsKey("User-Agent")) {
-                out.userAgent = out.headers.get("User-Agent");
+            if (out.userAgent.isEmpty()) {
+                out.userAgent = firstHeader(out.headers, "User-Agent");
             }
-            if (out.contentType.isEmpty() && out.headers.containsKey("Content-Type")) {
-                out.contentType = out.headers.get("Content-Type");
+            if (out.contentType.isEmpty()) {
+                out.contentType = firstHeader(out.headers, "Content-Type");
             }
         } catch (Exception ignored) {
         }
@@ -610,7 +662,7 @@ public class NativeDrpyEngine {
     private HttpResult requestRaw(String url, HttpOptions options) throws Exception {
         HttpOptions opt = options == null ? new HttpOptions() : options;
         HttpURLConnection connection = (HttpURLConnection) new URL(url).openConnection();
-        connection.setInstanceFollowRedirects(true);
+        connection.setInstanceFollowRedirects(opt.followRedirects);
         connection.setConnectTimeout(opt.connectTimeout);
         connection.setReadTimeout(opt.readTimeout);
         String userAgent = opt.userAgent.isEmpty()
@@ -644,6 +696,7 @@ public class NativeDrpyEngine {
         int code = connection.getResponseCode();
         InputStream stream = code >= 400 ? connection.getErrorStream() : connection.getInputStream();
         ByteArrayOutputStream output = new ByteArrayOutputStream();
+        byte[] rawBytes = new byte[0];
         if (stream != null) {
             byte[] buffer = new byte[8192];
             int size;
@@ -651,12 +704,31 @@ public class NativeDrpyEngine {
                 output.write(buffer, 0, size);
             }
             stream.close();
+            rawBytes = output.toByteArray();
         }
         HttpResult result = new HttpResult();
-        result.body = output.toString("UTF-8");
+        if (opt.onlyHeaders) {
+            result.body = "";
+        } else if (opt.toHex) {
+            result.body = bytesToHex(rawBytes);
+        } else if (opt.buffer == 2) {
+            result.body = Base64.encodeToString(rawBytes, Base64.NO_WRAP);
+        } else {
+            result.body = new String(rawBytes, StandardCharsets.UTF_8);
+        }
         result.finalUrl = connection.getURL().toString();
         result.contentType = connection.getContentType() == null ? "" : connection.getContentType();
-        storeCookies(result.finalUrl, connection.getHeaderFields());
+        result.code = code;
+        Map<String, List<String>> headerFields = connection.getHeaderFields();
+        if (headerFields != null) {
+            for (Map.Entry<String, List<String>> entry : headerFields.entrySet()) {
+                if (entry.getKey() == null || entry.getValue() == null || entry.getValue().isEmpty()) {
+                    continue;
+                }
+                result.headers.put(entry.getKey(), joinHeaderValues(entry.getValue()));
+            }
+        }
+        storeCookies(result.finalUrl, headerFields);
         return result;
     }
 
@@ -799,6 +871,47 @@ public class NativeDrpyEngine {
         return "";
     }
 
+    private static String firstHeader(Map<String, String> headers, String targetKey) {
+        if (headers == null || headers.isEmpty() || targetKey == null || targetKey.isEmpty()) {
+            return "";
+        }
+        for (Map.Entry<String, String> entry : headers.entrySet()) {
+            if (entry.getKey() != null && targetKey.equalsIgnoreCase(entry.getKey()) && entry.getValue() != null) {
+                return entry.getValue();
+            }
+        }
+        return "";
+    }
+
+    private static String joinHeaderValues(List<String> values) {
+        if (values == null || values.isEmpty()) {
+            return "";
+        }
+        StringBuilder builder = new StringBuilder();
+        for (String value : values) {
+            if (value == null || value.isEmpty()) {
+                continue;
+            }
+            if (builder.length() > 0) {
+                builder.append("; ");
+            }
+            builder.append(value);
+        }
+        return builder.toString();
+    }
+
+    private static String bytesToHex(byte[] value) {
+        if (value == null || value.length == 0) {
+            return "";
+        }
+        StringBuilder builder = new StringBuilder(value.length * 2);
+        for (byte item : value) {
+            builder.append(Character.forDigit((item >> 4) & 0xF, 16));
+            builder.append(Character.forDigit(item & 0xF, 16));
+        }
+        return builder.toString();
+    }
+
     private static String quote(String value) {
         return JSONObject.quote(value == null ? "" : value);
     }
@@ -827,6 +940,12 @@ public class NativeDrpyEngine {
         String referer = "";
         String userAgent = "";
         String contentType = "";
+        boolean withHeaders = false;
+        boolean onlyHeaders = false;
+        boolean withStatusCode = false;
+        boolean followRedirects = true;
+        boolean toHex = false;
+        int buffer = 0;
         int connectTimeout = 15000;
         int readTimeout = 15000;
         LinkedHashMap<String, String> headers = new LinkedHashMap<>();
@@ -836,5 +955,7 @@ public class NativeDrpyEngine {
         String body = "";
         String finalUrl = "";
         String contentType = "";
+        int code = 0;
+        LinkedHashMap<String, String> headers = new LinkedHashMap<>();
     }
 }
