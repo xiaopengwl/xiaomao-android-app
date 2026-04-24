@@ -81,7 +81,8 @@ public class MainActivity extends AppCompatActivity {
     private final ActivityResultLauncher<Intent> pageLauncher =
             registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
                 if (result.getResultCode() == Activity.RESULT_OK) {
-                    loadSources();
+                    String selectedId = result.getData() == null ? "" : result.getData().getStringExtra("selected_source_id");
+                    loadSources(selectedId);
                 }
             });
 
@@ -116,6 +117,12 @@ public class MainActivity extends AppCompatActivity {
             engine = null;
         }
         super.onDestroy();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        syncSourceIfNeeded();
     }
 
     private void bindViews() {
@@ -207,17 +214,62 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void loadSources() {
+        loadSources("");
+    }
+
+    private void loadSources(String preferredSourceId) {
         sources.clear();
         sources.addAll(SourceStore.loadAll(this));
         if (sources.isEmpty()) {
             showLoading(false, getString(R.string.main_msg_no_source));
             return;
         }
-        SourceStore.SourceItem selected = SourceStore.resolveSelected(this, sources);
+        SourceStore.SourceItem selected = findSourceById(sources, preferredSourceId);
+        if (selected == null) {
+            selected = SourceStore.resolveSelected(this, sources);
+        }
         if (selected == null) {
             selected = sources.get(0);
         }
         switchSource(selected);
+    }
+
+    private void syncSourceIfNeeded() {
+        ArrayList<SourceStore.SourceItem> latest = SourceStore.loadAll(this);
+        if (latest.isEmpty()) {
+            return;
+        }
+        SourceStore.SourceItem selected = SourceStore.resolveSelected(this, latest);
+        if (selected == null) {
+            selected = latest.get(0);
+        }
+        sources.clear();
+        sources.addAll(latest);
+        if (currentSource == null || !sameSource(currentSource, selected)) {
+            switchSource(selected);
+        }
+    }
+
+    private boolean sameSource(SourceStore.SourceItem left, SourceStore.SourceItem right) {
+        if (left == null || right == null) {
+            return false;
+        }
+        return TextUtils.equals(left.id, right.id)
+                && TextUtils.equals(left.title, right.title)
+                && TextUtils.equals(left.host, right.host)
+                && TextUtils.equals(left.raw, right.raw);
+    }
+
+    private SourceStore.SourceItem findSourceById(ArrayList<SourceStore.SourceItem> items, String sourceId) {
+        if (items == null || items.isEmpty() || TextUtils.isEmpty(sourceId)) {
+            return null;
+        }
+        for (SourceStore.SourceItem item : items) {
+            if (TextUtils.equals(item.id, sourceId)) {
+                return item;
+            }
+        }
+        return null;
     }
 
     private void switchSource(SourceStore.SourceItem record) {
