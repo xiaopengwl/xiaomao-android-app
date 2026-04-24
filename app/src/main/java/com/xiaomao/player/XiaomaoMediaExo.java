@@ -12,13 +12,17 @@ import androidx.media3.common.PlaybackException;
 import androidx.media3.common.PlaybackParameters;
 import androidx.media3.common.Player;
 import androidx.media3.common.VideoSize;
+import androidx.media3.datasource.DataSource;
+import androidx.media3.datasource.DefaultDataSource;
 import androidx.media3.datasource.DefaultHttpDataSource;
 import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.exoplayer.DefaultRenderersFactory;
 import androidx.media3.exoplayer.dash.DashMediaSource;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.ProgressiveMediaSource;
 import androidx.media3.exoplayer.hls.HlsMediaSource;
+import androidx.media3.extractor.DefaultExtractorsFactory;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -31,9 +35,11 @@ import cn.jzvd.JZMediaInterface;
 import cn.jzvd.Jzvd;
 
 public class XiaomaoMediaExo extends JZMediaInterface {
-    private static final long PREPARE_TIMEOUT_MS = 12000L;
+    private static final long PREPARE_TIMEOUT_MS = 15000L;
+    private static final String DEFAULT_MOBILE_UA = "Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36";
 
     private enum StreamType {
+        AUTO,
         HLS,
         DASH,
         PROGRESSIVE
@@ -310,6 +316,9 @@ public class XiaomaoMediaExo extends JZMediaInterface {
         if (!headers.containsKey("Accept")) {
             headers.put("Accept", "*/*");
         }
+        if (!headers.containsKey("Accept-Language")) {
+            headers.put("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8");
+        }
         return headers;
     }
 
@@ -356,15 +365,17 @@ public class XiaomaoMediaExo extends JZMediaInterface {
                 .setConnectTimeoutMs((int) PREPARE_TIMEOUT_MS)
                 .setReadTimeoutMs((int) PREPARE_TIMEOUT_MS);
         String userAgent = requestHeaders.get("User-Agent");
-        if (!TextUtils.isEmpty(userAgent)) {
-            httpFactory.setUserAgent(userAgent);
-        }
+        httpFactory.setUserAgent(TextUtils.isEmpty(userAgent) ? DEFAULT_MOBILE_UA : userAgent);
         if (!requestHeaders.isEmpty()) {
             httpFactory.setDefaultRequestProperties(requestHeaders);
         }
+        DataSource.Factory dataSourceFactory = new DefaultDataSource.Factory(jzvd.getContext(), httpFactory);
+        DefaultRenderersFactory renderersFactory = new DefaultRenderersFactory(jzvd.getContext())
+                .setEnableDecoderFallback(true);
+        DefaultMediaSourceFactory mediaSourceFactory = new DefaultMediaSourceFactory(dataSourceFactory);
 
-        exoPlayer = new ExoPlayer.Builder(jzvd.getContext())
-                .setMediaSourceFactory(new DefaultMediaSourceFactory(httpFactory))
+        exoPlayer = new ExoPlayer.Builder(jzvd.getContext(), renderersFactory)
+                .setMediaSourceFactory(mediaSourceFactory)
                 .build();
         exoPlayer.addListener(playerListener);
         exoPlayer.setPlaybackParameters(new PlaybackParameters(speed));
@@ -372,7 +383,7 @@ public class XiaomaoMediaExo extends JZMediaInterface {
             exoPlayer.setVideoSurface(surface);
         }
         MediaItem mediaItem = buildMediaItem(pendingDataSource, streamType);
-        exoPlayer.setMediaSource(buildMediaSource(mediaItem, httpFactory, streamType));
+        exoPlayer.setMediaSource(buildMediaSource(mediaItem, dataSourceFactory, streamType));
         exoPlayer.prepare();
         schedulePrepareTimeout();
         return true;
@@ -405,6 +416,7 @@ public class XiaomaoMediaExo extends JZMediaInterface {
         if (dataSource != null && dataSource.getCurrentUrl() != null) {
             url = String.valueOf(dataSource.getCurrentUrl());
         }
+        ordered.add(StreamType.AUTO);
         StreamType primary = inferPrimaryStreamType(url, buildHeaders(dataSource));
         if (primary != null) {
             ordered.add(primary);
@@ -441,29 +453,42 @@ public class XiaomaoMediaExo extends JZMediaInterface {
             return StreamType.DASH;
         }
         if (normalized.contains(".mp4")
+                || normalized.contains(".ts")
                 || normalized.contains(".flv")
                 || normalized.contains(".mkv")
                 || normalized.contains("video_mp4")
+                || normalized.contains("mime_type=video")
+                || normalized.contains("response-content-type=video")
+                || normalized.contains("download=1")
+                || normalized.contains("obj/tos")
                 || contentType.startsWith("video/")) {
             return StreamType.PROGRESSIVE;
         }
-        return StreamType.HLS;
+        return StreamType.AUTO;
     }
 
-    private MediaSource buildMediaSource(MediaItem mediaItem, DefaultHttpDataSource.Factory httpFactory, StreamType streamType) {
+    private MediaSource buildMediaSource(MediaItem mediaItem, DataSource.Factory dataSourceFactory, StreamType streamType) {
+        if (streamType == StreamType.AUTO) {
+            return new DefaultMediaSourceFactory(dataSourceFactory).createMediaSource(mediaItem);
+        }
         if (streamType == StreamType.HLS) {
-            return new HlsMediaSource.Factory(httpFactory).createMediaSource(mediaItem);
+            return new HlsMediaSource.Factory(dataSourceFactory).createMediaSource(mediaItem);
         }
         if (streamType == StreamType.DASH) {
-            return new DashMediaSource.Factory(httpFactory).createMediaSource(mediaItem);
+            return new DashMediaSource.Factory(dataSourceFactory).createMediaSource(mediaItem);
         }
-        return new ProgressiveMediaSource.Factory(httpFactory).createMediaSource(mediaItem);
+        DefaultExtractorsFactory extractorsFactory = new DefaultExtractorsFactory()
+                .setConstantBitrateSeekingEnabled(true);
+        return new ProgressiveMediaSource.Factory(dataSourceFactory, extractorsFactory).createMediaSource(mediaItem);
     }
 
     private String inferProgressiveMimeType(String url) {
         String normalized = decodeUrl(url).toLowerCase(Locale.ROOT);
         if (normalized.contains(".mp4")) {
             return MimeTypes.VIDEO_MP4;
+        }
+        if (normalized.contains(".ts") || normalized.contains(".m2ts")) {
+            return MimeTypes.VIDEO_MP2T;
         }
         if (normalized.contains(".flv")) {
             return "video/x-flv";
