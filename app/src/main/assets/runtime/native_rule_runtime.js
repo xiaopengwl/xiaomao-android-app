@@ -220,6 +220,51 @@ function __xmNormalizeRoot(root) {
   return document;
 }
 
+function pdfa(root, selector) {
+  return __xmSelectEnhanced(__xmNormalizeRoot(root), selector || "");
+}
+
+function pdfh(root, expr, host) {
+  return __xmExtractByRule(root, expr, host || "");
+}
+
+function pd(root, expr, host) {
+  var base = host || (typeof HOST !== "undefined" ? HOST : "");
+  return __xmExtractByRule(root, expr, base);
+}
+
+function base64Encode(value) {
+  try {
+    return btoa(unescape(encodeURIComponent(String(value || ""))));
+  } catch (error) {
+    return "";
+  }
+}
+
+function base64Decode(value) {
+  try {
+    return decodeURIComponent(escape(atob(String(value || ""))));
+  } catch (error) {
+    return "";
+  }
+}
+
+function tellIsJx(url) {
+  return !__xmLooksLikeMediaUrl(url);
+}
+
+if (typeof jsp === "object") {
+  jsp.pdfa = pdfa;
+  jsp.pdfh = pdfh;
+  jsp.pd = pd;
+}
+
+if (typeof $ === "object") {
+  $.pdfa = pdfa;
+  $.pdfh = pdfh;
+  $.pd = pd;
+}
+
 function __xmCanMatchSelector(node, selector) {
   if (!(node instanceof Element)) {
     return false;
@@ -533,11 +578,11 @@ function __xmParseDetailObject(config, html, host, detailUrl) {
 
   if (config.tabs && config.lists) {
     __xmSelectEnhanced(root, config.tabs).forEach(function (tabNode, index) {
-      var tabName = __xmExtractByRule(tabNode, config.tab_text || "body&&Text", host) || ("线路 " + (index + 1));
+      var tabName = __xmExtractByRule(tabNode, config.tab_text || "body&&Text", host) || ("Line " + (index + 1));
       var selector = String(config.lists).replace(/#id/g, String(index));
       var items = __xmSelectEnhanced(root, selector).map(function (episodeNode, episodeIndex) {
         return {
-          name: __xmExtractByRule(episodeNode, config.list_text || "body&&Text", host) || ("播放 " + (episodeIndex + 1)),
+          name: __xmExtractByRule(episodeNode, config.list_text || "body&&Text", host) || ("Play " + (episodeIndex + 1)),
           url: __xmAbsoluteUrl(__xmExtractByRule(episodeNode, config.list_url || "a&&href", host), host)
         };
       }).filter(function (item) {
@@ -552,7 +597,7 @@ function __xmParseDetailObject(config, html, host, detailUrl) {
   if (!detail.playGroups.length && config.lists) {
     var items = __xmSelectEnhanced(root, config.lists).map(function (episodeNode, episodeIndex) {
       return {
-        name: __xmExtractByRule(episodeNode, config.list_text || "body&&Text", host) || ("播放 " + (episodeIndex + 1)),
+        name: __xmExtractByRule(episodeNode, config.list_text || "body&&Text", host) || ("Play " + (episodeIndex + 1)),
         url: __xmAbsoluteUrl(__xmExtractByRule(episodeNode, config.list_url || "a&&href", host), host)
       };
     }).filter(function (item) {
@@ -560,7 +605,7 @@ function __xmParseDetailObject(config, html, host, detailUrl) {
     });
     if (items.length) {
       detail.playGroups.push({
-        name: config.tab_text_default || config.list_group_name || "默认线路",
+        name: config.tab_text_default || config.list_group_name || "Default",
         items: items
       });
     }
@@ -574,7 +619,7 @@ function __xmNormalizeItems(items, host) {
     return {
       id: item.vod_id || item.url || ("item-" + index),
       vod_id: item.vod_id || item.url || "",
-      vod_name: item.vod_name || item.title || ("未命名 " + (index + 1)),
+      vod_name: item.vod_name || item.title || ("Untitled " + (index + 1)),
       vod_pic: __xmNormalizePosterUrl(item.vod_pic || item.img || item.pic || item.cover || "", host),
       vod_remarks: item.vod_remarks || item.desc || "",
       title: item.title || item.vod_name || "",
@@ -589,15 +634,15 @@ function __xmNormalizeDetail(payload, host, fallbackTitle, fallbackPic, fallback
   var detail = payload || {};
   var playGroups = __xmSafeArray(detail.playGroups);
   if (!playGroups.length && detail.vod_play_url) {
-    var froms = String(detail.vod_play_from || "默认线路").split("$$$");
+    var froms = String(detail.vod_play_from || "Default").split("$$$");
     var groups = String(detail.vod_play_url).split("$$$");
     playGroups = groups.map(function (groupText, groupIndex) {
       return {
-        name: froms[groupIndex] || ("线路 " + (groupIndex + 1)),
+        name: froms[groupIndex] || ("Line " + (groupIndex + 1)),
         items: String(groupText).split("#").filter(Boolean).map(function (entry, itemIndex) {
           var parts = entry.split("$");
           return {
-            name: parts[0] || ("播放 " + (itemIndex + 1)),
+            name: parts[0] || ("Play " + (itemIndex + 1)),
             url: parts.slice(1).join("$")
           };
         })
@@ -606,7 +651,7 @@ function __xmNormalizeDetail(payload, host, fallbackTitle, fallbackPic, fallback
   }
   return {
     vod_id: detail.vod_id || fallbackId || "",
-    vod_name: detail.vod_name || detail.title || fallbackTitle || "未命名",
+    vod_name: detail.vod_name || detail.title || fallbackTitle || "Untitled",
     vod_pic: __xmNormalizePosterUrl(detail.vod_pic || detail.img || detail.pic || detail.cover || fallbackPic || "", host),
     vod_remarks: detail.vod_remarks || detail.desc || "",
     vod_content: detail.vod_content || detail.content || "",
