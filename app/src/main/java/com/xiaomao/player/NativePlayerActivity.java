@@ -71,6 +71,7 @@ public class NativePlayerActivity extends Activity {
 
     private PlayerView playerView;
     private ExoPlayer mediaPlayer;
+    private WebView artPlayerWebView;
     private LinearLayout navBar;
     private FrameLayout playerBox;
     private LinearLayout.LayoutParams playerBoxLayoutParams;
@@ -95,6 +96,9 @@ public class NativePlayerActivity extends Activity {
     private String playUrl;
     private boolean sniffing = false;
     private boolean portraitPlayerMode = false;
+    private boolean artPlayerReady = false;
+    private boolean artPlayerFullscreen = false;
+    private boolean artPlayerWebFullscreen = false;
     private boolean preparedNotified = false;
     private boolean tempSpeedBoost = false;
     private boolean playWhenReady = true;
@@ -121,6 +125,10 @@ public class NativePlayerActivity extends Activity {
     private String sniffCurrentUrl = "";
     private int sniffCurrentDepth = 0;
     private int streamTypeIndex = -1;
+    private String pendingArtPlayerConfig = "";
+    private String artPlayerDocument = "";
+    private View fullscreenCustomView;
+    private WebChromeClient.CustomViewCallback fullscreenCallback;
 
     private final Handler handler = new Handler();
     private final Runnable playBestSniffCandidate = () -> chooseBestSniffCandidate(false);
@@ -287,7 +295,12 @@ public class NativePlayerActivity extends Activity {
         playerView.setShowBuffering(PlayerView.SHOW_BUFFERING_ALWAYS);
         playerView.setResizeMode(resizeMode);
         bindPlayerGestures();
+        playerView.setVisibility(View.GONE);
         playerBox.addView(playerView, new FrameLayout.LayoutParams(-1, -1));
+
+        artPlayerWebView = createArtPlayerWebView();
+        playerBox.addView(artPlayerWebView, new FrameLayout.LayoutParams(-1, -1));
+        bindPlayerGestures();
 
         LinearLayout overlay = new LinearLayout(this);
         overlay.setOrientation(LinearLayout.VERTICAL);
@@ -445,11 +458,155 @@ public class NativePlayerActivity extends Activity {
         }
     }
 
-    private void bindPlayerGestures() {
-        if (playerView == null) {
+    private WebView createArtPlayerWebView() {
+        WebView webView = new WebView(this);
+        webView.setBackgroundColor(Color.BLACK);
+        WebSettings settings = webView.getSettings();
+        settings.setJavaScriptEnabled(true);
+        settings.setDomStorageEnabled(true);
+        settings.setMediaPlaybackRequiresUserGesture(false);
+        settings.setAllowFileAccess(true);
+        settings.setAllowContentAccess(true);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+        }
+        webView.addJavascriptInterface(new ArtPlayerBridge(), "XmVideoBridge");
+        webView.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public void onShowCustomView(View view, CustomViewCallback callback) {
+                if (fullscreenCustomView != null) {
+                    callback.onCustomViewHidden();
+                    return;
+                }
+                fullscreenCustomView = view;
+                fullscreenCallback = callback;
+                FrameLayout decor = (FrameLayout) getWindow().getDecorView();
+                decor.addView(view, new FrameLayout.LayoutParams(-1, -1, Gravity.CENTER));
+                getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+            }
+
+            @Override
+            public void onHideCustomView() {
+                hideArtPlayerCustomView();
+            }
+        });
+        webView.setWebViewClient(new WebViewClient() {
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                super.onPageFinished(view, url);
+                artPlayerReady = true;
+                injectArtPlayerConfigIfReady();
+            }
+        });
+        return webView;
+    }
+
+    private void hideArtPlayerCustomView() {
+        if (fullscreenCustomView == null) {
             return;
         }
-        playerView.setOnTouchListener((v, event) -> {
+        FrameLayout decor = (FrameLayout) getWindow().getDecorView();
+        decor.removeView(fullscreenCustomView);
+        fullscreenCustomView = null;
+        if (fullscreenCallback != null) {
+            try {
+                fullscreenCallback.onCustomViewHidden();
+            } catch (Throwable ignored) {
+            }
+            fullscreenCallback = null;
+        }
+        if (!portraitPlayerMode) {
+            getWindow().clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+        }
+    }
+
+    private void injectArtPlayerConfigIfReady() {
+        if (artPlayerWebView == null || !artPlayerReady || safe(pendingArtPlayerConfig).isEmpty()) {
+            return;
+        }
+        String js = "window.xmPlayerInit(" + JSONObject.quote(pendingArtPlayerConfig) + ");";
+        artPlayerWebView.evaluateJavascript(js, null);
+    }
+
+    private void loadArtPlayer(String mediaUrl, Map<String, String> headers) {
+        if (artPlayerWebView == null) {
+            throw new IllegalStateException("art player webview missing");
+        }
+        artPlayerReady = false;
+        artPlayerFullscreen = false;
+        artPlayerWebFullscreen = false;
+        JSONObject config = new JSONObject();
+        try {
+            config.put("url", mediaUrl);
+            config.put("title", title);
+            config.put("poster", "");
+            config.put("type", inferPrimaryStreamType(mediaUrl, headers) == StreamType.HLS ? "m3u8" : "normal");
+            JSONObject headerJson = new JSONObject();
+            for (Map.Entry<String, String> entry : headers.entrySet()) {
+                headerJson.put(entry.getKey(), entry.getValue());
+            }
+            config.put("headers", headerJson);
+        } catch (Exception ignored) {
+        }
+        pendingArtPlayerConfig = config.toString();
+        if (artPlayerDocument.isEmpty()) {
+            artPlayerDocument = buildArtPlayerDocument();
+        }
+        String baseUrl = buildOriginFromUrl(mediaUrl);
+        if (baseUrl.isEmpty()) {
+            baseUrl = buildOriginFromUrl(source == null ? "" : source.host);
+        }
+        if (baseUrl.isEmpty()) {
+            baseUrl = "https://appassets.androidplatform.net/";
+        }
+        artPlayerWebView.loadDataWithBaseURL(baseUrl, artPlayerDocument, "text/html", "utf-8", null);
+        updateResizeButton();
+    }
+
+    private String buildArtPlayerDocument() {
+        String artplayerJs = safe(readAssetText("web/vendor/artplayer.js"));
+        String hlsJs = safe(readAssetText("web/vendor/hls.light.min.js"));
+        String playerJs = safe(readAssetText("web/player_embed.js"));
+        return "<!doctype html><html lang='zh-CN'><head><meta charset='utf-8'>"
+                + "<meta name='viewport' content='width=device-width,initial-scale=1,viewport-fit=cover'>"
+                + "<style>"
+                + "html,body{margin:0;height:100%;background:#000;overflow:hidden;}"
+                + "body{font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC',sans-serif;}"
+                + "#artplayer-app{width:100%;height:100%;background:#000;}"
+                + ".art-video-player{height:100%!important;}"
+                + "</style></head><body><div id='artplayer-app'></div>"
+                + "<script>" + escapeInlineScript(artplayerJs) + "</script>"
+                + "<script>" + escapeInlineScript(hlsJs) + "</script>"
+                + "<script>" + escapeInlineScript(playerJs) + "</script>"
+                + "</body></html>";
+    }
+
+    private String escapeInlineScript(String script) {
+        return safe(script).replace("</script>", "<\\/script>");
+    }
+
+    private String readAssetText(String assetPath) {
+        try {
+            java.io.InputStream inputStream = getAssets().open(assetPath);
+            java.io.ByteArrayOutputStream outputStream = new java.io.ByteArrayOutputStream();
+            byte[] buffer = new byte[8192];
+            int count;
+            while ((count = inputStream.read(buffer)) != -1) {
+                outputStream.write(buffer, 0, count);
+            }
+            inputStream.close();
+            return outputStream.toString("UTF-8");
+        } catch (Exception ignored) {
+            return "";
+        }
+    }
+
+    private void bindPlayerGestures() {
+        View gestureSurface = artPlayerWebView != null ? artPlayerWebView : playerView;
+        if (gestureSurface == null) {
+            return;
+        }
+        gestureSurface.setOnTouchListener((v, event) -> {
             if (event == null) {
                 return false;
             }
@@ -488,18 +645,11 @@ public class NativePlayerActivity extends Activity {
     }
 
     private void cycleResizeMode() {
-        if (resizeMode == AspectRatioFrameLayout.RESIZE_MODE_FIT) {
-            resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM;
-        } else if (resizeMode == AspectRatioFrameLayout.RESIZE_MODE_ZOOM) {
-            resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FILL;
-        } else {
-            resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT;
-        }
-        if (playerView != null) {
-            playerView.setResizeMode(resizeMode);
+        if (artPlayerWebView != null) {
+            artPlayerWebView.evaluateJavascript("window.xmPlayerToggleWebFullscreen && window.xmPlayerToggleWebFullscreen();", null);
         }
         updateResizeButton();
-        showState("画面比例 " + currentResizeLabel(), false, 0.92f);
+        showState(artPlayerWebFullscreen ? "退出网页全屏" : "进入网页全屏", false, 0.92f);
         handler.postDelayed(hideState, 800);
     }
 
@@ -516,13 +666,7 @@ public class NativePlayerActivity extends Activity {
     }
 
     private String currentResizeLabel() {
-        if (resizeMode == AspectRatioFrameLayout.RESIZE_MODE_ZOOM) {
-            return "裁剪";
-        }
-        if (resizeMode == AspectRatioFrameLayout.RESIZE_MODE_FILL) {
-            return "拉伸";
-        }
-        return "适应";
+        return artPlayerWebFullscreen ? "退出网页全屏" : "网页全屏";
     }
 
     private String formatSpeed(float speed) {
@@ -530,7 +674,9 @@ public class NativePlayerActivity extends Activity {
     }
 
     private void applyPlaybackSpeed(float speed) {
-        if (mediaPlayer != null) {
+        if (artPlayerWebView != null) {
+            artPlayerWebView.evaluateJavascript("window.xmPlayerSetRate && window.xmPlayerSetRate(" + speed + ");", null);
+        } else if (mediaPlayer != null) {
             mediaPlayer.setPlaybackParameters(new PlaybackParameters(speed));
         }
     }
@@ -783,6 +929,7 @@ public class NativePlayerActivity extends Activity {
     private void resolveAndPlay() {
         releaseSniffer();
         releaseMediaPlayer();
+        releaseArtPlayer();
         playUrl = null;
         activeHeaders.clear();
         showState("正在解析播放地址…", true, 1f);
@@ -833,7 +980,7 @@ public class NativePlayerActivity extends Activity {
         playbackPosition = 0L;
         playWhenReady = true;
         try {
-            preparePlayer(buildPlayerHeaders(), true);
+            loadArtPlayer(mediaUrl, buildPlayerHeaders());
         } catch (Throwable error) {
             Toast.makeText(this, "\u64ad\u653e\u5668\u521d\u59cb\u5316\u5931\u8d25\uff0c\u5c1d\u8bd5\u5916\u90e8\u64ad\u653e\u5668", Toast.LENGTH_SHORT).show();
             openExternalPlayer();
@@ -1582,6 +1729,21 @@ public class NativePlayerActivity extends Activity {
         }
     }
 
+    private void releaseArtPlayer() {
+        artPlayerReady = false;
+        artPlayerFullscreen = false;
+        artPlayerWebFullscreen = false;
+        if (artPlayerWebView != null) {
+            try {
+                artPlayerWebView.evaluateJavascript("window.xmPlayerDestroy && window.xmPlayerDestroy();", null);
+                artPlayerWebView.loadUrl("about:blank");
+            } catch (Exception ignored) {
+            }
+        }
+        hideArtPlayerCustomView();
+        updateResizeButton();
+    }
+
     private ArrayList<StreamType> buildStreamTypeQueue(String url, Map<String, String> headers) {
         LinkedHashSet<StreamType> ordered = new LinkedHashSet<>();
         ordered.add(StreamType.AUTO);
@@ -1773,6 +1935,14 @@ public class NativePlayerActivity extends Activity {
     }
     @Override
     public void onBackPressed() {
+        if (fullscreenCustomView != null) {
+            hideArtPlayerCustomView();
+            return;
+        }
+        if (artPlayerWebFullscreen && artPlayerWebView != null) {
+            artPlayerWebView.evaluateJavascript("window.xmPlayerToggleWebFullscreen && window.xmPlayerToggleWebFullscreen();", null);
+            return;
+        }
         if (portraitPlayerMode) {
             applyPlayerBoxMode(false);
             return;
@@ -1783,6 +1953,7 @@ public class NativePlayerActivity extends Activity {
     private void returnToMainPage() {
         releaseSniffer();
         releaseMediaPlayer();
+        releaseArtPlayer();
         Intent intent = new Intent(this, MainActivity.class);
         intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         startActivity(intent);
@@ -1792,6 +1963,7 @@ public class NativePlayerActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        if (artPlayerWebView != null) artPlayerWebView.onResume();
         if (mediaPlayer != null && playWhenReady) {
             mediaPlayer.play();
         }
@@ -1801,6 +1973,7 @@ public class NativePlayerActivity extends Activity {
     @Override
     protected void onPause() {
         if (sniffWeb != null) sniffWeb.onPause();
+        if (artPlayerWebView != null) artPlayerWebView.onPause();
         if (mediaPlayer != null) {
             playbackPosition = Math.max(0L, mediaPlayer.getCurrentPosition());
             playWhenReady = mediaPlayer.getPlayWhenReady();
@@ -1816,6 +1989,15 @@ public class NativePlayerActivity extends Activity {
         handler.removeCallbacksAndMessages(null);
         releaseSniffer();
         releaseMediaPlayer();
+        releaseArtPlayer();
+        if (artPlayerWebView != null) {
+            try {
+                artPlayerWebView.removeJavascriptInterface("XmVideoBridge");
+                artPlayerWebView.destroy();
+            } catch (Exception ignored) {
+            }
+            artPlayerWebView = null;
+        }
         super.onDestroy();
     }
 
@@ -2003,6 +2185,39 @@ public class NativePlayerActivity extends Activity {
 
     private String safe(String value) {
         return value == null ? "" : value.trim();
+    }
+
+    private final class ArtPlayerBridge {
+
+        @JavascriptInterface
+        public void onPlayerReady() {
+            runOnUiThread(NativePlayerActivity.this::showReadyState);
+        }
+
+        @JavascriptInterface
+        public void onPlayerError(String message) {
+            runOnUiThread(() -> showError(safe(message).isEmpty() ? "Artplayer 播放异常" : safe(message)));
+        }
+
+        @JavascriptInterface
+        public void onFullscreenChanged(String value) {
+            artPlayerFullscreen = "1".equals(safe(value));
+        }
+
+        @JavascriptInterface
+        public void onWebFullscreenChanged(String value) {
+            artPlayerWebFullscreen = "1".equals(safe(value));
+            runOnUiThread(NativePlayerActivity.this::updateResizeButton);
+        }
+
+        @JavascriptInterface
+        public void onRateChanged(String value) {
+            try {
+                selectedSpeed = Float.parseFloat(safe(value));
+            } catch (Exception ignored) {
+            }
+            runOnUiThread(NativePlayerActivity.this::updateSpeedButton);
+        }
     }
 
     private final class PlayerBridge {

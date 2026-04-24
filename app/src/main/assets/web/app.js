@@ -815,7 +815,7 @@
       autoplay: true,
       autoSize: true,
       playsInline: true,
-      fullscreen: false,
+      fullscreen: true,
       fullscreenWeb: true,
       playbackRate: true,
       aspectRatio: true,
