@@ -1,6 +1,6 @@
 var rule = {
   title: '吃瓜网',
-  host: 'https://51cg1.com',
+  host: 'https://hxnxz1.isppven.com',
   url: '/category/fyclass/fypage/',
   searchUrl: '/search/**/fypage/',
   searchable: 2,
@@ -8,15 +8,15 @@ var rule = {
   filterable: 0,
   headers: {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    'Referer': 'https://51cg1.com/',
+    'Referer': 'https://hxnxz1.isppven.com/',
     'Cookie': 'user-choose=true; newuser=1'
   },
   play_headers: {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    'Referer': 'https://51cg1.com/',
+    'Referer': 'https://hxnxz1.isppven.com/',
     'Cookie': 'user-choose=true; newuser=1'
   },
-  timeout: 15000,
+  timeout: 8000,
   limit: 40,
   pagecount: 999,
   play_parse: true,
@@ -31,7 +31,16 @@ if (!window.__xmCg) {
   window.__xmCg = {};
 }
 var cg = window.__xmCg;
-cg.hosts = ['https://51cg1.com', 'https://hxnxz1.isppven.com', 'https://snfkr.isppven.com'];
+cg.hosts = [
+  'https://hxnxz1.isppven.com',
+  'https://51cgm25.com',
+  'https://cg51.com',
+  'https://tyu35.cc',
+  'https://tyu7.cc',
+  'https://51cg1.com',
+  'https://chigua.com',
+  'https://snfkr.isppven.com'
+];
 cg.currentHost = cg.currentHost || rule.host || cg.hosts[0];
 cg.syncHost = function(host) {
   host = host || cg.currentHost || cg.hosts[0];
