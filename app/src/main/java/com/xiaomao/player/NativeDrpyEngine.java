@@ -347,7 +347,8 @@ public class NativeDrpyEngine {
         String fallbackInput = input == null ? "" : input;
         String body = ""
                 + "__xmRunPreprocess();"
-                + "document.html=request(input,{headers:(rule.headers||{})});"
+                + "document.html='';"
+                + "if(__xmShouldPrefetchLazyInput(input)){document.html=request(input,{headers:(rule.headers||{})});}"
                 + "var __xmLazyInput=String(input||'');"
                 + "var code=rule['lazy']||'';"
                 + "code=String(code);"
@@ -607,7 +608,8 @@ public class NativeDrpyEngine {
                 + "function normalizeUrl(rel,base){try{return new URL(String(rel||''), String(base||rule.host||HOST)).toString();}catch(e){rel=String(rel||'');if(/^https?:/i.test(rel))return rel;if(rel.indexOf('//')===0)return 'https:'+rel;if(rel.charAt(0)==='/')return String(base||rule.host||HOST).replace(/\\/$/,'')+rel;return String(base||rule.host||HOST).replace(/\\/$/,'')+'/'+rel.replace(/^\\//,'');}}"
                 + "function absu(u,base){u=String(u||'');if(!u)return '';return normalizeUrl(u, base||rule.host||HOST);}"
                 + "function buildUrl(u,base){return absu(u,base);}function urljoin(a,b){return absu(b||a,a||rule.host||HOST);}function joinUrl(a,b){return absu(b||a,a||rule.host||HOST);}function getHome(){return rule.host||HOST;}function getHost(){return rule.host||HOST;}"
-                + "function realInput(k){return absu(input&&input!=='/'?input:(rule.homeUrl||rule.host), rule.host||HOST);}";
+                + "function realInput(k){return absu(input&&input!=='/'?input:(rule.homeUrl||rule.host), rule.host||HOST);}"
+                + "function __xmShouldPrefetchLazyInput(v){if(v==null||typeof v!=='string')return false;var s=String(v).trim();if(!s)return false;if(s.indexOf('@@')>=0)return false;if(s.charAt(0)==='{')return false;if(/^https?:\\/\\//i.test(s)||s.indexOf('//')===0||s.charAt(0)==='/')return true;return s.indexOf('?')>=0||s.indexOf('/play/')>=0||s.indexOf('/vod/')>=0||s.indexOf('.html')>=0||s.indexOf('.php')>=0;}";
     }
 
     private HttpOptions parseHttpOptions(String options) {
