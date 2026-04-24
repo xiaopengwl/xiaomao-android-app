@@ -85,11 +85,7 @@ public class PlayerActivity extends AppCompatActivity {
         try {
             JZDataSource dataSource = new JZDataSource(playUrl, titleText);
             dataSource.headerMap = new HashMap<>(headers);
-            if (SettingsStore.useExoKernel(this)) {
-                playerView.setUp(dataSource, Jzvd.SCREEN_NORMAL, XiaomaoMediaExo.class);
-            } else {
-                playerView.setUp(dataSource, Jzvd.SCREEN_NORMAL);
-            }
+            playerView.setUp(dataSource, Jzvd.SCREEN_NORMAL);
             return true;
         } catch (Throwable ignored) {
             return false;
@@ -97,11 +93,7 @@ public class PlayerActivity extends AppCompatActivity {
     }
 
     private void setupSimple() throws Exception {
-        if (SettingsStore.useExoKernel(this)) {
-            playerView.setUp(playUrl, titleText, Jzvd.SCREEN_NORMAL, XiaomaoMediaExo.class);
-        } else {
-            playerView.setUp(playUrl, titleText, Jzvd.SCREEN_NORMAL);
-        }
+        playerView.setUp(playUrl, titleText, Jzvd.SCREEN_NORMAL);
     }
 
     private void openExternal() {

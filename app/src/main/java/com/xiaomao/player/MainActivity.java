@@ -677,26 +677,16 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void updateKernelPanel() {
-        boolean useExoKernel = SettingsStore.useExoKernel(this);
-        mineKernelNameView.setText(useExoKernel
-                ? getString(R.string.main_msg_kernel_current_exo)
-                : getString(R.string.main_msg_kernel_current_system));
-        mineKernelTipView.setText(useExoKernel
-                ? getString(R.string.main_msg_kernel_tip_exo)
-                : getString(R.string.main_msg_kernel_tip_system));
-        mineKernelSwitchButton.setText(useExoKernel
-                ? getString(R.string.main_msg_kernel_switch_system)
-                : getString(R.string.main_msg_kernel_switch_exo));
+        mineKernelNameView.setText("当前内核：原生播放器");
+        mineKernelTipView.setText("已移除 Exo，统一使用原生 JZ 播放内核，避免一直转圈和兼容性不一致。");
+        mineKernelSwitchButton.setText("仅保留原生");
+        mineKernelSwitchButton.setEnabled(false);
+        mineKernelSwitchButton.setAlpha(0.6f);
     }
 
     private void togglePlayerKernel() {
-        boolean useExoKernel = SettingsStore.useExoKernel(this);
-        SettingsStore.setPlayerKernel(this,
-                useExoKernel ? SettingsStore.PLAYER_KERNEL_SYSTEM : SettingsStore.PLAYER_KERNEL_EXO);
         updateKernelPanel();
-        toast(useExoKernel
-                ? getString(R.string.main_msg_kernel_switched_system)
-                : getString(R.string.main_msg_kernel_switched_exo));
+        toast("已固定为原生播放器内核");
     }
 
     private void openDetail(NativeDrpyEngine.MediaItem item) {

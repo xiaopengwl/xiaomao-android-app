@@ -57,20 +57,16 @@ public final class SettingsStore {
     }
 
     public static String playerKernel(Context context) {
-        String kernel = prefs(context).getString(KEY_PLAYER_KERNEL, PLAYER_KERNEL_SYSTEM);
-        if (PLAYER_KERNEL_EXO.equals(kernel)) {
-            return PLAYER_KERNEL_EXO;
-        }
         return PLAYER_KERNEL_SYSTEM;
     }
 
     public static void setPlayerKernel(Context context, String kernel) {
         prefs(context).edit()
-                .putString(KEY_PLAYER_KERNEL, PLAYER_KERNEL_EXO.equals(kernel) ? PLAYER_KERNEL_EXO : PLAYER_KERNEL_SYSTEM)
+                .putString(KEY_PLAYER_KERNEL, PLAYER_KERNEL_SYSTEM)
                 .apply();
     }
 
     public static boolean useExoKernel(Context context) {
-        return PLAYER_KERNEL_EXO.equals(playerKernel(context));
+        return false;
     }
 }

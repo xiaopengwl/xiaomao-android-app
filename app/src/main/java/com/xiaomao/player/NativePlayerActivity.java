@@ -12,6 +12,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.text.TextUtils;
 import android.view.Gravity;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
@@ -31,10 +32,28 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.media3.common.MediaItem;
+import androidx.media3.common.MimeTypes;
+import androidx.media3.common.PlaybackException;
+import androidx.media3.common.PlaybackParameters;
+import androidx.media3.common.Player;
+import androidx.media3.datasource.DataSource;
+import androidx.media3.datasource.DefaultDataSource;
+import androidx.media3.datasource.DefaultHttpDataSource;
+import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.exoplayer.DefaultRenderersFactory;
+import androidx.media3.exoplayer.dash.DashMediaSource;
+import androidx.media3.exoplayer.hls.HlsMediaSource;
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
+import androidx.media3.exoplayer.source.MediaSource;
+import androidx.media3.exoplayer.source.ProgressiveMediaSource;
+import androidx.media3.extractor.DefaultExtractorsFactory;
+import androidx.media3.ui.AspectRatioFrameLayout;
+import androidx.media3.ui.PlayerView;
+
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.lang.reflect.Method;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -46,12 +65,12 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import cn.jzvd.JZDataSource;
-import cn.jzvd.Jzvd;
-import cn.jzvd.JzvdStd;
-
 public class NativePlayerActivity extends Activity {
-    private JzvdStd playerView;
+    private static final long PREPARE_TIMEOUT_MS = 15000L;
+    private static final String DEFAULT_MOBILE_UA = "Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36";
+
+    private PlayerView playerView;
+    private ExoPlayer mediaPlayer;
     private LinearLayout navBar;
     private FrameLayout playerBox;
     private LinearLayout.LayoutParams playerBoxLayoutParams;
@@ -64,6 +83,8 @@ public class NativePlayerActivity extends Activity {
     private TextView stateView;
     private TextView portraitModeButton;
     private TextView portraitExitButton;
+    private TextView speedButton;
+    private TextView resizeButton;
     private LinearLayout episodeWrap;
 
     private NativeSource source;
@@ -74,6 +95,12 @@ public class NativePlayerActivity extends Activity {
     private String playUrl;
     private boolean sniffing = false;
     private boolean portraitPlayerMode = false;
+    private boolean preparedNotified = false;
+    private boolean tempSpeedBoost = false;
+    private boolean playWhenReady = true;
+    private float selectedSpeed = 1.0f;
+    private int resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT;
+    private long playbackPosition = 0L;
     private final java.util.LinkedHashMap<String, String> activeHeaders = new java.util.LinkedHashMap<>();
 
     private final ArrayList<String> episodeNames = new ArrayList<>();
@@ -85,6 +112,7 @@ public class NativePlayerActivity extends Activity {
     private final ArrayList<String> snifferExcludeRules = new ArrayList<>();
     private final ArrayList<String> snifferFollowRules = new ArrayList<>();
     private final ArrayList<String> snifferMediaRules = new ArrayList<>();
+    private final ArrayList<StreamType> streamTypes = new ArrayList<>();
     private final ArrayList<SniffTask> sniffQueue = new ArrayList<>();
     private final HashSet<String> sniffVisited = new HashSet<>();
     private final ArrayList<SniffCandidate> sniffCandidates = new ArrayList<>();
@@ -92,14 +120,67 @@ public class NativePlayerActivity extends Activity {
     private long sniffSessionId = 0L;
     private String sniffCurrentUrl = "";
     private int sniffCurrentDepth = 0;
+    private int streamTypeIndex = -1;
 
     private final Handler handler = new Handler();
     private final Runnable playBestSniffCandidate = () -> chooseBestSniffCandidate(false);
+    private final Runnable prepareTimeoutRunnable = () -> {
+        if (!preparedNotified) {
+            retryWithNextStreamType();
+        }
+    };
+    private final Runnable longPressSpeedRunnable = () -> {
+        tempSpeedBoost = true;
+        applyPlaybackSpeed(2.0f);
+        showState("长按加速 2.0x", false, 0.9f);
+    };
     private final Runnable hideState = () -> {
         if (playerOverlay != null && !sniffing) {
             playerOverlay.setVisibility(View.GONE);
         }
     };
+    private final Player.Listener playerListener = new Player.Listener() {
+        @Override
+        public void onPlaybackStateChanged(int playbackState) {
+            if (playbackState == Player.STATE_BUFFERING) {
+                showState("正在缓冲视频…", true, 0.92f);
+                return;
+            }
+            if (playbackState == Player.STATE_READY) {
+                preparedNotified = true;
+                cancelPrepareTimeout();
+                showReadyState();
+                return;
+            }
+            if (playbackState == Player.STATE_IDLE && !preparedNotified) {
+                retryWithNextStreamType();
+                return;
+            }
+            if (playbackState == Player.STATE_ENDED) {
+                playbackPosition = 0L;
+                showState("播放完成", false, 0.95f);
+            }
+        }
+
+        @Override
+        public void onPlayerError(PlaybackException error) {
+            if (retryWithNextStreamType()) {
+                return;
+            }
+            String message = safe(error == null ? "" : error.getMessage());
+            if (message.isEmpty()) {
+                message = "播放器初始化失败";
+            }
+            showError(message);
+        }
+    };
+
+    private enum StreamType {
+        AUTO,
+        HLS,
+        DASH,
+        PROGRESSIVE
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -198,8 +279,14 @@ public class NativePlayerActivity extends Activity {
         playerBoxLayoutParams = new LinearLayout.LayoutParams(-1, dp(232));
         page.addView(playerBox, playerBoxLayoutParams);
 
-        playerView = new XiaomaoJzvdStd(this);
+        playerView = new PlayerView(this);
         playerView.setBackgroundColor(Color.BLACK);
+        playerView.setUseController(true);
+        playerView.setControllerAutoShow(true);
+        playerView.setControllerHideOnTouch(true);
+        playerView.setShowBuffering(PlayerView.SHOW_BUFFERING_ALWAYS);
+        playerView.setResizeMode(resizeMode);
+        bindPlayerGestures();
         playerBox.addView(playerView, new FrameLayout.LayoutParams(-1, -1));
 
         LinearLayout overlay = new LinearLayout(this);
@@ -281,6 +368,25 @@ public class NativePlayerActivity extends Activity {
         portraitModeButton.setOnClickListener(v -> togglePortraitPlayerMode());
         playModeRow.addView(portraitModeButton, new LinearLayout.LayoutParams(-2, dp(34)));
 
+        LinearLayout playerActionRow = new LinearLayout(this);
+        playerActionRow.setOrientation(LinearLayout.HORIZONTAL);
+        playerActionRow.setGravity(Gravity.CENTER_VERTICAL);
+        playerActionRow.setPadding(0, 0, 0, dp(8));
+        root.addView(playerActionRow, new LinearLayout.LayoutParams(-1, -2));
+
+        speedButton = makeChip("1.0x", "#13202F", "#2C567A", "#DCEEFF");
+        speedButton.setOnClickListener(v -> cyclePlaybackSpeed());
+        LinearLayout.LayoutParams speedLp = new LinearLayout.LayoutParams(-2, dp(34));
+        speedLp.rightMargin = dp(8);
+        playerActionRow.addView(speedButton, speedLp);
+
+        resizeButton = makeChip("适应", "#13202F", "#2C567A", "#DCEEFF");
+        resizeButton.setOnClickListener(v -> cycleResizeMode());
+        playerActionRow.addView(resizeButton, new LinearLayout.LayoutParams(-2, dp(34)));
+
+        updateSpeedButton();
+        updateResizeButton();
+
         LinearLayout railCard = new LinearLayout(this);
         railCard.setOrientation(LinearLayout.VERTICAL);
         railCard.setPadding(dp(12), dp(10), dp(12), dp(12));
@@ -336,6 +442,96 @@ public class NativePlayerActivity extends Activity {
                     ? cardBg("#E50914", "#FF5260", 16)
                     : cardBg("#1A2337", "#3D4B72", 16));
             portraitModeButton.setTextColor(Color.parseColor("#FFFFFF"));
+        }
+    }
+
+    private void bindPlayerGestures() {
+        if (playerView == null) {
+            return;
+        }
+        playerView.setOnTouchListener((v, event) -> {
+            if (event == null) {
+                return false;
+            }
+            int action = event.getActionMasked();
+            if (action == MotionEvent.ACTION_DOWN) {
+                handler.postDelayed(longPressSpeedRunnable, 350);
+            } else if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
+                handler.removeCallbacks(longPressSpeedRunnable);
+                if (tempSpeedBoost) {
+                    tempSpeedBoost = false;
+                    applyPlaybackSpeed(selectedSpeed);
+                    showState("恢复 " + formatSpeed(selectedSpeed), false, 0.9f);
+                    handler.postDelayed(hideState, 800);
+                }
+            }
+            return false;
+        });
+    }
+
+    private void cyclePlaybackSpeed() {
+        float[] speeds = new float[]{1.0f, 1.25f, 1.5f, 2.0f};
+        int nextIndex = 0;
+        for (int i = 0; i < speeds.length; i++) {
+            if (Math.abs(speeds[i] - selectedSpeed) < 0.01f) {
+                nextIndex = (i + 1) % speeds.length;
+                break;
+            }
+        }
+        selectedSpeed = speeds[nextIndex];
+        if (!tempSpeedBoost) {
+            applyPlaybackSpeed(selectedSpeed);
+        }
+        updateSpeedButton();
+        showState("播放速度 " + formatSpeed(selectedSpeed), false, 0.92f);
+        handler.postDelayed(hideState, 800);
+    }
+
+    private void cycleResizeMode() {
+        if (resizeMode == AspectRatioFrameLayout.RESIZE_MODE_FIT) {
+            resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM;
+        } else if (resizeMode == AspectRatioFrameLayout.RESIZE_MODE_ZOOM) {
+            resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FILL;
+        } else {
+            resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT;
+        }
+        if (playerView != null) {
+            playerView.setResizeMode(resizeMode);
+        }
+        updateResizeButton();
+        showState("画面比例 " + currentResizeLabel(), false, 0.92f);
+        handler.postDelayed(hideState, 800);
+    }
+
+    private void updateSpeedButton() {
+        if (speedButton != null) {
+            speedButton.setText(formatSpeed(selectedSpeed));
+        }
+    }
+
+    private void updateResizeButton() {
+        if (resizeButton != null) {
+            resizeButton.setText(currentResizeLabel());
+        }
+    }
+
+    private String currentResizeLabel() {
+        if (resizeMode == AspectRatioFrameLayout.RESIZE_MODE_ZOOM) {
+            return "裁剪";
+        }
+        if (resizeMode == AspectRatioFrameLayout.RESIZE_MODE_FILL) {
+            return "拉伸";
+        }
+        return "适应";
+    }
+
+    private String formatSpeed(float speed) {
+        return String.format(Locale.US, "%.2fx", speed).replace(".00x", ".0x").replace(".50x", ".5x");
+    }
+
+    private void applyPlaybackSpeed(float speed) {
+        if (mediaPlayer != null) {
+            mediaPlayer.setPlaybackParameters(new PlaybackParameters(speed));
         }
     }
 
@@ -586,6 +782,7 @@ public class NativePlayerActivity extends Activity {
 
     private void resolveAndPlay() {
         releaseSniffer();
+        releaseMediaPlayer();
         playUrl = null;
         activeHeaders.clear();
         showState("正在解析播放地址…", true, 1f);
@@ -633,14 +830,10 @@ public class NativePlayerActivity extends Activity {
         showState("正在加载播放器…", true, 1f);
         showState("正在加载播放器…", true, 1f);
         showState("\u6b63\u5728\u52a0\u8f7d\u64ad\u653e\u5668\u2026", true, 1f);
-        Jzvd.releaseAllVideos();
+        playbackPosition = 0L;
+        playWhenReady = true;
         try {
-            Map<String, String> headers = parseHeaders(buildHeadersJson());
-            if (!setupPlayerWithHeaders(headers)) {
-                setupPlayerSimple();
-            }
-            playerView.startVideo();
-            showReadyState();
+            preparePlayer(buildPlayerHeaders(), true);
         } catch (Throwable error) {
             Toast.makeText(this, "\u64ad\u653e\u5668\u521d\u59cb\u5316\u5931\u8d25\uff0c\u5c1d\u8bd5\u5916\u90e8\u64ad\u653e\u5668", Toast.LENGTH_SHORT).show();
             openExternalPlayer();
@@ -1272,30 +1465,239 @@ public class NativePlayerActivity extends Activity {
         addRules(out, values.toArray(new String[0]));
     }
 
-    private boolean setupPlayerWithHeaders(Map<String, String> headers) {
-        if (headers == null || headers.isEmpty()) {
+    private Map<String, String> buildPlayerHeaders() {
+        Map<String, String> raw = parseHeaders(buildHeadersJson());
+        HashMap<String, String> headers = new HashMap<>();
+        for (Map.Entry<String, String> entry : raw.entrySet()) {
+            String key = normalizeHeaderName(entry.getKey());
+            String value = safe(entry.getValue());
+            if (!key.isEmpty() && !value.isEmpty()) {
+                headers.put(key, value);
+            }
+        }
+        if (!headers.containsKey("Accept")) {
+            headers.put("Accept", "*/*");
+        }
+        if (!headers.containsKey("Accept-Language")) {
+            headers.put("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8");
+        }
+        return headers;
+    }
+
+    private void preparePlayer(Map<String, String> headers, boolean firstAttempt) {
+        if (safe(playUrl).isEmpty()) {
+            throw new IllegalStateException("empty play url");
+        }
+        if (firstAttempt) {
+            streamTypes.clear();
+            streamTypes.addAll(buildStreamTypeQueue(playUrl, headers));
+            streamTypeIndex = -1;
+        }
+        if (!prepareCurrentStreamType(headers, firstAttempt)) {
+            throw new IllegalStateException("no playable stream type");
+        }
+    }
+
+    private boolean prepareCurrentStreamType(Map<String, String> headers, boolean firstAttempt) {
+        if (firstAttempt) {
+            streamTypeIndex = 0;
+        } else {
+            streamTypeIndex++;
+        }
+        if (streamTypeIndex < 0 || streamTypeIndex >= streamTypes.size()) {
+            return false;
+        }
+
+        cancelPrepareTimeout();
+        releaseMediaPlayer();
+        preparedNotified = false;
+
+        StreamType streamType = streamTypes.get(streamTypeIndex);
+        DefaultHttpDataSource.Factory httpFactory = new DefaultHttpDataSource.Factory()
+                .setAllowCrossProtocolRedirects(true)
+                .setConnectTimeoutMs((int) PREPARE_TIMEOUT_MS)
+                .setReadTimeoutMs((int) PREPARE_TIMEOUT_MS);
+        String userAgent = headers.get("User-Agent");
+        httpFactory.setUserAgent(TextUtils.isEmpty(userAgent) ? DEFAULT_MOBILE_UA : userAgent);
+        if (!headers.isEmpty()) {
+            httpFactory.setDefaultRequestProperties(headers);
+        }
+        DataSource.Factory dataSourceFactory = new DefaultDataSource.Factory(this, httpFactory);
+        DefaultRenderersFactory renderersFactory = new DefaultRenderersFactory(this)
+                .setEnableDecoderFallback(true);
+        DefaultMediaSourceFactory mediaSourceFactory = new DefaultMediaSourceFactory(dataSourceFactory);
+
+        mediaPlayer = new ExoPlayer.Builder(this, renderersFactory)
+                .setMediaSourceFactory(mediaSourceFactory)
+                .build();
+        mediaPlayer.addListener(playerListener);
+        mediaPlayer.setPlayWhenReady(playWhenReady);
+        mediaPlayer.setPlaybackParameters(new PlaybackParameters(tempSpeedBoost ? 2.0f : selectedSpeed));
+        playerView.setPlayer(mediaPlayer);
+        playerView.setResizeMode(resizeMode);
+
+        MediaItem mediaItem = buildMediaItem(playUrl, streamType);
+        mediaPlayer.setMediaSource(buildMediaSource(mediaItem, dataSourceFactory, streamType));
+        if (playbackPosition > 0L) {
+            mediaPlayer.seekTo(playbackPosition);
+        }
+        mediaPlayer.prepare();
+        schedulePrepareTimeout();
+        return true;
+    }
+
+    private boolean retryWithNextStreamType() {
+        if (safe(playUrl).isEmpty()) {
             return false;
         }
         try {
-            JZDataSource dataSource = new JZDataSource(playUrl, title);
-            dataSource.headerMap = new HashMap<>(headers);
-            if (SettingsStore.useExoKernel(this)) {
-                playerView.setUp(dataSource, Jzvd.SCREEN_NORMAL, XiaomaoMediaExo.class);
-            } else {
-                playerView.setUp(dataSource, Jzvd.SCREEN_NORMAL);
-            }
-            return true;
+            return prepareCurrentStreamType(buildPlayerHeaders(), false);
         } catch (Throwable ignored) {
             return false;
         }
     }
 
-    private void setupPlayerSimple() throws Exception {
-        if (SettingsStore.useExoKernel(this)) {
-            playerView.setUp(playUrl, title, Jzvd.SCREEN_NORMAL, XiaomaoMediaExo.class);
-        } else {
-            playerView.setUp(playUrl, title, Jzvd.SCREEN_NORMAL);
+    private void schedulePrepareTimeout() {
+        handler.removeCallbacks(prepareTimeoutRunnable);
+        handler.postDelayed(prepareTimeoutRunnable, PREPARE_TIMEOUT_MS);
+    }
+
+    private void cancelPrepareTimeout() {
+        handler.removeCallbacks(prepareTimeoutRunnable);
+    }
+
+    private void releaseMediaPlayer() {
+        cancelPrepareTimeout();
+        handler.removeCallbacks(longPressSpeedRunnable);
+        if (mediaPlayer == null) {
+            return;
         }
+        playbackPosition = Math.max(0L, mediaPlayer.getCurrentPosition());
+        playWhenReady = mediaPlayer.getPlayWhenReady();
+        mediaPlayer.removeListener(playerListener);
+        mediaPlayer.release();
+        mediaPlayer = null;
+        if (playerView != null) {
+            playerView.setPlayer(null);
+        }
+    }
+
+    private ArrayList<StreamType> buildStreamTypeQueue(String url, Map<String, String> headers) {
+        LinkedHashSet<StreamType> ordered = new LinkedHashSet<>();
+        ordered.add(StreamType.AUTO);
+        StreamType primary = inferPrimaryStreamType(url, headers);
+        if (primary != null) {
+            ordered.add(primary);
+        }
+        ordered.add(StreamType.HLS);
+        ordered.add(StreamType.PROGRESSIVE);
+        ordered.add(StreamType.DASH);
+        return new ArrayList<>(ordered);
+    }
+
+    private StreamType inferPrimaryStreamType(String url, Map<String, String> headers) {
+        String normalized = decodeUrl(url).toLowerCase(Locale.ROOT);
+        String contentType = "";
+        if (headers != null) {
+            String headerValue = headers.get("Content-Type");
+            if (TextUtils.isEmpty(headerValue)) {
+                headerValue = headers.get("content-type");
+            }
+            contentType = safe(headerValue).toLowerCase(Locale.ROOT);
+        }
+        if (normalized.contains(".m3u8")
+                || normalized.contains("/m3u8")
+                || normalized.contains("m3u8?")
+                || normalized.contains("type=m3u8")
+                || normalized.contains("format=m3u8")
+                || contentType.contains("mpegurl")
+                || contentType.contains("x-mpegurl")) {
+            return StreamType.HLS;
+        }
+        if (normalized.contains(".mpd")
+                || normalized.contains("type=mpd")
+                || contentType.contains("dash+xml")) {
+            return StreamType.DASH;
+        }
+        if (normalized.contains(".mp4")
+                || normalized.contains(".ts")
+                || normalized.contains(".flv")
+                || normalized.contains(".mkv")
+                || normalized.contains("video_mp4")
+                || normalized.contains("mime_type=video")
+                || normalized.contains("response-content-type=video")
+                || normalized.contains("download=1")
+                || normalized.contains("obj/tos")
+                || contentType.startsWith("video/")) {
+            return StreamType.PROGRESSIVE;
+        }
+        return StreamType.AUTO;
+    }
+
+    private MediaItem buildMediaItem(String url, StreamType streamType) {
+        MediaItem.Builder builder = new MediaItem.Builder().setUri(Uri.parse(safe(url)));
+        if (streamType == StreamType.HLS) {
+            builder.setMimeType(MimeTypes.APPLICATION_M3U8);
+        } else if (streamType == StreamType.DASH) {
+            builder.setMimeType(MimeTypes.APPLICATION_MPD);
+        } else if (streamType == StreamType.PROGRESSIVE) {
+            builder.setMimeType(inferProgressiveMimeType(url));
+        }
+        return builder.build();
+    }
+
+    private MediaSource buildMediaSource(MediaItem mediaItem, DataSource.Factory dataSourceFactory, StreamType streamType) {
+        if (streamType == StreamType.AUTO) {
+            return new DefaultMediaSourceFactory(dataSourceFactory).createMediaSource(mediaItem);
+        }
+        if (streamType == StreamType.HLS) {
+            return new HlsMediaSource.Factory(dataSourceFactory).createMediaSource(mediaItem);
+        }
+        if (streamType == StreamType.DASH) {
+            return new DashMediaSource.Factory(dataSourceFactory).createMediaSource(mediaItem);
+        }
+        DefaultExtractorsFactory extractorsFactory = new DefaultExtractorsFactory()
+                .setConstantBitrateSeekingEnabled(true);
+        return new ProgressiveMediaSource.Factory(dataSourceFactory, extractorsFactory).createMediaSource(mediaItem);
+    }
+
+    private String inferProgressiveMimeType(String url) {
+        String normalized = decodeUrl(url).toLowerCase(Locale.ROOT);
+        if (normalized.contains(".mp4")) {
+            return MimeTypes.VIDEO_MP4;
+        }
+        if (normalized.contains(".ts") || normalized.contains(".m2ts")) {
+            return MimeTypes.VIDEO_MP2T;
+        }
+        if (normalized.contains(".flv")) {
+            return "video/x-flv";
+        }
+        if (normalized.contains(".mkv")) {
+            return "video/x-matroska";
+        }
+        return null;
+    }
+
+    private String decodeUrl(String url) {
+        String value = safe(url).replace("\\/", "/");
+        if (value.contains("%")) {
+            try {
+                value = java.net.URLDecoder.decode(value, "UTF-8");
+            } catch (Exception ignored) {
+            }
+        }
+        return value;
+    }
+
+    private String normalizeHeaderName(String name) {
+        String lower = safe(name).toLowerCase(Locale.ROOT);
+        if ("user-agent".equals(lower)) return "User-Agent";
+        if ("referer".equals(lower)) return "Referer";
+        if ("cookie".equals(lower)) return "Cookie";
+        if ("accept".equals(lower)) return "Accept";
+        if ("accept-language".equals(lower)) return "Accept-Language";
+        if ("content-type".equals(lower)) return "Content-Type";
+        return safe(name);
     }
 
     private Map<String, String> parseHeaders(String rawJson) {
@@ -1375,15 +1777,12 @@ public class NativePlayerActivity extends Activity {
             applyPlayerBoxMode(false);
             return;
         }
-        if (Jzvd.backPress()) {
-            return;
-        }
         returnToMainPage();
     }
 
     private void returnToMainPage() {
         releaseSniffer();
-        Jzvd.releaseAllVideos();
+        releaseMediaPlayer();
         Intent intent = new Intent(this, MainActivity.class);
         intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         startActivity(intent);
@@ -1393,14 +1792,20 @@ public class NativePlayerActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
-        tryInvokeJzvd("goOnPlayOnResume");
+        if (mediaPlayer != null && playWhenReady) {
+            mediaPlayer.play();
+        }
         if (sniffWeb != null) sniffWeb.onResume();
     }
 
     @Override
     protected void onPause() {
         if (sniffWeb != null) sniffWeb.onPause();
-        Jzvd.releaseAllVideos();
+        if (mediaPlayer != null) {
+            playbackPosition = Math.max(0L, mediaPlayer.getCurrentPosition());
+            playWhenReady = mediaPlayer.getPlayWhenReady();
+            mediaPlayer.pause();
+        }
         super.onPause();
     }
 
@@ -1410,16 +1815,8 @@ public class NativePlayerActivity extends Activity {
         getWindow().clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
         handler.removeCallbacksAndMessages(null);
         releaseSniffer();
-        Jzvd.releaseAllVideos();
+        releaseMediaPlayer();
         super.onDestroy();
-    }
-
-    private void tryInvokeJzvd(String methodName) {
-        try {
-            Method method = Jzvd.class.getMethod(methodName);
-            method.invoke(null);
-        } catch (Throwable ignored) {
-        }
     }
 
     private TextView makeText(String text, int sp, String color, boolean bold) {
