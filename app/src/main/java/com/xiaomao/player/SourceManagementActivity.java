@@ -51,7 +51,9 @@ public class SourceManagementActivity extends AppCompatActivity {
             @Override
             public void onSelect(SourceStore.SourceItem item) {
                 SourceStore.setSelectedSourceId(SourceManagementActivity.this, item.id);
-                setResult(Activity.RESULT_OK);
+                Intent data = new Intent();
+                data.putExtra("selected_source_id", item.id);
+                setResult(Activity.RESULT_OK, data);
                 Toast.makeText(SourceManagementActivity.this, "已切换到：" + item.title, Toast.LENGTH_SHORT).show();
                 finish();
             }
