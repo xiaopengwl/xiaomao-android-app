@@ -618,7 +618,7 @@ public class NativePlayerActivity extends Activity {
             showError("\u672a\u83b7\u53d6\u5230\u53ef\u64ad\u653e\u5730\u5740");
             return;
         }
-        if (forceSniff || !looksLikeMedia(playUrl)) {
+        if (forceSniff || !looksLikeDirectMedia(playUrl)) {
             startSniff(playUrl, "\u89e3\u6790\u7ed3\u679c\u4e0d\u662f\u76f4\u94fe\uff0c\u6b63\u5728\u6309\u89c4\u5219\u7f51\u9875\u55c5\u63a2\u2026");
             return;
         }
@@ -980,9 +980,14 @@ public class NativePlayerActivity extends Activity {
         String normalized = normalizeSniffUrl(url, sniffCurrentUrl);
         if (!sniffing || !shouldSniffUrl(normalized)) return;
         if (looksLikeMedia(normalized)) {
-            String sniffOrigin = safe(origin);
-            if (sniffOrigin.isEmpty()) sniffOrigin = fromDom ? "dom" : "resource";
-            rememberSniffCandidate(normalized, depth, sniffOrigin, sniffCurrentUrl);
+            if (looksLikeDirectMedia(normalized)) {
+                String sniffOrigin = safe(origin);
+                if (sniffOrigin.isEmpty()) sniffOrigin = fromDom ? "dom" : "resource";
+                rememberSniffCandidate(normalized, depth, sniffOrigin, sniffCurrentUrl);
+            } else if (shouldFollowPage(normalized)) {
+                enqueueSniffFrame(normalized, depth + 1);
+                runOnUiThread(this::processNextSniffTask);
+            }
             return;
         }
         if (!fromDom && !shouldFollowPage(normalized)) return;
@@ -996,7 +1001,7 @@ public class NativePlayerActivity extends Activity {
         final String candidateOrigin = safe(origin);
         final String candidatePage = safe(pageUrl);
         runOnUiThread(() -> {
-            if (!sniffing || !looksLikeMedia(candidateUrl) || !shouldSniffUrl(candidateUrl)) return;
+            if (!sniffing || !looksLikeDirectMedia(candidateUrl) || !shouldSniffUrl(candidateUrl)) return;
             int score = scoreSniffCandidate(candidateUrl, depth, candidateOrigin, candidatePage);
             boolean updated = false;
             for (SniffCandidate candidate : sniffCandidates) {
@@ -1091,9 +1096,56 @@ public class NativePlayerActivity extends Activity {
         if (lower.startsWith("blob:") || lower.startsWith("data:")) return false;
         if (matchesRule(snifferMediaRules, lower)) return true;
         return lower.contains(".m3u8") || lower.contains(".mp4") || lower.contains(".flv")
-                || lower.contains(".mkv") || lower.contains(".mpd") || lower.contains("mime=video")
+                || lower.contains(".mkv") || lower.contains(".mpd") || lower.contains(".ts")
+                || lower.contains(".m2ts") || lower.contains("mime=video")
                 || lower.contains("/m3u8") || lower.contains("video_mp4")
-                || lower.contains("application/vnd.apple.mpegurl");
+                || lower.contains("application/vnd.apple.mpegurl")
+                || lower.contains("response-content-type=video")
+                || lower.contains("mime_type=video")
+                || lower.contains("obj/tos");
+    }
+
+    private boolean looksLikeDirectMedia(String url) {
+        if (!looksLikeMedia(url)) {
+            return false;
+        }
+        String lower = safe(url).toLowerCase(Locale.ROOT);
+        if (lower.isEmpty()) {
+            return false;
+        }
+        if (isLikelyParserLikeMediaUrl(lower)) {
+            return false;
+        }
+        return true;
+    }
+
+    private boolean isLikelyParserLikeMediaUrl(String lower) {
+        if (safe(lower).isEmpty()) {
+            return false;
+        }
+        boolean parserPath = lower.contains(".php")
+                || lower.contains(".html")
+                || lower.contains(".asp")
+                || lower.contains(".aspx")
+                || lower.contains(".jsp")
+                || lower.contains("/player")
+                || lower.contains("player.php")
+                || lower.contains("/parse")
+                || lower.contains("parse.php")
+                || lower.contains("/api.php")
+                || lower.contains("/jx")
+                || lower.contains("url=http")
+                || lower.contains("url=https")
+                || lower.contains("v=http")
+                || lower.contains("v=https");
+        boolean mediaPath = lower.matches(".*(\\.m3u8|\\.mp4|\\.flv|\\.mkv|\\.mpd|\\.ts|\\.m2ts)(\\?.*)?$")
+                || lower.contains("/m3u8")
+                || lower.contains("mime=video")
+                || lower.contains("mime_type=video")
+                || lower.contains("application/vnd.apple.mpegurl")
+                || lower.contains("response-content-type=video")
+                || lower.contains("obj/tos");
+        return parserPath && !mediaPath;
     }
 
     private boolean shouldFollowPage(String url) {
@@ -1405,8 +1457,20 @@ public class NativePlayerActivity extends Activity {
             if (!object.has("Referer") && source != null && !safe(source.host).isEmpty()) {
                 object.put("Referer", source.host + "/");
             }
+            if (!object.has("Origin")) {
+                String origin = buildOriginFromUrl(object.optString("Referer", ""));
+                if (origin.isEmpty() && source != null) {
+                    origin = buildOriginFromUrl(source.host);
+                }
+                if (!origin.isEmpty()) {
+                    object.put("Origin", origin);
+                }
+            }
             if (!object.has("User-Agent")) {
                 object.put("User-Agent", "Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36");
+            }
+            if (!object.has("Accept-Language")) {
+                object.put("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8");
             }
             String cookies = mergeCookieStrings(
                     object.optString("Cookie", ""),
@@ -1423,6 +1487,28 @@ public class NativePlayerActivity extends Activity {
             return object.toString();
         } catch (Exception ignored) {
             return "{}";
+        }
+    }
+
+    private String buildOriginFromUrl(String url) {
+        String clean = safe(url);
+        if (clean.isEmpty()) {
+            return "";
+        }
+        try {
+            URL parsed = new URL(clean);
+            String protocol = safe(parsed.getProtocol());
+            String host = safe(parsed.getHost());
+            if (protocol.isEmpty() || host.isEmpty()) {
+                return "";
+            }
+            int port = parsed.getPort();
+            if (port > 0 && port != parsed.getDefaultPort()) {
+                return protocol + "://" + host + ":" + port;
+            }
+            return protocol + "://" + host;
+        } catch (Exception ignored) {
+            return "";
         }
     }
 
