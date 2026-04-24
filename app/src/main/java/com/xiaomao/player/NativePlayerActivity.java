@@ -2116,6 +2116,7 @@ public class NativePlayerActivity extends Activity {
         String lower = safe(url).toLowerCase(Locale.ROOT);
         return lower.contains("51cg1.com")
                 || lower.contains("isppven.com")
+                || lower.contains("chigua.com")
                 || lower.contains("51cg");
     }
 
