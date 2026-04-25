@@ -1216,6 +1216,60 @@ public class NativePlayerActivity extends Activity {
                       if(lowerType.indexOf('html') >= 0 || lowerType.indexOf('xml') >= 0 || lowerType.indexOf('mpegurl') >= 0) return true;
                       return /player|parse|video|api|play|source|stream/.test(lowerUrl);
                     }
+                    function collectFromPlayData(data, tag, collector){
+                      try{
+                        if(!data) return;
+                        if(typeof data === 'string'){
+                          collectFromText(data, tag, collector);
+                          return;
+                        }
+                        var payload = data && data.data ? data.data : data;
+                        collectFromText(JSON.stringify(payload), tag, collector);
+                        if(payload && payload.url) collector.add(payload.url, tag + '-url');
+                        if(payload && payload.src) collector.add(payload.src, tag + '-src');
+                        var list = payload && payload.quality_urls;
+                        if(list && typeof list.length === 'number'){
+                          for(var i = 0; i < list.length; i++){
+                            var item = list[i] || {};
+                            collector.add(item.url, tag + '-quality');
+                            collector.add(item.src, tag + '-quality-src');
+                            collectFromText(JSON.stringify(item), tag + '-quality-json', collector);
+                          }
+                        }
+                      }catch(e){}
+                    }
+                    function triggerCurrentEpisodeLoad(){
+                      try{
+                        var manager = window.episodeManagerInstance;
+                        var target = null;
+                        if(manager){
+                          var currentSelector = 'a[data-line="' + (manager.currentLine || 1) + '"][data-episode="' + (manager.currentEpisode || 1) + '"][dataid]';
+                          target = document.querySelector(currentSelector);
+                        }
+                        if(!target) target = document.querySelector('a.episode-link[dataid][data-line][data-episode]');
+                        if(!target) return;
+                        var dataid = (target.getAttribute('dataid') || '').trim();
+                        if(!dataid) return;
+                        var href = target.getAttribute('href') || location.href || fallback;
+                        var line = parseInt(target.getAttribute('data-line') || (manager && manager.currentLine) || '1', 10);
+                        if(!(line > 0)) line = 1;
+                        var episode = parseInt(target.getAttribute('data-episode') || (manager && manager.currentEpisode) || '1', 10);
+                        if(!(episode > 0)) episode = 1;
+                        var secretKey = '';
+                        try{
+                          if(href.indexOf('/play/') >= 0){
+                            secretKey = href.split('/play/')[1] || '';
+                          }
+                        }catch(e){}
+                        if(manager && typeof manager.loadPlayUrl === 'function'){
+                          manager.loadPlayUrl(dataid, secretKey, '1080', false, true).catch(function(){});
+                          return;
+                        }
+                        if(manager && typeof manager.handleEpisodeClick === 'function'){
+                          manager.handleEpisodeClick(href, dataid, line, episode);
+                        }
+                      }catch(e){}
+                    }
                     function clickAdControls(){
                       try{
                         var sels = ['#wanrningconfirm','#warningconfirm','.confirm','.btn-confirm','.popup-confirm','.dialog-confirm','.enter','.enter-btn','.skip','.skip-btn','.skipad','.btn-skip','.ad-skip','.video-ad-skip','.close','.close-btn','.close-icon','.layui-layer-close','.icon-close','[data-dismiss]','[class*=confirm]','[id*=confirm]','[class*=skip]','[class*=close]','[id*=skip]','[id*=close]'];
@@ -1270,6 +1324,15 @@ public class NativePlayerActivity extends Activity {
                     }
                     if(!window.__xmSniffHooked){
                       window.__xmSniffHooked = 1;
+                      try{
+                        window.addEventListener('player:update', function(event){
+                          try{
+                            var collector = createCollector();
+                            collectFromPlayData(event && event.detail, 'player-update', collector);
+                            emit(collector.out, location.href || fallback);
+                          }catch(e){}
+                        }, true);
+                      }catch(e){}
                       try{
                         var rawFetch = window.fetch;
                         if(rawFetch){
@@ -1341,8 +1404,12 @@ public class NativePlayerActivity extends Activity {
                     }
                     clickAdControls();
                     report('now');
+                    triggerCurrentEpisodeLoad();
+                    setTimeout(function(){ triggerCurrentEpisodeLoad(); }, 350);
                     setTimeout(function(){ clickAdControls(); report('delay1'); }, 1200);
+                    setTimeout(function(){ triggerCurrentEpisodeLoad(); }, 1500);
                     setTimeout(function(){ clickAdControls(); report('delay2'); }, 3200);
+                    setTimeout(function(){ triggerCurrentEpisodeLoad(); }, 3600);
                     setTimeout(function(){ clickAdControls(); report('delay3'); }, 5600);
                   }catch(e){
                     HermesPlayer.onSniffResult('[]', __DEPTH__, __FALLBACK__);
