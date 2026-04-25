@@ -3,6 +3,7 @@ package com.xiaomao.player;
 import android.app.Activity;
 import android.text.TextUtils;
 import android.util.Base64;
+import android.webkit.CookieManager;
 import android.webkit.WebChromeClient;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebSettings;
