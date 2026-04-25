@@ -66,7 +66,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import xyz.doikki.videocontroller.StandardVideoController;
-import xyz.doikki.videoplayer.exo.ExoMediaPlayerFactory;
 import xyz.doikki.videoplayer.player.BaseVideoView;
 import xyz.doikki.videoplayer.player.VideoView;
 
@@ -1762,7 +1761,7 @@ public class NativePlayerActivity extends Activity {
         if (playerView != null) {
             playerView.setVisibility(View.GONE);
         }
-        dkPlayerView.setPlayerFactory(ExoMediaPlayerFactory.create());
+        dkPlayerView.setPlayerFactory(XiaomaoDkExoPlayerFactory.create());
         dkPlayerView.setScreenScaleType(dkScreenScaleType);
         dkPlayerView.setSpeed(tempSpeedBoost ? 2.0f : selectedSpeed);
         dkPlayerView.setUrl(mediaUrl, headers);
