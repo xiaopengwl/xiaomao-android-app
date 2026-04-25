@@ -636,7 +636,7 @@ public class NativeDrpyEngine {
             }
             String title = stripHtml(firstMatch(segment, "<h2[^>]*>([\\s\\S]*?)</h2>")).replace("热搜 HOT", "").trim();
             String desc = stripHtml(firstMatch(segment, "post-card-info[\\s\\S]*?<div[^>]*>([\\s\\S]*?)</div>"));
-            String image = firstMatch(segment, "loadBannerDirect\\((['\"])(.*?)\\1\\)");
+            String image = firstMatch(segment, "loadBannerDirect\\s*\\(\\s*(['\"])(.*?)\\1\\s*,");
             if (TextUtils.isEmpty(image)) {
                 image = firstMatch(segment, "(?:data-src|src)=['\"]([^'\"]+)['\"]");
             }
