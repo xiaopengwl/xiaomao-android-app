@@ -514,6 +514,7 @@ public class NativeDrpyEngine {
     private MediaDetail loadChiguaDetail(String itemUrl, String fallbackTitle, String fallbackPic) throws Exception {
         String detailUrl = abs(itemUrl);
         String html = requestChigua(detailUrl);
+        String imageProxy = extractChiguaImageProxy();
         String title = stripHtml(firstMatch(html, "<h1[^>]*>([\\s\\S]*?)</h1>"));
         if (TextUtils.isEmpty(title)) {
             title = fallbackTitle;
@@ -526,7 +527,7 @@ public class NativeDrpyEngine {
         if (TextUtils.isEmpty(image)) {
             image = firstMatch(html, "itemprop=['\"]image['\"][^>]*content=['\"]([^'\"]+)['\"]");
         }
-        image = absoluteUrl(image);
+        image = applyChiguaImageProxy(absoluteUrl(image), imageProxy);
         if (TextUtils.isEmpty(image)) {
             image = fallbackPic;
         }
@@ -608,6 +609,7 @@ public class NativeDrpyEngine {
         if (TextUtils.isEmpty(html)) {
             return items;
         }
+        String imageProxy = extractChiguaImageProxy();
         LinkedHashMap<String, Boolean> seen = new LinkedHashMap<>();
         Matcher matcher = Pattern.compile("<article[\\s\\S]*?</article>", Pattern.CASE_INSENSITIVE).matcher(html);
         while (matcher.find()) {
@@ -625,7 +627,7 @@ public class NativeDrpyEngine {
             if (TextUtils.isEmpty(image)) {
                 image = firstMatch(segment, "(?:data-src|src)=['\"]([^'\"]+)['\"]");
             }
-            image = absoluteUrl(image);
+            image = applyChiguaImageProxy(absoluteUrl(image), imageProxy);
             if (TextUtils.isEmpty(title)) {
                 continue;
             }
@@ -641,6 +643,31 @@ public class NativeDrpyEngine {
             value = firstMatch(html, "<meta[^>]*content=['\"]([^'\"]+)['\"][^>]*name=['\"]description['\"]");
         }
         return stripHtml(value);
+    }
+
+    private String extractChiguaImageProxy() {
+        String raw = source == null ? "" : SourceStore.normalizeRuleRaw(source.raw);
+        String proxy = firstMatch(raw, "IMG_PROXY\\s*=\\s*['\"]([^'\"]+)['\"]");
+        if (TextUtils.isEmpty(proxy) || proxy.contains("你的-worker域名")) {
+            return "";
+        }
+        return proxy.trim();
+    }
+
+    private String applyChiguaImageProxy(String imageUrl, String imageProxy) {
+        if (TextUtils.isEmpty(imageUrl) || TextUtils.isEmpty(imageProxy) || !shouldUseChiguaImageProxy(imageUrl)) {
+            return imageUrl;
+        }
+        String encoded = java.net.URLEncoder.encode(imageUrl, java.nio.charset.StandardCharsets.UTF_8)
+                .replace("+", "%20");
+        return imageProxy + encoded;
+    }
+
+    private boolean shouldUseChiguaImageProxy(String imageUrl) {
+        return imageUrl.contains("/xiao/")
+                || imageUrl.contains("/upload_01/")
+                || imageUrl.contains("/uploads/")
+                || imageUrl.contains("/upload/upload/");
     }
 
     private String extractUrlFromJsonLike(String text) {
