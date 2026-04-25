@@ -556,7 +556,7 @@ public class NativeDrpyEngine {
                 }
             });
             java.util.HashMap<String, String> headers = new java.util.HashMap<>();
-            headers.put("Referer", source == null ? "https://www.4kvm.me/" : safe(source.host) + "/");
+            headers.put("Referer", source == null || TextUtils.isEmpty(source.host) ? "https://www.4kvm.me/" : source.host + "/");
             headers.put("User-Agent", PC_USER_AGENT);
             capture.loadUrl(pageUrl, headers);
         });
