@@ -506,15 +506,28 @@ public class NativeDrpyEngine {
 
     private LazyResult resolve4kvmLazy(String input) throws Exception {
         LazyResult result = new LazyResult(input);
+        String pageUrl = abs(input);
         String resolved = resolve4kvmPlayUrl(input);
         result.url = TextUtils.isEmpty(resolved) ? input : resolved;
         result.parse = 0;
         result.jx = 0;
         result.headers.put("X-XM-Stream-Type", "hls");
-        result.headers.put("Referer", abs(input));
+        String pageOrigin = originOf(pageUrl);
+        result.headers.put("Referer", pageUrl);
+        if (!TextUtils.isEmpty(pageOrigin)) {
+            result.headers.put("Origin", pageOrigin);
+        }
         result.headers.put("User-Agent", PC_USER_AGENT);
         result.headers.put("Accept", "*/*");
         result.headers.put("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8");
+        String cookie = "";
+        try {
+            cookie = CookieManager.getInstance().getCookie(pageUrl);
+        } catch (Exception ignored) {
+        }
+        if (!TextUtils.isEmpty(cookie)) {
+            result.headers.put("Cookie", cookie);
+        }
         return result;
     }
 
@@ -621,6 +634,18 @@ public class NativeDrpyEngine {
         } catch (Exception ignored) {
         }
         return "";
+    }
+
+    private String originOf(String url) {
+        if (TextUtils.isEmpty(url)) {
+            return "";
+        }
+        try {
+            URL parsed = new URL(url);
+            return parsed.getProtocol() + "://" + parsed.getHost();
+        } catch (Exception ignored) {
+            return "";
+        }
     }
     private <T> void runBackground(BackgroundTask<T> task, T defaultValue, Callback<T> callback) {
         new Thread(() -> {
