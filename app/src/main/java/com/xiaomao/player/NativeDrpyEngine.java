@@ -231,6 +231,10 @@ public class NativeDrpyEngine {
 
     public void loadRecommend(int page, Callback<ArrayList<MediaItem>> callback) {
         int targetPage = Math.max(1, page);
+        if (isChiguaSource()) {
+            runBackground(() -> loadChiguaRecommendItems(targetPage), new ArrayList<MediaItem>(), callback);
+            return;
+        }
         String body = ""
                 + "var page=" + targetPage + ";"
                 + "MY_PAGE=page;"
@@ -271,6 +275,10 @@ public class NativeDrpyEngine {
     public void loadCategoryItems(String categoryUrl, int page, Callback<ArrayList<MediaItem>> callback) {
         int targetPage = Math.max(1, page);
         String safeCategory = categoryUrl == null ? "" : categoryUrl;
+        if (isChiguaSource()) {
+            runBackground(() -> loadChiguaCategoryItems(safeCategory, targetPage), new ArrayList<MediaItem>(), callback);
+            return;
+        }
         String body = ""
                 + "var page=" + targetPage + ";"
                 + "MY_PAGE=page;"
@@ -311,6 +319,10 @@ public class NativeDrpyEngine {
     public void search(String keyword, int page, Callback<ArrayList<MediaItem>> callback) {
         int targetPage = Math.max(1, page);
         String safeKeyword = keyword == null ? "" : keyword;
+        if (isChiguaSource()) {
+            runBackground(() -> loadChiguaSearchItems(safeKeyword, targetPage), new ArrayList<MediaItem>(), callback);
+            return;
+        }
         String body = ""
                 + "var page=" + targetPage + ";"
                 + "MY_PAGE=page;"
