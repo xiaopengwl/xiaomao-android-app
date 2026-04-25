@@ -510,6 +510,7 @@ public class NativeDrpyEngine {
         result.url = TextUtils.isEmpty(resolved) ? input : resolved;
         result.parse = 0;
         result.jx = 0;
+        result.headers.put("X-XM-Stream-Type", "hls");
         result.headers.put("Referer", abs(input));
         result.headers.put("User-Agent", PC_USER_AGENT);
         result.headers.put("Accept", "*/*");
