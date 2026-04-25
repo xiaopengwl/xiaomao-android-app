@@ -1031,7 +1031,25 @@ public class NativePlayerActivity extends Activity {
         playbackPosition = 0L;
         playWhenReady = true;
         try {
-            prepareDkPlayer(mediaUrl, buildPlayerHeaders());
+            Map<String, String> headers = buildPlayerHeaders();
+            if (shouldPreferNativePlayer(mediaUrl, headers)) {
+                releaseArtPlayer();
+                releaseDkPlayer();
+                preparedNotified = false;
+                cancelPrepareTimeout();
+                if (playerView != null) {
+                    playerView.setVisibility(View.VISIBLE);
+                }
+                if (dkPlayerView != null) {
+                    dkPlayerView.setVisibility(View.GONE);
+                }
+                if (artPlayerWebView != null) {
+                    artPlayerWebView.setVisibility(View.GONE);
+                }
+                preparePlayer(headers, true);
+            } else {
+                prepareDkPlayer(mediaUrl, headers);
+            }
         } catch (Throwable error) {
             Toast.makeText(this, "\u64ad\u653e\u5668\u521d\u59cb\u5316\u5931\u8d25\uff0c\u5c1d\u8bd5\u5916\u90e8\u64ad\u653e\u5668", Toast.LENGTH_SHORT).show();
             openExternalPlayer();
@@ -1747,6 +1765,20 @@ public class NativePlayerActivity extends Activity {
             headers.put("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8");
         }
         return headers;
+    }
+
+    private boolean shouldPreferNativePlayer(String mediaUrl, Map<String, String> headers) {
+        if (!is4kvmSource()) {
+            return false;
+        }
+        StreamType streamType = inferPrimaryStreamType(mediaUrl, headers);
+        return streamType == StreamType.HLS || streamType == StreamType.PROGRESSIVE;
+    }
+
+    private boolean is4kvmSource() {
+        String marker = ((source == null ? "" : safe(source.title) + " " + safe(source.host) + " " + safe(source.raw)))
+                .toLowerCase(Locale.ROOT);
+        return marker.contains("4kvm.me") || marker.contains("4k影视");
     }
 
     private void preparePlayer(Map<String, String> headers, boolean firstAttempt) {
