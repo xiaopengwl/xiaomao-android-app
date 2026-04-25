@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 
 public class NativeDrpyEngine {
+    private static final String PC_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36";
     private final Activity activity;
     private final WebView webView;
     private final NativeSource source;
@@ -34,6 +35,10 @@ public class NativeDrpyEngine {
     private final LinkedHashMap<String, String> cookieJar = new LinkedHashMap<>();
     private boolean ready = false;
     private boolean released = false;
+
+    private interface BackgroundTask<T> {
+        T run() throws Exception;
+    }
 
     public interface Callback<T> {
         void done(T data, String err);
@@ -244,10 +249,20 @@ public class NativeDrpyEngine {
                 + "}";
         runJsonRule("", body, (json, err) -> {
             if (!err.isEmpty()) {
+                if (isChiguaSource()) {
+                    runBackground(() -> loadChiguaRecommendItems(targetPage), new ArrayList<MediaItem>(), callback);
+                    return;
+                }
                 callback.done(new ArrayList<>(), err);
                 return;
             }
-            callback.done(parseMediaItems(json), parseRuleError(json));
+            ArrayList<MediaItem> items = parseMediaItems(json);
+            String ruleError = parseRuleError(json);
+            if (shouldUseChiguaListFallback(items, ruleError)) {
+                runBackground(() -> loadChiguaRecommendItems(targetPage), new ArrayList<MediaItem>(), callback);
+                return;
+            }
+            callback.done(items, ruleError);
         });
     }
 
@@ -274,10 +289,20 @@ public class NativeDrpyEngine {
                 + "}";
         runJsonRule("", body, (json, err) -> {
             if (!err.isEmpty()) {
+                if (isChiguaSource()) {
+                    runBackground(() -> loadChiguaCategoryItems(safeCategory, targetPage), new ArrayList<MediaItem>(), callback);
+                    return;
+                }
                 callback.done(new ArrayList<>(), err);
                 return;
             }
-            callback.done(parseMediaItems(json), parseRuleError(json));
+            ArrayList<MediaItem> items = parseMediaItems(json);
+            String ruleError = parseRuleError(json);
+            if (shouldUseChiguaListFallback(items, ruleError)) {
+                runBackground(() -> loadChiguaCategoryItems(safeCategory, targetPage), new ArrayList<MediaItem>(), callback);
+                return;
+            }
+            callback.done(items, ruleError);
         });
     }
 
@@ -304,10 +329,20 @@ public class NativeDrpyEngine {
                 + "}";
         runJsonRule("", body, (json, err) -> {
             if (!err.isEmpty()) {
+                if (isChiguaSource()) {
+                    runBackground(() -> loadChiguaSearchItems(safeKeyword, targetPage), new ArrayList<MediaItem>(), callback);
+                    return;
+                }
                 callback.done(new ArrayList<>(), err);
                 return;
             }
-            callback.done(parseMediaItems(json), parseRuleError(json));
+            ArrayList<MediaItem> items = parseMediaItems(json);
+            String ruleError = parseRuleError(json);
+            if (shouldUseChiguaListFallback(items, ruleError)) {
+                runBackground(() -> loadChiguaSearchItems(safeKeyword, targetPage), new ArrayList<MediaItem>(), callback);
+                return;
+            }
+            callback.done(items, ruleError);
         });
     }
 
@@ -336,10 +371,24 @@ public class NativeDrpyEngine {
                 + "}";
         runJsonRule(safeUrl, body, (json, err) -> {
             if (!err.isEmpty()) {
+                if (isChiguaSource()) {
+                    runBackground(() -> loadChiguaDetail(safeUrl, safeTitle, safePic),
+                            new MediaDetail(safeUrl, safeTitle, safePic, "", "", new ArrayList<EpisodeGroup>()),
+                            callback);
+                    return;
+                }
                 callback.done(new MediaDetail(safeUrl, safeTitle, safePic, "", err, new ArrayList<>()), err);
                 return;
             }
-            callback.done(parseMediaDetail(json, safeUrl, safeTitle, safePic), parseRuleError(json));
+            MediaDetail detail = parseMediaDetail(json, safeUrl, safeTitle, safePic);
+            String ruleError = parseRuleError(json);
+            if (shouldUseChiguaDetailFallback(detail, ruleError)) {
+                runBackground(() -> loadChiguaDetail(safeUrl, safeTitle, safePic),
+                        new MediaDetail(safeUrl, safeTitle, safePic, "", "", new ArrayList<EpisodeGroup>()),
+                        callback);
+                return;
+            }
+            callback.done(detail, ruleError);
         });
     }
 
@@ -367,16 +416,317 @@ public class NativeDrpyEngine {
                 + "}";
         runJsonRule(fallbackInput, body, (json, err) -> {
             if (!err.isEmpty()) {
+                if (isChiguaSource()) {
+                    runBackground(() -> resolveChiguaLazy(fallbackInput), new LazyResult(fallbackInput), callback);
+                    return;
+                }
                 callback.done(new LazyResult(fallbackInput), err);
                 return;
             }
             try {
                 JSONObject object = new JSONObject(json);
-                callback.done(parseLazyResult(object, fallbackInput), object.optString("error", ""));
+                LazyResult result = parseLazyResult(object, fallbackInput);
+                String ruleError = object.optString("error", "");
+                if (shouldUseChiguaLazyFallback(result, ruleError, fallbackInput)) {
+                    runBackground(() -> resolveChiguaLazy(fallbackInput), new LazyResult(fallbackInput), callback);
+                    return;
+                }
+                callback.done(result, ruleError);
             } catch (Exception e) {
+                if (isChiguaSource()) {
+                    runBackground(() -> resolveChiguaLazy(fallbackInput), new LazyResult(fallbackInput), callback);
+                    return;
+                }
                 callback.done(new LazyResult(fallbackInput), e.toString());
             }
         });
+    }
+
+    private boolean isChiguaSource() {
+        String marker = (source == null ? "" : source.title + " " + source.host + " " + source.raw).toLowerCase();
+        return marker.contains("吃瓜")
+                || marker.contains("chigua")
+                || marker.contains("51cg")
+                || marker.contains("nnfndyhn.cc")
+                || marker.contains("wyrrqof.com");
+    }
+
+    private boolean shouldUseChiguaListFallback(ArrayList<MediaItem> items, String error) {
+        return isChiguaSource() && (!TextUtils.isEmpty(error) || items == null || items.isEmpty());
+    }
+
+    private boolean shouldUseChiguaDetailFallback(MediaDetail detail, String error) {
+        return isChiguaSource()
+                && (!TextUtils.isEmpty(error)
+                || detail == null
+                || detail.playGroups == null
+                || detail.playGroups.isEmpty());
+    }
+
+    private boolean shouldUseChiguaLazyFallback(LazyResult result, String error, String input) {
+        if (!isChiguaSource()) {
+            return false;
+        }
+        if (!TextUtils.isEmpty(error) || result == null) {
+            return true;
+        }
+        String resolved = result.url == null ? "" : result.url.trim();
+        String original = input == null ? "" : input.trim();
+        return resolved.isEmpty()
+                || TextUtils.equals(resolved, original)
+                || result.parse != 0;
+    }
+
+    private <T> void runBackground(BackgroundTask<T> task, T defaultValue, Callback<T> callback) {
+        new Thread(() -> {
+            T value = defaultValue;
+            String error = "";
+            try {
+                value = task.run();
+            } catch (Exception e) {
+                error = e.toString();
+            }
+            T finalValue = value;
+            String finalError = error;
+            activity.runOnUiThread(() -> callback.done(finalValue, finalError));
+        }).start();
+    }
+
+    private ArrayList<MediaItem> loadChiguaRecommendItems(int page) throws Exception {
+        String path = page <= 1 ? "/" : "/page/" + page + "/";
+        return parseChiguaList(requestChigua(path));
+    }
+
+    private ArrayList<MediaItem> loadChiguaCategoryItems(String categoryUrl, int page) throws Exception {
+        String safeCategory = categoryUrl == null ? "" : categoryUrl.trim();
+        String path = "/category/" + safeCategory + "/" + Math.max(1, page) + "/";
+        return parseChiguaList(requestChigua(path));
+    }
+
+    private ArrayList<MediaItem> loadChiguaSearchItems(String keyword, int page) throws Exception {
+        String encodedKeyword = java.net.URLEncoder.encode(keyword == null ? "" : keyword, "UTF-8").replace("+", "%20");
+        String path = "/search/" + encodedKeyword + "/" + Math.max(1, page) + "/";
+        return parseChiguaList(requestChigua(path));
+    }
+
+    private MediaDetail loadChiguaDetail(String itemUrl, String fallbackTitle, String fallbackPic) throws Exception {
+        String detailUrl = abs(itemUrl);
+        String html = requestChigua(detailUrl);
+        String title = stripHtml(firstMatch(html, "<h1[^>]*>([\\s\\S]*?)</h1>"));
+        if (TextUtils.isEmpty(title)) {
+            title = fallbackTitle;
+        }
+        if (TextUtils.isEmpty(title)) {
+            title = "详情";
+        }
+        String desc = parseMetaDescription(html);
+        String image = firstMatch(html, "data-xkrkllgl=['\"]([^'\"]+)['\"]");
+        if (TextUtils.isEmpty(image)) {
+            image = firstMatch(html, "itemprop=['\"]image['\"][^>]*content=['\"]([^'\"]+)['\"]");
+        }
+        image = absoluteUrl(image);
+        if (TextUtils.isEmpty(image)) {
+            image = fallbackPic;
+        }
+        ArrayList<EpisodeItem> episodes = new ArrayList<>();
+        String[] blocks = html.split("class=\\\"dplayer\\\"");
+        for (int i = 1; i < blocks.length; i++) {
+            String block = blocks[i];
+            String name = stripHtml(firstMatch(block, "data-video_title=['\"]([^'\"]+)['\"]"));
+            if (TextUtils.isEmpty(name)) {
+                name = "播放" + i;
+            }
+            if (block.contains("data-config=")) {
+                episodes.add(new EpisodeItem(name, detailUrl + "@@" + (i - 1)));
+            }
+        }
+        if (episodes.isEmpty()) {
+            episodes.add(new EpisodeItem("嗅探播放", detailUrl));
+        }
+        ArrayList<EpisodeGroup> groups = new ArrayList<>();
+        groups.add(new EpisodeGroup("道长在线", episodes));
+        return new MediaDetail(detailUrl, title, image, desc, desc, groups);
+    }
+
+    private LazyResult resolveChiguaLazy(String input) throws Exception {
+        LazyResult result = new LazyResult(input);
+        String resolved = resolveChiguaPlayUrl(input);
+        result.url = TextUtils.isEmpty(resolved) ? input : resolved;
+        result.parse = 0;
+        result.jx = 0;
+        result.headers.put("Referer", currentHost + "/");
+        result.headers.put("User-Agent", PC_USER_AGENT);
+        return result;
+    }
+
+    private String resolveChiguaPlayUrl(String input) throws Exception {
+        if (TextUtils.isEmpty(input)) {
+            return "";
+        }
+        String safeInput = decodeHtml(input);
+        if (safeInput.contains("@@")) {
+            String[] sp = safeInput.split("@@");
+            String detailUrl = sp[0];
+            int index = 0;
+            try {
+                index = Integer.parseInt(sp.length > 1 ? sp[1] : "0");
+            } catch (Exception ignored) {
+            }
+            String html = requestChigua(detailUrl);
+            String[] blocks = html.split("class=\\\"dplayer\\\"");
+            if (blocks.length > index + 1) {
+                String block = blocks[index + 1];
+                String config = firstMatch(block, "data-config='([^']+)'");
+                if (TextUtils.isEmpty(config)) {
+                    config = firstMatch(block, "data-config=\\\"([^\\\"]+)\\\"");
+                }
+                String parsed = decodeHtml(config);
+                String url = extractUrlFromJsonLike(parsed);
+                if (!TextUtils.isEmpty(url)) {
+                    return absoluteUrl(url);
+                }
+            }
+        }
+        String direct = extractUrlFromJsonLike(safeInput);
+        return TextUtils.isEmpty(direct) ? safeInput : absoluteUrl(direct);
+    }
+
+    private String requestChigua(String url) throws Exception {
+        HttpOptions options = new HttpOptions();
+        options.userAgent = PC_USER_AGENT;
+        options.referer = (TextUtils.isEmpty(currentHost) ? (source == null ? "" : source.host) : currentHost) + "/";
+        options.headers.put("Accept-Language", "zh-CN,zh;q=0.9");
+        HttpResult result = requestRaw(abs(url), options);
+        updateCurrentHost(result.finalUrl);
+        return result.body == null ? "" : result.body;
+    }
+
+    private ArrayList<MediaItem> parseChiguaList(String html) {
+        ArrayList<MediaItem> items = new ArrayList<>();
+        if (TextUtils.isEmpty(html)) {
+            return items;
+        }
+        LinkedHashMap<String, Boolean> seen = new LinkedHashMap<>();
+        Matcher matcher = Pattern.compile("<article[\\s\\S]*?</article>", Pattern.CASE_INSENSITIVE).matcher(html);
+        while (matcher.find()) {
+            String segment = matcher.group();
+            if (TextUtils.isEmpty(segment) || !segment.contains("/archives/")) {
+                continue;
+            }
+            String url = absoluteUrl(firstMatch(segment, "href=['\"]([^'\"]*/archives/[^'\"]+)['\"]"));
+            if (TextUtils.isEmpty(url) || seen.containsKey(url)) {
+                continue;
+            }
+            String title = stripHtml(firstMatch(segment, "<h2[^>]*>([\\s\\S]*?)</h2>")).replace("热搜 HOT", "").trim();
+            String desc = stripHtml(firstMatch(segment, "post-card-info[\\s\\S]*?<div[^>]*>([\\s\\S]*?)</div>"));
+            String image = firstMatch(segment, "loadBannerDirect\\((['\"])(.*?)\\1\\)");
+            if (TextUtils.isEmpty(image)) {
+                image = firstMatch(segment, "(?:data-src|src)=['\"]([^'\"]+)['\"]");
+            }
+            image = absoluteUrl(image);
+            if (TextUtils.isEmpty(title)) {
+                continue;
+            }
+            seen.put(url, Boolean.TRUE);
+            items.add(new MediaItem(url, url, title, image, desc, url));
+        }
+        return items;
+    }
+
+    private String parseMetaDescription(String html) {
+        String value = firstMatch(html, "<meta[^>]*name=['\"]description['\"][^>]*content=['\"]([^'\"]+)['\"]");
+        if (TextUtils.isEmpty(value)) {
+            value = firstMatch(html, "<meta[^>]*content=['\"]([^'\"]+)['\"][^>]*name=['\"]description['\"]");
+        }
+        return stripHtml(value);
+    }
+
+    private String extractUrlFromJsonLike(String text) {
+        if (TextUtils.isEmpty(text)) {
+            return "";
+        }
+        try {
+            JSONObject object = new JSONObject(text);
+            JSONObject video = object.optJSONObject("video");
+            if (video != null) {
+                String videoUrl = video.optString("url", "");
+                if (!TextUtils.isEmpty(videoUrl)) {
+                    return videoUrl;
+                }
+            }
+            String directUrl = object.optString("url", "");
+            if (!TextUtils.isEmpty(directUrl)) {
+                return directUrl;
+            }
+        } catch (Exception ignored) {
+        }
+        String m3u8 = firstMatch(text, "(https?://[^\\s'\"]+\\.m3u8[^\\s'\"]*)");
+        if (!TextUtils.isEmpty(m3u8)) {
+            return m3u8;
+        }
+        String mp4 = firstMatch(text, "(https?://[^\\s'\"]+\\.mp4[^\\s'\"]*)");
+        if (!TextUtils.isEmpty(mp4)) {
+            return mp4;
+        }
+        return "";
+    }
+
+    private String decodeHtml(String text) {
+        if (text == null) {
+            return "";
+        }
+        return text.replace("&quot;", "\"")
+                .replace("&#34;", "\"")
+                .replace("&#39;", "'")
+                .replace("&amp;", "&")
+                .replace("\\/", "/")
+                .replace("\\\\/", "/");
+    }
+
+    private String stripHtml(String text) {
+        if (text == null) {
+            return "";
+        }
+        return text.replaceAll("<[^>]+>", " ")
+                .replace("&nbsp;", " ")
+                .replace("&amp;", "&")
+                .replace("&quot;", "\"")
+                .replace("&#39;", "'")
+                .replaceAll("\\s+", " ")
+                .trim();
+    }
+
+    private String firstMatch(String text, String regex) {
+        if (TextUtils.isEmpty(text)) {
+            return "";
+        }
+        Matcher matcher = Pattern.compile(regex, Pattern.CASE_INSENSITIVE).matcher(text);
+        if (matcher.find()) {
+            if (matcher.groupCount() >= 2) {
+                return matcher.group(2);
+            }
+            if (matcher.groupCount() >= 1) {
+                return matcher.group(1);
+            }
+        }
+        return "";
+    }
+
+    private String absoluteUrl(String url) {
+        if (TextUtils.isEmpty(url)) {
+            return "";
+        }
+        if (url.startsWith("http://") || url.startsWith("https://")) {
+            return url;
+        }
+        if (url.startsWith("//")) {
+            return "https:" + url;
+        }
+        String host = TextUtils.isEmpty(currentHost) ? (source == null ? "" : source.host) : currentHost;
+        if (url.startsWith("/")) {
+            return host + url;
+        }
+        return host + "/" + url;
     }
 
     public void release() {
@@ -571,7 +921,7 @@ public class NativeDrpyEngine {
     }
 
     private String baseJs(String input) {
-        String raw = source == null || source.raw == null ? "" : source.raw;
+        String raw = source == null || source.raw == null ? "" : SourceStore.normalizeRuleRaw(source.raw);
         String host = source == null ? "" : source.host;
         String vendorJs = raw.contains("CryptoJS") ? cryptoJs : "";
         return "var input=" + quote(input) + ";var MY_PAGE=1;var MY_PAGECOUNT=999;var MY_TOTAL=99999;"
