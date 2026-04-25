@@ -105,7 +105,6 @@ public class NativePlayerActivity extends Activity {
     private boolean artPlayerReady = false;
     private boolean artPlayerFullscreen = false;
     private boolean artPlayerWebFullscreen = false;
-    private boolean nativePlayerFallbackTried = false;
     private boolean artPlayerFallbackTried = false;
     private boolean preparedNotified = false;
     private boolean tempSpeedBoost = false;
@@ -979,7 +978,6 @@ public class NativePlayerActivity extends Activity {
         releaseMediaPlayer();
         releaseArtPlayer();
         playUrl = null;
-        nativePlayerFallbackTried = false;
         artPlayerFallbackTried = false;
         activeHeaders.clear();
         showState("正在解析播放地址…", true, 1f);
@@ -1031,25 +1029,7 @@ public class NativePlayerActivity extends Activity {
         playbackPosition = 0L;
         playWhenReady = true;
         try {
-            Map<String, String> headers = buildPlayerHeaders();
-            if (shouldPreferNativePlayer(mediaUrl, headers)) {
-                releaseArtPlayer();
-                releaseDkPlayer();
-                preparedNotified = false;
-                cancelPrepareTimeout();
-                if (playerView != null) {
-                    playerView.setVisibility(View.VISIBLE);
-                }
-                if (dkPlayerView != null) {
-                    dkPlayerView.setVisibility(View.GONE);
-                }
-                if (artPlayerWebView != null) {
-                    artPlayerWebView.setVisibility(View.GONE);
-                }
-                preparePlayer(headers, true);
-            } else {
-                prepareDkPlayer(mediaUrl, headers);
-            }
+            prepareDkPlayer(mediaUrl, buildPlayerHeaders());
         } catch (Throwable error) {
             Toast.makeText(this, "\u64ad\u653e\u5668\u521d\u59cb\u5316\u5931\u8d25\uff0c\u5c1d\u8bd5\u5916\u90e8\u64ad\u653e\u5668", Toast.LENGTH_SHORT).show();
             openExternalPlayer();
@@ -1767,20 +1747,6 @@ public class NativePlayerActivity extends Activity {
         return headers;
     }
 
-    private boolean shouldPreferNativePlayer(String mediaUrl, Map<String, String> headers) {
-        if (!is4kvmSource()) {
-            return false;
-        }
-        StreamType streamType = inferPrimaryStreamType(mediaUrl, headers);
-        return streamType == StreamType.HLS || streamType == StreamType.PROGRESSIVE;
-    }
-
-    private boolean is4kvmSource() {
-        String marker = ((source == null ? "" : safe(source.title) + " " + safe(source.host) + " " + safe(source.raw)))
-                .toLowerCase(Locale.ROOT);
-        return marker.contains("4kvm.me") || marker.contains("4k影视");
-    }
-
     private void preparePlayer(Map<String, String> headers, boolean firstAttempt) {
         if (safe(playUrl).isEmpty()) {
             throw new IllegalStateException("empty play url");
@@ -1915,27 +1881,6 @@ public class NativePlayerActivity extends Activity {
             StreamType primaryType = inferPrimaryStreamType(playUrl, headers);
             if (primaryType != StreamType.HLS && primaryType != StreamType.PROGRESSIVE) {
                 return false;
-            }
-            if (!nativePlayerFallbackTried) {
-                nativePlayerFallbackTried = true;
-                cancelPrepareTimeout();
-                releaseDkPlayer();
-                releaseArtPlayer();
-                preparedNotified = false;
-                showState(safe(reason).isEmpty()
-                        ? "\u6b63\u5728\u5207\u6362\u539f\u751f\u64ad\u653e\u5668\u2026"
-                        : safe(reason) + "\uff0c\u6b63\u5728\u5207\u6362\u539f\u751f\u64ad\u653e\u5668\u2026", true, 1f);
-                if (dkPlayerView != null) {
-                    dkPlayerView.setVisibility(View.GONE);
-                }
-                if (artPlayerWebView != null) {
-                    artPlayerWebView.setVisibility(View.GONE);
-                }
-                if (playerView != null) {
-                    playerView.setVisibility(View.VISIBLE);
-                }
-                preparePlayer(headers, true);
-                return true;
             }
             if (!artPlayerFallbackTried) {
                 artPlayerFallbackTried = true;
