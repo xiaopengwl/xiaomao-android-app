@@ -26,6 +26,7 @@ import java.util.regex.Pattern;
 
 public class NativeDrpyEngine {
     private static final String PC_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36";
+    private static final String DEFAULT_CHIGUA_IMAGE_PROXY = "http://tpjx.yuexiboke.com/?url=";
     private final Activity activity;
     private final WebView webView;
     private final NativeSource source;
@@ -576,7 +577,7 @@ public class NativeDrpyEngine {
 
     private String resolveChiguaPlayUrl(String input) throws Exception {
         if (TextUtils.isEmpty(input)) {
-            return "";
+            return DEFAULT_CHIGUA_IMAGE_PROXY;
         }
         String safeInput = decodeHtml(input);
         if (safeInput.contains("@@")) {
@@ -661,25 +662,21 @@ public class NativeDrpyEngine {
         String raw = source == null ? "" : SourceStore.normalizeRuleRaw(source.raw);
         String proxy = firstMatch(raw, "IMG_PROXY\\s*=\\s*['\"]([^'\"]+)['\"]");
         if (TextUtils.isEmpty(proxy) || proxy.contains("你的-worker域名")) {
-            return "";
+            return DEFAULT_CHIGUA_IMAGE_PROXY;
         }
-        return proxy.trim();
+        proxy = proxy.trim();
+        return proxy.endsWith("?url=") ? proxy : DEFAULT_CHIGUA_IMAGE_PROXY;
     }
 
     private String applyChiguaImageProxy(String imageUrl, String imageProxy) {
-        if (TextUtils.isEmpty(imageUrl) || TextUtils.isEmpty(imageProxy) || !shouldUseChiguaImageProxy(imageUrl)) {
+        if (TextUtils.isEmpty(imageUrl)) {
             return imageUrl;
         }
-        String encoded = java.net.URLEncoder.encode(imageUrl, java.nio.charset.StandardCharsets.UTF_8)
-                .replace("+", "%20");
-        return imageProxy + encoded;
-    }
-
-    private boolean shouldUseChiguaImageProxy(String imageUrl) {
-        return imageUrl.contains("/xiao/")
-                || imageUrl.contains("/upload_01/")
-                || imageUrl.contains("/uploads/")
-                || imageUrl.contains("/upload/upload/");
+        String proxy = TextUtils.isEmpty(imageProxy) ? DEFAULT_CHIGUA_IMAGE_PROXY : imageProxy.trim();
+        if (proxy.endsWith(imageUrl)) {
+            return proxy;
+        }
+        return proxy + imageUrl;
     }
 
     private String extractUrlFromJsonLike(String text) {
