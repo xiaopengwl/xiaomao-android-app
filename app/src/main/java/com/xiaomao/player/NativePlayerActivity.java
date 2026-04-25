@@ -116,7 +116,7 @@ public class NativePlayerActivity extends Activity {
     private final ArrayList<String> episodeNames = new ArrayList<>();
     private final ArrayList<String> episodeInputs = new ArrayList<>();
     private int currentIndex = 0;
-    private String seriesTitle = "鏅撻箯澹冲瓙";
+    private String seriesTitle = "\u89c6\u9891\u64ad\u653e";
 
     private final ArrayList<String> snifferMatchRules = new ArrayList<>();
     private final ArrayList<String> snifferExcludeRules = new ArrayList<>();
@@ -146,7 +146,7 @@ public class NativePlayerActivity extends Activity {
     private final Runnable longPressSpeedRunnable = () -> {
         tempSpeedBoost = true;
         applyPlaybackSpeed(2.0f);
-        showState("闀挎寜鍔犻€?2.0x", false, 0.9f);
+        showState("闂傚倸鍊搁崐鐢稿磻閹剧粯鐓欑紒瀣健椤庢鏌ｉ敃鈧…鐑藉蓟濞戙垹绫嶉柛灞惧焹閺嬪懘姊?2.0x", false, 0.9f);
     };
     private final Runnable hideState = () -> {
         if (playerOverlay != null && !sniffing) {
@@ -157,7 +157,7 @@ public class NativePlayerActivity extends Activity {
         @Override
         public void onPlaybackStateChanged(int playbackState) {
             if (playbackState == Player.STATE_BUFFERING) {
-                showState("姝ｅ湪缂撳啿瑙嗛鈥?, true, 0.92f);
+                showState("\u6b63\u5728\u7f13\u51b2\u89c6\u9891...", true, 0.92f);
                 return;
             }
             if (playbackState == Player.STATE_READY) {
@@ -172,7 +172,7 @@ public class NativePlayerActivity extends Activity {
             }
             if (playbackState == Player.STATE_ENDED) {
                 playbackPosition = 0L;
-                showState("鎾斁瀹屾垚", false, 0.95f);
+                showState("\u64ad\u653e\u5b8c\u6210", false, 0.95f);
             }
         }
 
@@ -199,12 +199,12 @@ public class NativePlayerActivity extends Activity {
 
         input = safe(getIntent().getStringExtra("input"));
         title = safe(getIntent().getStringExtra("title"));
-        if (title.isEmpty()) title = "鏅撻箯澹冲瓙";
+        if (title.isEmpty()) title = "\u89c6\u9891\u64ad\u653e";
         line = safe(getIntent().getStringExtra("line"));
-        if (line.isEmpty()) line = "榛樿绾胯矾";
+        if (line.isEmpty()) line = "\u9ed8\u8ba4\u7ebf\u8def";
         seriesTitle = safe(getIntent().getStringExtra("series_title"));
         if (seriesTitle.isEmpty()) {
-            int split = title.indexOf(" 路 ");
+            int split = title.indexOf(" 闂?");
             seriesTitle = split > 0 ? title.substring(0, split) : title;
         }
         ArrayList<String> names = getIntent().getStringArrayListExtra("episode_names");
@@ -219,7 +219,7 @@ public class NativePlayerActivity extends Activity {
         currentIndex = getIntent().getIntExtra("episode_index", 0);
         if (currentIndex < 0 || currentIndex >= episodeInputs.size()) currentIndex = 0;
         if (episodeInputs.isEmpty()) {
-            episodeNames.add("鎾斁");
+            episodeNames.add("\u64ad\u653e");
             episodeInputs.add(input);
             currentIndex = 0;
         } else if (input.isEmpty()) {
@@ -255,7 +255,7 @@ public class NativePlayerActivity extends Activity {
         page.addView(nav, new LinearLayout.LayoutParams(-1, dp(72)));
 
         TextView back = new TextView(this);
-        back.setText("鈥?);
+        back.setText("<");
         back.setTextColor(Color.WHITE);
         back.setTextSize(30);
         back.setTypeface(Typeface.DEFAULT_BOLD);
@@ -279,7 +279,7 @@ public class NativePlayerActivity extends Activity {
         lineView.setEllipsize(TextUtils.TruncateAt.END);
         navText.addView(lineView, new LinearLayout.LayoutParams(-1, 0, 1));
 
-        TextView sourceTag = makeChip("DK 鎾斁", "#35141A", "#E75B68", "#FFE6EA");
+        TextView sourceTag = makeChip("DK \u64ad\u653e", "#35141A", "#E75B68", "#FFE6EA");
         LinearLayout.LayoutParams sourceTagLp = new LinearLayout.LayoutParams(-2, dp(32));
         sourceTagLp.leftMargin = dp(6);
         nav.addView(sourceTag, sourceTagLp);
@@ -328,7 +328,7 @@ public class NativePlayerActivity extends Activity {
         playerOverlay = overlay;
         playerBox.addView(overlay, new FrameLayout.LayoutParams(-1, -1));
 
-        portraitExitButton = makeChip("閫€鍑虹珫灞?, "#B5121F", "#FF5E6C", "#FFFFFF");
+        portraitExitButton = makeChip("\u9000\u51fa\u5168\u5c4f", "#B5121F", "#FF5E6C", "#FFFFFF");
         portraitExitButton.setVisibility(View.GONE);
         portraitExitButton.setOnClickListener(v -> applyPlayerBoxMode(false));
         FrameLayout.LayoutParams portraitExitLp = new FrameLayout.LayoutParams(-2, dp(34), Gravity.TOP | Gravity.END);
@@ -339,7 +339,7 @@ public class NativePlayerActivity extends Activity {
         loading = new ProgressBar(this);
         overlay.addView(loading, new LinearLayout.LayoutParams(dp(38), dp(38)));
 
-        stateView = makeText("姝ｅ湪瑙ｆ瀽鎾斁鍦板潃鈥?, 14, "#DDE5FF", false);
+        stateView = makeText("\u6b63\u5728\u89e3\u6790\u64ad\u653e\u5730\u5740...", 14, "#DDE5FF", false);
         stateView.setGravity(Gravity.CENTER);
         stateView.setPadding(dp(14), dp(14), dp(14), 0);
         overlay.addView(stateView, new LinearLayout.LayoutParams(-2, -2));
@@ -360,8 +360,8 @@ public class NativePlayerActivity extends Activity {
         heroCard.setBackground(cardBg("#101521", "#222D42", 20));
         root.addView(heroCard, new LinearLayout.LayoutParams(-1, -2));
 
-        heroCard.addView(makeText("鍘熺敓瑙ｆ瀽鎾斁", 18, "#FFFFFF", true));
-        TextView tip = makeText("浣跨敤 kezi 椋庢牸鐨勫師鐢?lazy 瑙ｆ瀽鍜岀綉椤靛梾鎺紝鎷垮埌鐪熷疄鍦板潃鍚庝氦缁?JZPlayer 鎾斁銆?, 13, "#C9D4F4", false);
+        heroCard.addView(makeText("\u539f\u751f\u89e3\u6790\u64ad\u653e", 18, "#FFFFFF", true));
+        TextView tip = makeText("\u89e3\u6790\u62ff\u5230\u76f4\u94fe\u540e\u4ea4\u7ed9\u64ad\u653e\u5668\u64ad\u653e\u3002", 13, "#C9D4F4", false);
         tip.setPadding(0, dp(10), 0, 0);
         heroCard.addView(tip);
 
@@ -369,8 +369,8 @@ public class NativePlayerActivity extends Activity {
         chips.setOrientation(LinearLayout.HORIZONTAL);
         chips.setPadding(0, dp(12), 0, 0);
         heroCard.addView(chips);
-        TextView lineChip = makeChip("绾胯矾 " + line, "#1A2337", "#3D4B72", "#DCE7FF");
-        TextView sourceChip = makeChip("婧?" + source.title, "#182717", "#2F7E57", "#D8FFE7");
+        TextView lineChip = makeChip("\u7ebf\u8def " + line, "#1A2337", "#3D4B72", "#DCE7FF");
+        TextView sourceChip = makeChip("\u6e90 " + source.title, "#182717", "#2F7E57", "#D8FFE7");
         lineChip.setSingleLine(true);
         lineChip.setEllipsize(TextUtils.TruncateAt.END);
         sourceChip.setSingleLine(true);
@@ -381,7 +381,7 @@ public class NativePlayerActivity extends Activity {
         chips.addView(lineChip, chip1);
         chips.addView(sourceChip, new LinearLayout.LayoutParams(-2, dp(34)));
 
-        TextView episodeTitle = makeText("閫夐泦", 16, "#FFFFFF", true);
+        TextView episodeTitle = makeText("\u9009\u96c6", 16, "#FFFFFF", true);
         episodeTitle.setPadding(0, dp(18), 0, dp(8));
         root.addView(episodeTitle);
 
@@ -391,10 +391,10 @@ public class NativePlayerActivity extends Activity {
         playModeRow.setPadding(0, 0, 0, dp(8));
         root.addView(playModeRow, new LinearLayout.LayoutParams(-1, -2));
 
-        TextView modeHint = makeText("绔栧睆瑙嗛鍙互鍒囨崲鏇撮珮鎾斁鍖哄煙", 12, "#9EAFD6", false);
+        TextView modeHint = makeText("\u7ad6\u5c4f\u89c6\u9891\u53ef\u4ee5\u5207\u6362\u66f4\u5927\u7684\u64ad\u653e\u533a\u57df", 12, "#9EAFD6", false);
         playModeRow.addView(modeHint, new LinearLayout.LayoutParams(0, -2, 1));
 
-        portraitModeButton = makeChip("绔栧睆鎾斁", "#1A2337", "#3D4B72", "#DCE7FF");
+        portraitModeButton = makeChip("\u7ad6\u5c4f\u64ad\u653e", "#1A2337", "#3D4B72", "#DCE7FF");
         portraitModeButton.setOnClickListener(v -> togglePortraitPlayerMode());
         playModeRow.addView(portraitModeButton, new LinearLayout.LayoutParams(-2, dp(34)));
 
@@ -410,7 +410,7 @@ public class NativePlayerActivity extends Activity {
         speedLp.rightMargin = dp(8);
         playerActionRow.addView(speedButton, speedLp);
 
-        resizeButton = makeChip("閫傚簲", "#13202F", "#2C567A", "#DCEEFF");
+        resizeButton = makeChip("\u9002\u914d", "#13202F", "#2C567A", "#DCEEFF");
         resizeButton.setOnClickListener(v -> cycleResizeMode());
         playerActionRow.addView(resizeButton, new LinearLayout.LayoutParams(-2, dp(34)));
 
@@ -467,7 +467,7 @@ public class NativePlayerActivity extends Activity {
             getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         }
         if (portraitModeButton != null) {
-            portraitModeButton.setText(enabled ? "閫€鍑虹珫灞忓叏灞? : "绔栧睆鍏ㄥ睆");
+            portraitModeButton.setText(enabled ? "\u9000\u51fa\u5168\u5c4f" : "\u7ad6\u5c4f\u5168\u5c4f");
             portraitModeButton.setBackground(enabled
                     ? cardBg("#E50914", "#FF5260", 16)
                     : cardBg("#1A2337", "#3D4B72", 16));
@@ -635,7 +635,7 @@ public class NativePlayerActivity extends Activity {
                 if (tempSpeedBoost) {
                     tempSpeedBoost = false;
                     applyPlaybackSpeed(selectedSpeed);
-                    showState("鎭㈠ " + formatSpeed(selectedSpeed), false, 0.9f);
+                    showState("闂傚倷娴囬鏍储瑜版帒鍨傜憸鐗堝吹?" + formatSpeed(selectedSpeed), false, 0.9f);
                     handler.postDelayed(hideState, 800);
                 }
             }
@@ -657,7 +657,7 @@ public class NativePlayerActivity extends Activity {
             applyPlaybackSpeed(selectedSpeed);
         }
         updateSpeedButton();
-        showState("鎾斁閫熷害 " + formatSpeed(selectedSpeed), false, 0.92f);
+        showState("闂傚倷绀佸﹢閬嶆惞鎼淬劌鍌ㄥù鐘差儏濡ê銆掑锝呬壕闂佸搫鑻幊姗€骞冮姀鐘垫殝闂侇叏绠戦弫?" + formatSpeed(selectedSpeed), false, 0.92f);
         handler.postDelayed(hideState, 800);
     }
 
@@ -691,12 +691,12 @@ public class NativePlayerActivity extends Activity {
 
     private String currentResizeLabel() {
         if (dkScreenScaleType == VideoView.SCREEN_SCALE_CENTER_CROP) {
-            return "瑁佸壀濉厖";
+            return "\u88c1\u526a\u586b\u5145";
         }
         if (dkScreenScaleType == VideoView.SCREEN_SCALE_MATCH_PARENT) {
-            return "鎷変几閾烘弧";
+            return "\u62c9\u4f38\u94fa\u6ee1";
         }
-        return "閫傚簲";
+        return "\u9002\u914d";
     }
 
     private String formatSpeed(float speed) {
@@ -720,10 +720,10 @@ public class NativePlayerActivity extends Activity {
     }
 
     private void updateHeader() {
-        String episodeName = currentIndex >= 0 && currentIndex < episodeNames.size() ? episodeNames.get(currentIndex) : "鎾斁";
-        titleView.setText(seriesTitle + " 路 " + episodeName);
-        lineView.setText("绾胯矾: " + line + " 路 婧? " + source.title + " 路 鍏?" + episodeInputs.size() + " 闆?路 鍡呮帰娣卞害 " + maxSniffDepth);
-        title = seriesTitle + " 路 " + episodeName;
+        String episodeName = currentIndex >= 0 && currentIndex < episodeNames.size() ? episodeNames.get(currentIndex) : "\u64ad\u653e";
+        titleView.setText(seriesTitle + " \u00b7 " + episodeName);
+        lineView.setText("\u7ebf\u8def: " + line + " \u00b7 \u6e90: " + source.title + " \u00b7 \u5171 " + episodeInputs.size() + " \u96c6 \u00b7 \u55c5\u63a2\u6df1\u5ea6 " + maxSniffDepth);
+        title = seriesTitle + " 闂?" + episodeName;
     }
 
     private void buildEpisodeButtons() {
@@ -731,7 +731,7 @@ public class NativePlayerActivity extends Activity {
         for (int i = 0; i < episodeInputs.size(); i++) {
             final int index = i;
             TextView ep = new TextView(this);
-            ep.setText(episodeNames.get(i).isEmpty() ? ("绗? + (i + 1) + "闆?) : episodeNames.get(i));
+            ep.setText(episodeNames.get(i).isEmpty() ? ("\u7b2c" + (i + 1) + "\u96c6") : episodeNames.get(i));
             ep.setTextSize(13);
             ep.setTextColor(Color.parseColor(i == currentIndex ? "#FFFFFF" : "#DDE6FF"));
             ep.setTypeface(Typeface.DEFAULT_BOLD);
@@ -761,10 +761,10 @@ public class NativePlayerActivity extends Activity {
     /*
     private void normalizePlaybackDefaults() {
         if (title.isEmpty() || looksBrokenPlaybackText(title)) {
-            title = "瑙嗛鎾斁";
+            title = "闂備浇宕甸崰鎰版偡閵夈儙娑樷攽鐎ｃ劉鍋撻崒鐐查唶闁哄洨鍋熼鎺戭渻閵堝棙灏甸柛鐘冲姍瀵?;
         }
         if (line.isEmpty() || looksBrokenPlaybackText(line)) {
-            line = "榛樿绾胯矾";
+            line = "婵犳鍠楃敮妤冪矙閹烘せ鈧箓宕奸妷顔芥櫍闂佺厧顫曢崐妤€螞椤栫偞鐓犻柟棰佺閻忥綁鏌?;
         }
         if (seriesTitle.isEmpty() || looksBrokenPlaybackText(seriesTitle)) {
             seriesTitle = title;
@@ -773,13 +773,13 @@ public class NativePlayerActivity extends Activity {
             episodeInputs.add(input);
         }
         if (episodeNames.isEmpty()) {
-            episodeNames.add("鎾斁");
+            episodeNames.add("\u64ad\u653e");
         }
         int count = Math.min(episodeNames.size(), episodeInputs.size());
         for (int i = 0; i < count; i++) {
             String name = safe(episodeNames.get(i));
             if (name.isEmpty() || looksBrokenPlaybackText(name)) {
-                episodeNames.set(i, count > 1 ? ("绗? + (i + 1) + "闆?) : "鎾斁");
+                episodeNames.set(i, count > 1 ? ("\u7b2c" + (i + 1) + "\u96c6") : "\u64ad\u653e");
             }
         }
         if (currentIndex < 0 || currentIndex >= episodeInputs.size()) {
@@ -790,17 +790,17 @@ public class NativePlayerActivity extends Activity {
     private void refreshHeaderText() {
         String episodeName = currentIndex >= 0 && currentIndex < episodeNames.size()
                 ? safe(episodeNames.get(currentIndex))
-                : "鎾斁";
+                : "闂傚倷绀佸﹢閬嶆惞鎼淬劌鍌ㄥù鐘差儏濡?;
         if (episodeName.isEmpty()) {
-            episodeName = "鎾斁";
+            episodeName = "闂傚倷绀佸﹢閬嶆惞鎼淬劌鍌ㄥù鐘差儏濡?;
         }
         seriesTitle = safe(seriesTitle).isEmpty() ? title : seriesTitle;
-        title = seriesTitle + " 路 " + episodeName;
+        title = seriesTitle + " 闂?" + episodeName;
         if (titleView != null) {
             titleView.setText(title);
         }
         if (lineView != null) {
-            lineView.setText("绾胯矾: " + line + " 路 婧? " + source.title + " 路 鍏?" + episodeInputs.size() + " 闆?路 鍡呮帰娣卞害 " + maxSniffDepth);
+            lineView.setText("缂傚倸鍊烽悞锕€鐣峰鈧畷鏇熺節濮橆厼鍓? " + line + " 闂?濠? " + source.title + " 闂?闂?" + episodeInputs.size() + " 闂?闂?闂傚倷鑳剁涵鍫曞焵椤掑啯鐝柛锝嗘そ閹粙顢涘☉娆戝嚒闁兼寧鍔欓弻娑樜旈崘銊ょ捕濡?" + maxSniffDepth);
         }
     }
 
@@ -809,17 +809,17 @@ public class NativePlayerActivity extends Activity {
         if (text.isEmpty()) {
             return false;
         }
-        return text.contains("閺?)
-                || text.contains("姒?)
-                || text.contains("閹?)
-                || text.contains("缁?)
+        return text.contains("闂?)
                 || text.contains("濠?)
                 || text.contains("闂?)
-                || text.contains("閸?)
-                || text.contains("鐟?)
-                || text.contains("鐡?)
-                || text.contains("閺?)
-                || text.contains("濞?);
+                || text.contains("缂?)
+                || text.contains("婵?)
+                || text.contains("闂?)
+                || text.contains("闂?)
+                || text.contains("闂?)
+                || text.contains("闂?)
+                || text.contains("闂?)
+                || text.contains("婵?);
     }
 
     */
@@ -919,8 +919,8 @@ public class NativePlayerActivity extends Activity {
                 super.onPageFinished(view, url);
                 if (!sniffing) return;
                 autoDismissAgeAndAdLayers(view);
-                showState("姝ｅ湪鍡呮帰椤甸潰璧勬簮鈥?, true, 1f);
-                showState("姝ｅ湪鍡呮帰椤甸潰璧勬簮鈥?, true, 1f);
+                showState("\u6b63\u5728\u55c5\u63a2\u9875\u9762\u8d44\u6e90...", true, 1f);
+                showState("\u6b63\u5728\u55c5\u63a2\u9875\u9762\u8d44\u6e90...", true, 1f);
                 showState("\u6b63\u5728\u55c5\u63a2\u9875\u9762\u8d44\u6e90\u2026", true, 1f);
                 showState("\u6b63\u5728\u55c5\u63a2\u9875\u9762\u8d44\u6e90\u2026", true, 1f);
                 probeCurrentPage(url, sniffCurrentDepth);
@@ -953,7 +953,7 @@ public class NativePlayerActivity extends Activity {
                 + "for(var i=0;i<selectors.length;i++){var nodes=document.querySelectorAll(selectors[i]);for(var j=0;j<nodes.length;j++){try{nodes[j].click();}catch(e){}}}"
                 + "var taps=document.querySelectorAll('button,a,div,span,input');"
                 + "for(var k=0;k<taps.length;k++){var el=taps[k];var label=((el.innerText||el.textContent||'')+' '+(el.value||'')).trim();"
-                + "if(label&&/鎴戝凡骞存弧18宀亅杩涘叆|纭|鍚屾剰|缁х画璁块棶|缁х画鎾斁|绔嬪嵆鎾斁|璺宠繃|鍏抽棴|enter|confirm|skip|close/i.test(label)){try{el.click();}catch(e){}}}"
+                + "if(label&&/闂傚倷鑳堕幊鎾绘偤閵娾晛鍨傞柣銏㈩焾缁€鍕煥閻斿搫啸鐎规挷绶氶幃妤€鈽夊▍顓т簼閹?8闂佽楠搁崢婊堝磻閹捐秮鐟邦煥閸愨晛娅ゅ┑鐐跺椤曆囧煡婢跺á鐔煎传閸曨剝绶缂傚倷鑳堕搹搴ㄥ矗鎼淬劌绐楁繛鎴欏焺閺佸洨绱掗鍏煎殗闁哄本绋戦～婵嬵敆娴ｈ瀚抽梻浣告啞閹告儳鈻撻鍌滅＝闁稿本鐟х粔顒勬煕濞戝崬鐏￠柡鍡曞嵆閺岋綁鎮╂潏鈺婃М濠电偛鐨烽埀顒佺窞濞戞氨鐭撻柕澹懐锛濇繛杈剧到閻楀棝骞婇幇鏉挎瀬濡わ絽鍟悡娆戠磽娴ｉ潧鐏╂鐐搭殜閺岋繝宕掑▎鎴犳碀缂傚倸鍊烽悞锕傚蓟閵娾晩鏁勯柛娑卞幘閺嗐倝鏌涢埄鍐槈缂佺姷绮妵鍕箻鐠虹儤鐎鹃梺鍝勵槺閻ｎ剟姊洪懡銈呅㈤柟纰卞亰閹潡宕堕埡鍌氬簥闂佺楠哥€氫即寮诲☉婊呯杸闁哄倸绨遍弸娆忊攽閳藉棗浜為柨娑楄含nter|confirm|skip|close/i.test(label)){try{el.click();}catch(e){}}}"
                 + "}catch(e){}})();";
         view.evaluateJavascript(script, null);
     }
@@ -965,9 +965,9 @@ public class NativePlayerActivity extends Activity {
         releaseArtPlayer();
         playUrl = null;
         activeHeaders.clear();
-        showState("姝ｅ湪瑙ｆ瀽鎾斁鍦板潃鈥?, true, 1f);
-        showState("姝ｅ湪瑙ｆ瀽鎾斁鍦板潃鈥?, true, 1f);
-        showState("姝ｅ湪瑙ｆ瀽鎾斁鍦板潃鈥?, true, 1f);
+        showState("\u6b63\u5728\u89e3\u6790\u64ad\u653e\u5730\u5740...", true, 1f);
+        showState("\u6b63\u5728\u89e3\u6790\u64ad\u653e\u5730\u5740...", true, 1f);
+        showState("\u6b63\u5728\u89e3\u6790\u64ad\u653e\u5730\u5740...", true, 1f);
         showState("\u6b63\u5728\u89e3\u6790\u64ad\u653e\u5730\u5740\u2026", true, 1f);
         if (source.raw != null && source.raw.contains("var rule")) {
             engine.runLazy(input, (result, err) -> runOnUiThread(() -> {
@@ -1007,9 +1007,9 @@ public class NativePlayerActivity extends Activity {
         releaseSniffer();
         releaseDkPlayer();
         playUrl = mediaUrl;
-        showState("姝ｅ湪鍔犺浇鎾斁鍣ㄢ€?, true, 1f);
-        showState("姝ｅ湪鍔犺浇鎾斁鍣ㄢ€?, true, 1f);
-        showState("姝ｅ湪鍔犺浇鎾斁鍣ㄢ€?, true, 1f);
+        showState("\u6b63\u5728\u52a0\u8f7d\u64ad\u653e\u5668...", true, 1f);
+        showState("\u6b63\u5728\u52a0\u8f7d\u64ad\u653e\u5668...", true, 1f);
+        showState("\u6b63\u5728\u52a0\u8f7d\u64ad\u653e\u5668...", true, 1f);
         showState("\u6b63\u5728\u52a0\u8f7d\u64ad\u653e\u5668\u2026", true, 1f);
         playbackPosition = 0L;
         playWhenReady = true;
@@ -1105,8 +1105,8 @@ public class NativePlayerActivity extends Activity {
         }
         String js = "(function(){try{"
                 + "function clickAdControls(){try{var sels=['.skip','.skip-btn','.skipad','.btn-skip','.ad-skip','.video-ad-skip','.close','.close-btn','.close-icon','.layui-layer-close','.icon-close','[class*=skip]','[class*=close]','[id*=skip]','[id*=close]'];"
-                + "for(var i=0;i<sels.length;i++){var nodes=document.querySelectorAll(sels[i]);for(var j=0;j<nodes.length;j++){var el=nodes[j];var text=((el.innerText||el.textContent||'')+' '+(el.value||'')).toLowerCase();if(!text||/skip|close|jump|璺宠繃|鍏抽棴|缁х画鎾斁|绔嬪嵆鎾斁|杩涘叆鎾斁|鎴戝凡鐪嬪畬/.test(text)){try{el.click();}catch(e){}}}}"
-                + "var taps=document.querySelectorAll('button,a,div,span');for(var k=0;k<taps.length;k++){var item=taps[k];var label=((item.innerText||item.textContent||'')+' '+(item.value||'')).trim();if(label&&/璺宠繃|鍏抽棴|缁х画鎾斁|绔嬪嵆鎾斁|杩涘叆鎾斁|鎴戝凡鐪嬪畬骞垮憡|skip|close/i.test(label)){try{item.click();}catch(e){}}}"
+                + "for(var i=0;i<sels.length;i++){var nodes=document.querySelectorAll(sels[i]);for(var j=0;j<nodes.length;j++){var el=nodes[j];var text=((el.innerText||el.textContent||'')+' '+(el.value||'')).toLowerCase();if(!text||/skip|close|jump|闂備浇宕垫慨鎾箹椤愶附鍋柛銉㈡櫆瀹曟煡鏌涙惔鈥愁伃闁哄本绋栫粻娑㈠棘鎼存挻鐏嗘繝纰樻閸嬪棝鏁嶆担铏圭＝闁稿本鐟х粔顒勬煕濞戝崬鐏￠柡鍡曞嵆濮婃椽宕烽鈩冾€楅梺鍛娒肩划娆忣嚕椤掍胶顩查柛娑卞灣绾惧ジ鏌￠崒娑卞劌闁稿骸绻掗埀顒冾潐閹哥螞濠靛宓佹慨妞诲亾妞ゃ垺锕㈤幃銏ゅ川婵犲啰鐣獆闂備礁鎼ˇ顐﹀疾濠婂懐鐭欓柟杈剧畱閻鏌涢埄鍐槈缂佺姷绮妵鍕箻鐠虹儤鐎鹃梺鍝勵槺閻ｎ剟姊绘担鐑樺殌闁宦板姂瀹曞綊鎮界粙璺槱闂佽法鍠撴慨鐢稿磿閹达附鍊甸柨婵嗙凹缁ㄤ粙鏌?.test(text)){try{el.click();}catch(e){}}}}"
+                + "var taps=document.querySelectorAll('button,a,div,span');for(var k=0;k<taps.length;k++){var item=taps[k];var label=((item.innerText||item.textContent||'')+' '+(item.value||'')).trim();if(label&&/闂備浇宕垫慨鎾箹椤愶附鍋柛銉㈡櫆瀹曟煡鏌涙惔鈥愁伃闁哄本绋栫粻娑㈠棘鎼存挻鐏嗘繝纰樻閸嬪棝鏁嶆担铏圭＝闁稿本鐟х粔顒勬煕濞戝崬鐏￠柡鍡曞嵆濮婃椽宕烽鈩冾€楅梺鍛娒肩划娆忣嚕椤掍胶顩查柛娑卞灣绾惧ジ鏌￠崒娑卞劌闁稿骸绻掗埀顒冾潐閹哥螞濠靛宓佹慨妞诲亾妞ゃ垺锕㈤幃銏ゅ川婵犲啰鐣獆闂備礁鎼ˇ顐﹀疾濠婂懐鐭欓柟杈剧畱閻鏌涢埄鍐槈缂佺姷绮妵鍕箻鐠虹儤鐎鹃梺鍝勵槺閻ｎ剟姊绘担鐑樺殌闁宦板姂瀹曞綊鎮界粙璺槱闂佽法鍠撴慨鐢稿磿閹达附鍊甸柨婵嗙凹缁ㄤ粙鏌￠崱妯碱暡妞ゃ劊鍎甸幃娆撴嚑椤戣儻妾搁梻浣烘嚀濡﹪寮ㄩˇ妾廼p|close/i.test(label)){try{item.click();}catch(e){}}}"
                 + "}catch(e){}}"
                 + "function report(tag){try{var out=[];var seen={};"
                 + "function add(u,t){u=String(u||'').trim();if(!u||seen[u])return;seen[u]=1;out.push({url:u,type:t||''});try{if(/%[0-9a-f]{2}/i.test(u)){var du=decodeURIComponent(u);if(du&&du!==u&&!seen[du]){seen[du]=1;out.push({url:du,type:(t||'')+'-decoded'});}}}catch(e){}}"
@@ -1275,7 +1275,7 @@ public class NativePlayerActivity extends Activity {
                               try{ el.click(); }catch(e){}
                               continue;
                             }
-                            if(!text || /skip|close|jump|鐠哄疇绻億閸忔娊妫磡缂佈呯敾閹绢厽鏂亅缁斿宓嗛幘顓熸杹|鏉╂稑鍙嗛幘顓熸杹|閹存垵鍑￠惇瀣暚/.test(text)){
+                            if(!text || /skip|close|jump|闂傚倷娴囧畷鍨叏閹绢喖绠规い鎰堕檮閸嬵亪鏌涢妷銏℃珕鐎规洘鐓￠弻娑欐償閳ユ剚浼冮梺鍝勬湰缁嬫牜绮诲☉銏犳閹煎瓨鎸婚悘鍡樼節绾版ɑ顫婇柛瀣閺佸秵鎷呴搹鍦紳闂佺鏈悷褏绮旈鍕厱婵炴垵宕悘锟犳煛閸℃洖宓嗘慨濠冩そ瀹曠兘顢橀埄鍐锯偓妤呮⒑閸涘⊕鑲╁垝濞嗗浚鍤曟い鎺嶈兌椤╂煡鏌涘☉鍗炵仯缁炬儳銈搁弻锟犲磼濞戝崬鍔岄梺绋块缁绘帡鍩€椤掑喚娼愰柟鍝ヮ焾铻炴繝闈涱儑瀹撲焦鎱ㄥ璇蹭壕濡炪們鍨洪敃銏ゅ箖閵忋倕宸濆┑鐘插暟閻ｇ崋闂傚倷绀侀幖顐λ囬锕€鐤炬繝濠傛噽閻瑩鏌熸潏鍓х暠闁活厽顨婇弻娑㈠焺閸愵亖妲堢紓浣哄Х缁垶濡甸崟顖氱閻犺櫣鍎ら悗楣冩⒑閸濆嫷妲洪柣锝庡墴濮婄粯鎷呴悜妯烘畬闂佸鏉垮鐎规洖缍婇幃鐣岀矙鐠侯煈妲遍梻浣芥硶閸犳挻鎱ㄩ悽绋跨？闁硅揪闄勯崐鐢告煥濠靛棛鍑圭紒銊ょ矙閺?.test(text)){
                               try{ el.click(); }catch(e){}
                             }
                           }
@@ -1288,7 +1288,7 @@ public class NativePlayerActivity extends Activity {
                             try{ item.click(); }catch(e){}
                             continue;
                           }
-                          if(label && /鐠哄疇绻億閸忔娊妫磡缂佈呯敾閹绢厽鏂亅缁斿宓嗛幘顓熸杹|鏉╂稑鍙嗛幘顓熸杹|閹存垵鍑￠惇瀣暚楠炲灝鎲skip|close/i.test(label)){
+                          if(label && /闂傚倷娴囧畷鍨叏閹绢喖绠规い鎰堕檮閸嬵亪鏌涢妷銏℃珕鐎规洘鐓￠弻娑欐償閳ユ剚浼冮梺鍝勬湰缁嬫牜绮诲☉銏犳閹煎瓨鎸婚悘鍡樼節绾版ɑ顫婇柛瀣閺佸秵鎷呴搹鍦紳闂佺鏈悷褏绮旈鍕厱婵炴垵宕悘锟犳煛閸℃洖宓嗘慨濠冩そ瀹曠兘顢橀埄鍐锯偓妤呮⒑閸涘⊕鑲╁垝濞嗗浚鍤曟い鎺嶈兌椤╂煡鏌涘☉鍗炵仯缁炬儳銈搁弻锟犲磼濞戝崬鍔岄梺绋块缁绘帡鍩€椤掑喚娼愰柟鍝ヮ焾铻炴繝闈涱儑瀹撲焦鎱ㄥ璇蹭壕濡炪們鍨洪敃銏ゅ箖閵忋倕宸濆┑鐘插暟閻ｇ崋闂傚倷绀侀幖顐λ囬锕€鐤炬繝濠傛噽閻瑩鏌熸潏鍓х暠闁活厽顨婇弻娑㈠焺閸愵亖妲堢紓浣哄Х缁垶濡甸崟顖氱閻犺櫣鍎ら悗楣冩⒑閸濆嫷妲洪柣锝庡墴濮婄粯鎷呴悜妯烘畬闂佸鏉垮鐎规洖缍婇幃鐣岀矙鐠侯煈妲遍梻浣芥硶閸犳挻鎱ㄩ悽绋跨？闁硅揪闄勯崐鐢告煥濠靛棛鍑圭紒銊ょ矙閺岋繝宕卞Ο纰辨殹濡炪們鍔婇崕鐢稿箖濞嗘挻鍤戞い鎴ｅ劵濡炬悂姊绘担鐑樺殌婵☆垰锕銊┧囧寤紁|close/i.test(label)){
                             try{ item.click(); }catch(e){}
                           }
                         }
@@ -1457,7 +1457,7 @@ public class NativePlayerActivity extends Activity {
             if (!updated) {
                 sniffCandidates.add(new SniffCandidate(candidateUrl, candidatePage, candidateOrigin, depth, score));
             }
-            showState("宸叉壘鍒板獟浣撳湴鍧€锛屾鍦ㄩ€夋嫨鏈€浣虫竻鏅板害鈥?, true, 1f);
+            showState("\u5df2\u627e\u5230\u5a92\u4f53\u5730\u5740\uff0c\u6b63\u5728\u9009\u62e9\u6700\u4f73\u6e05\u6670\u5ea6...", true, 1f);
             handler.removeCallbacks(playBestSniffCandidate);
             handler.postDelayed(playBestSniffCandidate, score >= 130 ? 450 : 900);
         });
@@ -1478,7 +1478,7 @@ public class NativePlayerActivity extends Activity {
             activeHeaders.put("Referer", best.pageUrl);
         }
         sniffing = false;
-        showState(finalAttempt ? "浣跨敤鏈€浣冲梾鎺㈠湴鍧€寮€濮嬫挱鏀锯€? : "宸叉壘鍒板獟浣撳湴鍧€锛屽紑濮嬫挱鏀锯€?, true, 1f);
+        showState(finalAttempt ? "\u4f7f\u7528\u6700\u4f73\u55c5\u63a2\u5730\u5740\u5f00\u59cb\u64ad\u653e..." : "\u5df2\u627e\u5230\u5a92\u4f53\u5730\u5740\uff0c\u5f00\u59cb\u64ad\u653e...", true, 1f);
         playInPlace(best.url);
         return true;
     }
@@ -1771,7 +1771,7 @@ public class NativePlayerActivity extends Activity {
 
     private void handleDkPlayState(int playState) {
         if (playState == VideoView.STATE_PREPARING || playState == VideoView.STATE_BUFFERING) {
-            showState("姝ｅ湪缂撳啿瑙嗛鈥?, true, 0.92f);
+            showState("\u6b63\u5728\u7f13\u51b2\u89c6\u9891...", true, 0.92f);
             return;
         }
         if (playState == VideoView.STATE_PREPARED
@@ -1791,7 +1791,7 @@ public class NativePlayerActivity extends Activity {
         }
         if (playState == VideoView.STATE_PLAYBACK_COMPLETED) {
             playbackPosition = 0L;
-            showState("鎾斁瀹屾垚", false, 0.95f);
+            showState("\u64ad\u653e\u5b8c\u6210", false, 0.95f);
         }
     }
     private boolean prepareCurrentStreamType(Map<String, String> headers, boolean firstAttempt) {
@@ -2050,13 +2050,13 @@ public class NativePlayerActivity extends Activity {
             intent.setDataAndType(Uri.parse(playUrl), "video/*");
             startActivity(intent);
         } catch (ActivityNotFoundException e) {
-            Toast.makeText(this, "鏈壘鍒板彲鐢ㄧ殑澶栭儴鎾斁鍣?, Toast.LENGTH_SHORT).show();
-            showError("鏈壘鍒板彲鐢ㄧ殑澶栭儴鎾斁鍣?);
+            Toast.makeText(this, "\u672a\u627e\u5230\u53ef\u7528\u7684\u5916\u90e8\u64ad\u653e\u5668", Toast.LENGTH_SHORT).show();
+            showError("\u672a\u627e\u5230\u53ef\u7528\u7684\u5916\u90e8\u64ad\u653e\u5668");
         }
     }
 
     private void showReadyState() {
-        showState("寮€濮嬫挱鏀?, false, 1f);
+        showState("\u5f00\u59cb\u64ad\u653e", false, 1f);
         handler.removeCallbacks(hideState);
         handler.postDelayed(hideState, 1200);
     }
@@ -2373,7 +2373,7 @@ public class NativePlayerActivity extends Activity {
 
         @JavascriptInterface
         public void onPlayerError(String message) {
-            runOnUiThread(() -> showError(safe(message).isEmpty() ? "Artplayer 鎾斁寮傚父" : safe(message)));
+            runOnUiThread(() -> showError(safe(message).isEmpty() ? "Artplayer \u64ad\u653e\u5f02\u5e38" : safe(message)));
         }
 
         @JavascriptInterface
