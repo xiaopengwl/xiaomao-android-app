@@ -37,7 +37,7 @@ public final class SourceStore {
 
         SourceItem(String id, String title, String host, String raw, boolean custom) {
             this.id = id == null ? "" : id;
-            this.title = title == null || title.trim().isEmpty() ? "未命名片源" : title.trim();
+            this.title = title == null || title.trim().isEmpty() ? "?????" : title.trim();
             this.host = host == null ? "" : host.trim();
             this.raw = raw == null ? "" : raw;
             this.custom = custom;
@@ -87,13 +87,13 @@ public final class SourceStore {
 
     public static SourceItem saveCustomSource(Context context, String title, String host, String raw) {
         String safeRaw = normalizeRuleRaw(raw == null ? "" : raw.trim());
-        if (safeRaw.isEmpty()) {
+        if (safeRaw.isEmpty() || !looksLikeRuleContent(safeRaw)) {
             return null;
         }
         String parsedTitle = title == null || title.trim().isEmpty() ? matchFirst(safeRaw, TITLE_PATTERN) : title.trim();
         String parsedHost = host == null || host.trim().isEmpty() ? matchFirst(safeRaw, HOST_PATTERN) : host.trim();
         if (parsedTitle.isEmpty()) {
-            parsedTitle = "自定义片源";
+            parsedTitle = "?????";
         }
         String id = "custom:" + System.currentTimeMillis();
         JSONObject object = new JSONObject();
@@ -182,7 +182,7 @@ public final class SourceStore {
             migrated.put(object);
             list.add(new SourceItem(
                     object.optString("id", "custom:" + i),
-                    object.optString("title", "自定义片源"),
+                    object.optString("title", "?????"),
                     object.optString("host", ""),
                     normalizedRaw,
                     true
@@ -252,6 +252,17 @@ public final class SourceStore {
         }
         builder.append(safeRaw.substring(cursor));
         return builder.toString();
+    }
+
+    private static boolean looksLikeRuleContent(String raw) {
+        if (raw == null) {
+            return false;
+        }
+        String normalized = raw.replace("\r", "");
+        return normalized.contains("var rule")
+                || normalized.contains("let rule")
+                || normalized.contains("const rule")
+                || normalized.contains("rule = {");
     }
 
     private static int findBareJsFieldEnd(String text, int start) {

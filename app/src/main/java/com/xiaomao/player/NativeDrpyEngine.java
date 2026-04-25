@@ -40,6 +40,8 @@ public class NativeDrpyEngine {
     private final ArrayList<Runnable> pendingActions = new ArrayList<>();
     private String lastResult = "";
     private String currentHost = "";
+    private String resolvedRuleRaw = null;
+    private String resolvedSourceHost = null;
     private final LinkedHashMap<String, String> cookieJar = new LinkedHashMap<>();
     private boolean ready = false;
     private boolean released = false;
@@ -468,7 +470,7 @@ public class NativeDrpyEngine {
 
     private boolean isChiguaSource() {
         String marker = (source == null ? "" : source.title + " " + source.host + " " + source.raw).toLowerCase();
-        return marker.contains("吃瓜")
+        return marker.contains("??")
                 || marker.contains("chigua")
                 || marker.contains("51cg")
                 || marker.contains("nnfndyhn.cc")
@@ -477,7 +479,7 @@ public class NativeDrpyEngine {
 
     private boolean is4kvmSource() {
         String marker = (source == null ? "" : source.title + " " + source.host + " " + source.raw).toLowerCase();
-        return marker.contains("4kvm.me") || marker.contains("4k影视");
+        return marker.contains("4kvm.me") || marker.contains("4k??");
     }
     private boolean shouldUseChiguaListFallback(ArrayList<MediaItem> items, String error) {
         return isChiguaSource() && (!TextUtils.isEmpty(error) || items == null || items.isEmpty());
@@ -571,7 +573,8 @@ public class NativeDrpyEngine {
                 }
             });
             java.util.HashMap<String, String> headers = new java.util.HashMap<>();
-            headers.put("Referer", source == null || TextUtils.isEmpty(source.host) ? "https://www.4kvm.me/" : source.host + "/");
+            String refererHost = resolveSourceHost();
+            headers.put("Referer", TextUtils.isEmpty(refererHost) ? "https://www.4kvm.me/" : refererHost + "/");
             headers.put("User-Agent", PC_USER_AGENT);
             capture.loadUrl(pageUrl, headers);
         });
@@ -689,7 +692,7 @@ public class NativeDrpyEngine {
             title = fallbackTitle;
         }
         if (TextUtils.isEmpty(title)) {
-            title = "详情";
+            title = "??";
         }
         String desc = parseMetaDescription(html);
         String image = firstMatch(html, "data-xkrkllgl=['\"]([^'\"]+)['\"]");
@@ -706,17 +709,17 @@ public class NativeDrpyEngine {
             String block = blocks[i];
             String name = stripHtml(firstMatch(block, "data-video_title=['\"]([^'\"]+)['\"]"));
             if (TextUtils.isEmpty(name)) {
-                name = "播放" + i;
+                name = "??" + i;
             }
             if (block.contains("data-config=")) {
                 episodes.add(new EpisodeItem(name, detailUrl + "@@" + (i - 1)));
             }
         }
         if (episodes.isEmpty()) {
-            episodes.add(new EpisodeItem("嗅探播放", detailUrl));
+            episodes.add(new EpisodeItem("????", detailUrl));
         }
         ArrayList<EpisodeGroup> groups = new ArrayList<>();
-        groups.add(new EpisodeGroup("道长在线", episodes));
+        groups.add(new EpisodeGroup("????", episodes));
         return new MediaDetail(detailUrl, title, image, desc, desc, groups);
     }
 
@@ -766,7 +769,7 @@ public class NativeDrpyEngine {
     private String requestChigua(String url) throws Exception {
         HttpOptions options = new HttpOptions();
         options.userAgent = PC_USER_AGENT;
-        options.referer = (TextUtils.isEmpty(currentHost) ? (source == null ? "" : source.host) : currentHost) + "/";
+        options.referer = (TextUtils.isEmpty(currentHost) ? resolveSourceHost() : currentHost) + "/";
         options.headers.put("Accept-Language", "zh-CN,zh;q=0.9");
         HttpResult result = requestRaw(abs(url), options);
         updateCurrentHost(result.finalUrl);
@@ -790,7 +793,7 @@ public class NativeDrpyEngine {
             if (TextUtils.isEmpty(url) || seen.containsKey(url)) {
                 continue;
             }
-            String title = stripHtml(firstMatch(segment, "<h2[^>]*>([\\s\\S]*?)</h2>")).replace("热搜 HOT", "").trim();
+            String title = stripHtml(firstMatch(segment, "<h2[^>]*>([\\s\\S]*?)</h2>")).replace("?? HOT", "").trim();
             String desc = stripHtml(firstMatch(segment, "post-card-info[\\s\\S]*?<div[^>]*>([\\s\\S]*?)</div>"));
             String image = firstMatch(segment, "loadBannerDirect\\s*\\(\\s*(['\"])(.*?)\\1\\s*,");
             if (TextUtils.isEmpty(image)) {
@@ -814,10 +817,78 @@ public class NativeDrpyEngine {
         return stripHtml(value);
     }
 
+    private String resolveRuleRaw() {
+        if (resolvedRuleRaw != null) {
+            return resolvedRuleRaw;
+        }
+        String raw = source == null || source.raw == null ? "" : source.raw.trim();
+        if (looksLikeRemoteRuleUrl(raw)) {
+            try {
+                raw = downloadRuleText(raw);
+            } catch (Exception ignored) {
+            }
+        }
+        resolvedRuleRaw = SourceStore.normalizeRuleRaw(raw);
+        return resolvedRuleRaw;
+    }
+
+    private String resolveSourceHost() {
+        if (resolvedSourceHost != null) {
+            return resolvedSourceHost;
+        }
+        String host = source == null || source.host == null ? "" : source.host.trim();
+        if (TextUtils.isEmpty(host)) {
+            host = firstMatch(resolveRuleRaw(), "host\\s*:\\s*['\"]([^'\"]+)['\"]");
+        }
+        resolvedSourceHost = host == null ? "" : host.trim();
+        return resolvedSourceHost;
+    }
+
+    private boolean looksLikeRemoteRuleUrl(String raw) {
+        return !TextUtils.isEmpty(raw)
+                && (raw.startsWith("http://") || raw.startsWith("https://"));
+    }
+
+    private String downloadRuleText(String rawUrl) throws Exception {
+        HttpURLConnection connection = (HttpURLConnection) new URL(rawUrl).openConnection();
+        try {
+            connection.setInstanceFollowRedirects(true);
+            connection.setConnectTimeout(15000);
+            connection.setReadTimeout(30000);
+            connection.setRequestMethod("GET");
+            connection.setRequestProperty("User-Agent", PC_USER_AGENT);
+            connection.setRequestProperty("Accept", "*/*");
+            int code = connection.getResponseCode();
+            InputStream stream = code >= 200 && code < 400
+                    ? connection.getInputStream()
+                    : connection.getErrorStream();
+            if (stream == null) {
+                throw new IllegalStateException("HTTP " + code);
+            }
+            ByteArrayOutputStream output = new ByteArrayOutputStream();
+            byte[] buffer = new byte[8192];
+            int size;
+            while ((size = stream.read(buffer)) > 0) {
+                output.write(buffer, 0, size);
+            }
+            stream.close();
+            if (code < 200 || code >= 400) {
+                throw new IllegalStateException("HTTP " + code);
+            }
+            String body = output.toString(StandardCharsets.UTF_8.name()).trim();
+            if (!body.contains("var rule")) {
+                throw new IllegalArgumentException("invalid remote rule");
+            }
+            return body;
+        } finally {
+            connection.disconnect();
+        }
+    }
+
     private String extractChiguaImageProxy() {
-        String raw = source == null ? "" : SourceStore.normalizeRuleRaw(source.raw);
+        String raw = resolveRuleRaw();
         String proxy = firstMatch(raw, "IMG_PROXY\\s*=\\s*['\"]([^'\"]+)['\"]");
-        if (TextUtils.isEmpty(proxy) || proxy.contains("你的-worker域名")) {
+        if (TextUtils.isEmpty(proxy) || proxy.contains("??-worker??")) {
             return DEFAULT_CHIGUA_IMAGE_PROXY;
         }
         proxy = proxy.trim();
@@ -916,7 +987,7 @@ public class NativeDrpyEngine {
         if (url.startsWith("//")) {
             return "https:" + url;
         }
-        String host = TextUtils.isEmpty(currentHost) ? (source == null ? "" : source.host) : currentHost;
+        String host = TextUtils.isEmpty(currentHost) ? resolveSourceHost() : currentHost;
         if (url.startsWith("/")) {
             return host + url;
         }
@@ -1080,12 +1151,12 @@ public class NativeDrpyEngine {
                                 continue;
                             }
                             items.add(new EpisodeItem(
-                                    entry.optString("name", "播放 " + (j + 1)),
+                                    entry.optString("name", "?? " + (j + 1)),
                                     entry.optString("url", "")
                             ));
                         }
                     }
-                    groups.add(new EpisodeGroup(group.optString("name", "线路 " + (i + 1)), items));
+                    groups.add(new EpisodeGroup(group.optString("name", "?? " + (i + 1)), items));
                 }
             }
             return new MediaDetail(
@@ -1115,8 +1186,8 @@ public class NativeDrpyEngine {
     }
 
     private String baseJs(String input) {
-        String raw = source == null || source.raw == null ? "" : SourceStore.normalizeRuleRaw(source.raw);
-        String host = source == null ? "" : source.host;
+        String raw = resolveRuleRaw();
+        String host = resolveSourceHost();
         String vendorJs = raw.contains("CryptoJS") ? cryptoJs : "";
         return "var input=" + quote(input) + ";var MY_PAGE=1;var MY_PAGECOUNT=999;var MY_TOTAL=99999;"
                 + "var MOBILE_UA='Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36';"
@@ -1136,7 +1207,7 @@ public class NativeDrpyEngine {
                 + "function __xmOrigin(u){try{var parsed=new URL(String(u||''), String(HOST||''));return parsed.protocol+'//'+parsed.host;}catch(e){return '';}}"
                 + "function __xmSyncReferer(headers,oldOrigin,newOrigin){if(!headers||typeof headers!=='object'||!newOrigin)return;var key='';if(Object.prototype.hasOwnProperty.call(headers,'Referer'))key='Referer';else if(Object.prototype.hasOwnProperty.call(headers,'referer'))key='referer';var value=key?String(headers[key]||''):'';if(!value||__xmOrigin(value)===oldOrigin){headers[key||'Referer']=String(newOrigin).replace(/\\/$/,'')+'/';}}"
                 + "function __xmSyncHost(meta,reqUrl){var finalOrigin=__xmOrigin(meta&&meta.finalUrl||'');if(!finalOrigin)return;var oldOrigin=__xmOrigin(rule&&rule.host||HOST)||__xmOrigin(HOST||'');HOST=finalOrigin;if(typeof rule==='object'&&rule){var reqOrigin=__xmOrigin(reqUrl||'');if(!rule.host||!oldOrigin||__xmOrigin(rule.host)===oldOrigin||(reqOrigin&&reqOrigin===oldOrigin))rule.host=finalOrigin;__xmSyncReferer(rule.headers,oldOrigin,finalOrigin);__xmSyncReferer(rule.play_headers,oldOrigin,finalOrigin);}}"
-                + "function __xmPatchKnownRule(){if(!rule||typeof rule!=='object')return;var marker=String(rule.title||'')+' '+String(rule.host||'');if(marker.indexOf('band.nnfndyhn.cc')<0&&marker.indexOf('吃瓜')<0)return;var primary='https://band.wyrrqof.com';var hosts=\"['https://band.wyrrqof.com','https://band.nnfndyhn.cc','https://51cg1.com','https://chigua.com','https://51cgm25.com','https://cg51.com']\";rule.host=primary;rule.headers=rule.headers||{};rule.headers.Referer=primary+'/';rule.play_headers=rule.play_headers||{};for(var hk in rule.headers){if(Object.prototype.hasOwnProperty.call(rule.headers,hk))rule.play_headers[hk]=rule.headers[hk];}rule.play_headers.Referer=primary+'/';var keys=['推荐','一级','搜索'];for(var i=0;i<keys.length;i++){var k=keys[i];if(typeof rule[k]!=='string')continue;rule[k]=String(rule[k]).replace(/var H='https:\\/\\/band\\.nnfndyhn\\.cc';/g,\"var H=rule.host||'\"+primary+\"';\").replace(/var HS=\\[[^\\]]*band\\.nnfndyhn\\.cc[^\\]]*\\]/g,'var HS='+hosts);}}"
+                + "function __xmPatchKnownRule(){if(!rule||typeof rule!=='object')return;var marker=String(rule.title||'')+' '+String(rule.host||'');if(marker.indexOf('band.nnfndyhn.cc')<0&&marker.indexOf('??')<0)return;var primary='https://band.wyrrqof.com';var hosts=\"['https://band.wyrrqof.com','https://band.nnfndyhn.cc','https://51cg1.com','https://chigua.com','https://51cgm25.com','https://cg51.com']\";rule.host=primary;rule.headers=rule.headers||{};rule.headers.Referer=primary+'/';rule.play_headers=rule.play_headers||{};for(var hk in rule.headers){if(Object.prototype.hasOwnProperty.call(rule.headers,hk))rule.play_headers[hk]=rule.headers[hk];}rule.play_headers.Referer=primary+'/';var keys=['??','??','??'];for(var i=0;i<keys.length;i++){var k=keys[i];if(typeof rule[k]!=='string')continue;rule[k]=String(rule[k]).replace(/var H='https:\\/\\/band\\.nnfndyhn\\.cc';/g,\"var H=rule.host||'\"+primary+\"';\").replace(/var HS=\\[[^\\]]*band\\.nnfndyhn\\.cc[^\\]]*\\]/g,'var HS='+hosts);}}"
                 + "function __xmMeta(url,opt){var obj=__xmPrepareReqOpt(opt||{});var raw=Android.requestMeta(String(url||''),JSON.stringify(obj||{}));var meta={body:'',headers:{},contentType:'',finalUrl:String(url||''),code:0};try{meta=JSON.parse(raw||'{}')||meta;}catch(e){}meta.headers=__xmNormalizeHeaders(meta.headers);meta.body=String(meta.body||'');meta.content=meta.body;meta.url=meta.finalUrl||String(url||'');document.html=meta.body;__xmSyncHost(meta,url);return meta;}"
                 + "function __xmReturn(meta,opt){var cfg=opt&&typeof opt==='object'?opt:{};if(cfg.onlyHeaders)return meta.headers||{};if(cfg.withHeaders||cfg.withStatusCode)return meta;return meta.body||'';}"
                 + "function request(url,opt){var meta=__xmMeta(url,opt||{});return __xmReturn(meta,opt||{});}"
