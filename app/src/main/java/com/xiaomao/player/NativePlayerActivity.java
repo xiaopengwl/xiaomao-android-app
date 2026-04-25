@@ -105,6 +105,7 @@ public class NativePlayerActivity extends Activity {
     private boolean artPlayerReady = false;
     private boolean artPlayerFullscreen = false;
     private boolean artPlayerWebFullscreen = false;
+    private boolean artPlayerFallbackTried = false;
     private boolean preparedNotified = false;
     private boolean tempSpeedBoost = false;
     private boolean playWhenReady = true;
@@ -142,6 +143,9 @@ public class NativePlayerActivity extends Activity {
     private final Runnable prepareTimeoutRunnable = () -> {
         if (!preparedNotified) {
             if (!retryWithNextStreamType()) {
+                if (tryFallbackToArtPlayer("\u64ad\u653e\u5668\u52a0\u8f7d\u8d85\u65f6")) {
+                    return;
+                }
                 showError("\u64ad\u653e\u5668\u52a0\u8f7d\u8d85\u65f6\uff0c\u8bf7\u6362\u7ebf\u8def\u518d\u8bd5");
             }
         }
@@ -971,6 +975,7 @@ public class NativePlayerActivity extends Activity {
         releaseMediaPlayer();
         releaseArtPlayer();
         playUrl = null;
+        artPlayerFallbackTried = false;
         activeHeaders.clear();
         showState("正在解析播放地址…", true, 1f);
         showState("正在解析播放地址…", true, 1f);
@@ -1793,7 +1798,10 @@ public class NativePlayerActivity extends Activity {
             return;
         }
         if (playState == VideoView.STATE_ERROR) {
-            showError("DKVideoPlayer 播放异常");
+            if (tryFallbackToArtPlayer("DKVideoPlayer 播放异常")) {
+                return;
+            }
+            showError("DKVideoPlayer 鎾斁寮傚父");
             return;
         }
         if (playState == VideoView.STATE_PLAYBACK_COMPLETED) {
@@ -1856,6 +1864,39 @@ public class NativePlayerActivity extends Activity {
         }
         try {
             return prepareCurrentStreamType(buildPlayerHeaders(), false);
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+    private boolean tryFallbackToArtPlayer(String reason) {
+        if (artPlayerFallbackTried || safe(playUrl).isEmpty()) {
+            return false;
+        }
+        try {
+            Map<String, String> headers = buildPlayerHeaders();
+            StreamType primaryType = inferPrimaryStreamType(playUrl, headers);
+            if (primaryType != StreamType.HLS && primaryType != StreamType.PROGRESSIVE) {
+                return false;
+            }
+            artPlayerFallbackTried = true;
+            cancelPrepareTimeout();
+            releaseMediaPlayer();
+            releaseDkPlayer();
+            showState(safe(reason).isEmpty()
+                    ? "\u6b63\u5728\u5207\u6362\u5907\u7528\u64ad\u653e\u5668\u2026"
+                    : safe(reason) + "\uff0c\u6b63\u5728\u5207\u6362\u5907\u7528\u64ad\u653e\u5668\u2026", true, 1f);
+            loadArtPlayer(playUrl, headers);
+            if (artPlayerWebView != null) {
+                artPlayerWebView.setVisibility(View.VISIBLE);
+            }
+            if (playerView != null) {
+                playerView.setVisibility(View.GONE);
+            }
+            if (dkPlayerView != null) {
+                dkPlayerView.setVisibility(View.GONE);
+            }
+            return true;
         } catch (Throwable ignored) {
             return false;
         }
