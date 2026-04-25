@@ -1,4 +1,4 @@
-package com.xiaomao.player;
+﻿package com.xiaomao.player;
 
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
@@ -105,7 +105,6 @@ public class NativePlayerActivity extends Activity {
     private boolean artPlayerReady = false;
     private boolean artPlayerFullscreen = false;
     private boolean artPlayerWebFullscreen = false;
-    private boolean artPlayerFallbackTried = false;
     private boolean preparedNotified = false;
     private boolean tempSpeedBoost = false;
     private boolean playWhenReady = true;
@@ -118,7 +117,7 @@ public class NativePlayerActivity extends Activity {
     private final ArrayList<String> episodeNames = new ArrayList<>();
     private final ArrayList<String> episodeInputs = new ArrayList<>();
     private int currentIndex = 0;
-    private String seriesTitle = "晓鹏壳子";
+    private String seriesTitle = "鏅撻箯澹冲瓙";
 
     private final ArrayList<String> snifferMatchRules = new ArrayList<>();
     private final ArrayList<String> snifferExcludeRules = new ArrayList<>();
@@ -142,18 +141,13 @@ public class NativePlayerActivity extends Activity {
     private final Runnable playBestSniffCandidate = () -> chooseBestSniffCandidate(false);
     private final Runnable prepareTimeoutRunnable = () -> {
         if (!preparedNotified) {
-            if (!retryWithNextStreamType()) {
-                if (tryFallbackToArtPlayer("\u64ad\u653e\u5668\u52a0\u8f7d\u8d85\u65f6")) {
-                    return;
-                }
-                showError("\u64ad\u653e\u5668\u52a0\u8f7d\u8d85\u65f6\uff0c\u8bf7\u6362\u7ebf\u8def\u518d\u8bd5");
-            }
+            showError("\u64ad\u653e\u5668\u52a0\u8f7d\u8d85\u65f6\uff0c\u8bf7\u6362\u7ebf\u8def\u518d\u8bd5");
         }
     };
     private final Runnable longPressSpeedRunnable = () -> {
         tempSpeedBoost = true;
         applyPlaybackSpeed(2.0f);
-        showState("长按加速 2.0x", false, 0.9f);
+        showState("闀挎寜鍔犻€?2.0x", false, 0.9f);
     };
     private final Runnable hideState = () -> {
         if (playerOverlay != null && !sniffing) {
@@ -164,7 +158,7 @@ public class NativePlayerActivity extends Activity {
         @Override
         public void onPlaybackStateChanged(int playbackState) {
             if (playbackState == Player.STATE_BUFFERING) {
-                showState("正在缓冲视频…", true, 0.92f);
+                showState("姝ｅ湪缂撳啿瑙嗛鈥?, true, 0.92f);
                 return;
             }
             if (playbackState == Player.STATE_READY) {
@@ -179,18 +173,12 @@ public class NativePlayerActivity extends Activity {
             }
             if (playbackState == Player.STATE_ENDED) {
                 playbackPosition = 0L;
-                showState("播放完成", false, 0.95f);
+                showState("鎾斁瀹屾垚", false, 0.95f);
             }
         }
 
         @Override
         public void onPlayerError(PlaybackException error) {
-            if (retryWithNextStreamType()) {
-                return;
-            }
-            if (tryFallbackToArtPlayer("\u539f\u751f\u64ad\u653e\u5668\u64ad\u653e\u5f02\u5e38")) {
-                return;
-            }
             String message = safe(error == null ? "" : error.getMessage());
             if (message.isEmpty()) {
                 message = "\u64ad\u653e\u5668\u521d\u59cb\u5316\u5931\u8d25";
@@ -213,12 +201,12 @@ public class NativePlayerActivity extends Activity {
 
         input = safe(getIntent().getStringExtra("input"));
         title = safe(getIntent().getStringExtra("title"));
-        if (title.isEmpty()) title = "晓鹏壳子";
+        if (title.isEmpty()) title = "鏅撻箯澹冲瓙";
         line = safe(getIntent().getStringExtra("line"));
-        if (line.isEmpty()) line = "默认线路";
+        if (line.isEmpty()) line = "榛樿绾胯矾";
         seriesTitle = safe(getIntent().getStringExtra("series_title"));
         if (seriesTitle.isEmpty()) {
-            int split = title.indexOf(" · ");
+            int split = title.indexOf(" 路 ");
             seriesTitle = split > 0 ? title.substring(0, split) : title;
         }
         ArrayList<String> names = getIntent().getStringArrayListExtra("episode_names");
@@ -233,7 +221,7 @@ public class NativePlayerActivity extends Activity {
         currentIndex = getIntent().getIntExtra("episode_index", 0);
         if (currentIndex < 0 || currentIndex >= episodeInputs.size()) currentIndex = 0;
         if (episodeInputs.isEmpty()) {
-            episodeNames.add("播放");
+            episodeNames.add("鎾斁");
             episodeInputs.add(input);
             currentIndex = 0;
         } else if (input.isEmpty()) {
@@ -269,7 +257,7 @@ public class NativePlayerActivity extends Activity {
         page.addView(nav, new LinearLayout.LayoutParams(-1, dp(72)));
 
         TextView back = new TextView(this);
-        back.setText("‹");
+        back.setText("鈥?);
         back.setTextColor(Color.WHITE);
         back.setTextSize(30);
         back.setTypeface(Typeface.DEFAULT_BOLD);
@@ -293,7 +281,7 @@ public class NativePlayerActivity extends Activity {
         lineView.setEllipsize(TextUtils.TruncateAt.END);
         navText.addView(lineView, new LinearLayout.LayoutParams(-1, 0, 1));
 
-        TextView sourceTag = makeChip("DK 播放", "#35141A", "#E75B68", "#FFE6EA");
+        TextView sourceTag = makeChip("DK 鎾斁", "#35141A", "#E75B68", "#FFE6EA");
         LinearLayout.LayoutParams sourceTagLp = new LinearLayout.LayoutParams(-2, dp(32));
         sourceTagLp.leftMargin = dp(6);
         nav.addView(sourceTag, sourceTagLp);
@@ -342,7 +330,7 @@ public class NativePlayerActivity extends Activity {
         playerOverlay = overlay;
         playerBox.addView(overlay, new FrameLayout.LayoutParams(-1, -1));
 
-        portraitExitButton = makeChip("退出竖屏", "#B5121F", "#FF5E6C", "#FFFFFF");
+        portraitExitButton = makeChip("閫€鍑虹珫灞?, "#B5121F", "#FF5E6C", "#FFFFFF");
         portraitExitButton.setVisibility(View.GONE);
         portraitExitButton.setOnClickListener(v -> applyPlayerBoxMode(false));
         FrameLayout.LayoutParams portraitExitLp = new FrameLayout.LayoutParams(-2, dp(34), Gravity.TOP | Gravity.END);
@@ -353,7 +341,7 @@ public class NativePlayerActivity extends Activity {
         loading = new ProgressBar(this);
         overlay.addView(loading, new LinearLayout.LayoutParams(dp(38), dp(38)));
 
-        stateView = makeText("正在解析播放地址…", 14, "#DDE5FF", false);
+        stateView = makeText("姝ｅ湪瑙ｆ瀽鎾斁鍦板潃鈥?, 14, "#DDE5FF", false);
         stateView.setGravity(Gravity.CENTER);
         stateView.setPadding(dp(14), dp(14), dp(14), 0);
         overlay.addView(stateView, new LinearLayout.LayoutParams(-2, -2));
@@ -374,8 +362,8 @@ public class NativePlayerActivity extends Activity {
         heroCard.setBackground(cardBg("#101521", "#222D42", 20));
         root.addView(heroCard, new LinearLayout.LayoutParams(-1, -2));
 
-        heroCard.addView(makeText("原生解析播放", 18, "#FFFFFF", true));
-        TextView tip = makeText("使用 kezi 风格的原生 lazy 解析和网页嗅探，拿到真实地址后交给 JZPlayer 播放。", 13, "#C9D4F4", false);
+        heroCard.addView(makeText("鍘熺敓瑙ｆ瀽鎾斁", 18, "#FFFFFF", true));
+        TextView tip = makeText("浣跨敤 kezi 椋庢牸鐨勫師鐢?lazy 瑙ｆ瀽鍜岀綉椤靛梾鎺紝鎷垮埌鐪熷疄鍦板潃鍚庝氦缁?JZPlayer 鎾斁銆?, 13, "#C9D4F4", false);
         tip.setPadding(0, dp(10), 0, 0);
         heroCard.addView(tip);
 
@@ -383,8 +371,8 @@ public class NativePlayerActivity extends Activity {
         chips.setOrientation(LinearLayout.HORIZONTAL);
         chips.setPadding(0, dp(12), 0, 0);
         heroCard.addView(chips);
-        TextView lineChip = makeChip("线路 " + line, "#1A2337", "#3D4B72", "#DCE7FF");
-        TextView sourceChip = makeChip("源 " + source.title, "#182717", "#2F7E57", "#D8FFE7");
+        TextView lineChip = makeChip("绾胯矾 " + line, "#1A2337", "#3D4B72", "#DCE7FF");
+        TextView sourceChip = makeChip("婧?" + source.title, "#182717", "#2F7E57", "#D8FFE7");
         lineChip.setSingleLine(true);
         lineChip.setEllipsize(TextUtils.TruncateAt.END);
         sourceChip.setSingleLine(true);
@@ -395,7 +383,7 @@ public class NativePlayerActivity extends Activity {
         chips.addView(lineChip, chip1);
         chips.addView(sourceChip, new LinearLayout.LayoutParams(-2, dp(34)));
 
-        TextView episodeTitle = makeText("选集", 16, "#FFFFFF", true);
+        TextView episodeTitle = makeText("閫夐泦", 16, "#FFFFFF", true);
         episodeTitle.setPadding(0, dp(18), 0, dp(8));
         root.addView(episodeTitle);
 
@@ -405,10 +393,10 @@ public class NativePlayerActivity extends Activity {
         playModeRow.setPadding(0, 0, 0, dp(8));
         root.addView(playModeRow, new LinearLayout.LayoutParams(-1, -2));
 
-        TextView modeHint = makeText("竖屏视频可以切换更高播放区域", 12, "#9EAFD6", false);
+        TextView modeHint = makeText("绔栧睆瑙嗛鍙互鍒囨崲鏇撮珮鎾斁鍖哄煙", 12, "#9EAFD6", false);
         playModeRow.addView(modeHint, new LinearLayout.LayoutParams(0, -2, 1));
 
-        portraitModeButton = makeChip("竖屏播放", "#1A2337", "#3D4B72", "#DCE7FF");
+        portraitModeButton = makeChip("绔栧睆鎾斁", "#1A2337", "#3D4B72", "#DCE7FF");
         portraitModeButton.setOnClickListener(v -> togglePortraitPlayerMode());
         playModeRow.addView(portraitModeButton, new LinearLayout.LayoutParams(-2, dp(34)));
 
@@ -424,7 +412,7 @@ public class NativePlayerActivity extends Activity {
         speedLp.rightMargin = dp(8);
         playerActionRow.addView(speedButton, speedLp);
 
-        resizeButton = makeChip("适应", "#13202F", "#2C567A", "#DCEEFF");
+        resizeButton = makeChip("閫傚簲", "#13202F", "#2C567A", "#DCEEFF");
         resizeButton.setOnClickListener(v -> cycleResizeMode());
         playerActionRow.addView(resizeButton, new LinearLayout.LayoutParams(-2, dp(34)));
 
@@ -481,7 +469,7 @@ public class NativePlayerActivity extends Activity {
             getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         }
         if (portraitModeButton != null) {
-            portraitModeButton.setText(enabled ? "退出竖屏全屏" : "竖屏全屏");
+            portraitModeButton.setText(enabled ? "閫€鍑虹珫灞忓叏灞? : "绔栧睆鍏ㄥ睆");
             portraitModeButton.setBackground(enabled
                     ? cardBg("#E50914", "#FF5260", 16)
                     : cardBg("#1A2337", "#3D4B72", 16));
@@ -649,7 +637,7 @@ public class NativePlayerActivity extends Activity {
                 if (tempSpeedBoost) {
                     tempSpeedBoost = false;
                     applyPlaybackSpeed(selectedSpeed);
-                    showState("恢复 " + formatSpeed(selectedSpeed), false, 0.9f);
+                    showState("鎭㈠ " + formatSpeed(selectedSpeed), false, 0.9f);
                     handler.postDelayed(hideState, 800);
                 }
             }
@@ -671,7 +659,7 @@ public class NativePlayerActivity extends Activity {
             applyPlaybackSpeed(selectedSpeed);
         }
         updateSpeedButton();
-        showState("播放速度 " + formatSpeed(selectedSpeed), false, 0.92f);
+        showState("鎾斁閫熷害 " + formatSpeed(selectedSpeed), false, 0.92f);
         handler.postDelayed(hideState, 800);
     }
 
@@ -705,12 +693,12 @@ public class NativePlayerActivity extends Activity {
 
     private String currentResizeLabel() {
         if (dkScreenScaleType == VideoView.SCREEN_SCALE_CENTER_CROP) {
-            return "裁剪填充";
+            return "瑁佸壀濉厖";
         }
         if (dkScreenScaleType == VideoView.SCREEN_SCALE_MATCH_PARENT) {
-            return "拉伸铺满";
+            return "鎷変几閾烘弧";
         }
-        return "适应";
+        return "閫傚簲";
     }
 
     private String formatSpeed(float speed) {
@@ -734,10 +722,10 @@ public class NativePlayerActivity extends Activity {
     }
 
     private void updateHeader() {
-        String episodeName = currentIndex >= 0 && currentIndex < episodeNames.size() ? episodeNames.get(currentIndex) : "播放";
-        titleView.setText(seriesTitle + " · " + episodeName);
-        lineView.setText("线路: " + line + " · 源: " + source.title + " · 共 " + episodeInputs.size() + " 集 · 嗅探深度 " + maxSniffDepth);
-        title = seriesTitle + " · " + episodeName;
+        String episodeName = currentIndex >= 0 && currentIndex < episodeNames.size() ? episodeNames.get(currentIndex) : "鎾斁";
+        titleView.setText(seriesTitle + " 路 " + episodeName);
+        lineView.setText("绾胯矾: " + line + " 路 婧? " + source.title + " 路 鍏?" + episodeInputs.size() + " 闆?路 鍡呮帰娣卞害 " + maxSniffDepth);
+        title = seriesTitle + " 路 " + episodeName;
     }
 
     private void buildEpisodeButtons() {
@@ -745,7 +733,7 @@ public class NativePlayerActivity extends Activity {
         for (int i = 0; i < episodeInputs.size(); i++) {
             final int index = i;
             TextView ep = new TextView(this);
-            ep.setText(episodeNames.get(i).isEmpty() ? ("第" + (i + 1) + "集") : episodeNames.get(i));
+            ep.setText(episodeNames.get(i).isEmpty() ? ("绗? + (i + 1) + "闆?) : episodeNames.get(i));
             ep.setTextSize(13);
             ep.setTextColor(Color.parseColor(i == currentIndex ? "#FFFFFF" : "#DDE6FF"));
             ep.setTypeface(Typeface.DEFAULT_BOLD);
@@ -775,10 +763,10 @@ public class NativePlayerActivity extends Activity {
     /*
     private void normalizePlaybackDefaults() {
         if (title.isEmpty() || looksBrokenPlaybackText(title)) {
-            title = "视频播放";
+            title = "瑙嗛鎾斁";
         }
         if (line.isEmpty() || looksBrokenPlaybackText(line)) {
-            line = "默认线路";
+            line = "榛樿绾胯矾";
         }
         if (seriesTitle.isEmpty() || looksBrokenPlaybackText(seriesTitle)) {
             seriesTitle = title;
@@ -787,13 +775,13 @@ public class NativePlayerActivity extends Activity {
             episodeInputs.add(input);
         }
         if (episodeNames.isEmpty()) {
-            episodeNames.add("播放");
+            episodeNames.add("鎾斁");
         }
         int count = Math.min(episodeNames.size(), episodeInputs.size());
         for (int i = 0; i < count; i++) {
             String name = safe(episodeNames.get(i));
             if (name.isEmpty() || looksBrokenPlaybackText(name)) {
-                episodeNames.set(i, count > 1 ? ("第" + (i + 1) + "集") : "播放");
+                episodeNames.set(i, count > 1 ? ("绗? + (i + 1) + "闆?) : "鎾斁");
             }
         }
         if (currentIndex < 0 || currentIndex >= episodeInputs.size()) {
@@ -804,17 +792,17 @@ public class NativePlayerActivity extends Activity {
     private void refreshHeaderText() {
         String episodeName = currentIndex >= 0 && currentIndex < episodeNames.size()
                 ? safe(episodeNames.get(currentIndex))
-                : "播放";
+                : "鎾斁";
         if (episodeName.isEmpty()) {
-            episodeName = "播放";
+            episodeName = "鎾斁";
         }
         seriesTitle = safe(seriesTitle).isEmpty() ? title : seriesTitle;
-        title = seriesTitle + " · " + episodeName;
+        title = seriesTitle + " 路 " + episodeName;
         if (titleView != null) {
             titleView.setText(title);
         }
         if (lineView != null) {
-            lineView.setText("线路: " + line + " · 源: " + source.title + " · 共 " + episodeInputs.size() + " 集 · 嗅探深度 " + maxSniffDepth);
+            lineView.setText("绾胯矾: " + line + " 路 婧? " + source.title + " 路 鍏?" + episodeInputs.size() + " 闆?路 鍡呮帰娣卞害 " + maxSniffDepth);
         }
     }
 
@@ -823,17 +811,17 @@ public class NativePlayerActivity extends Activity {
         if (text.isEmpty()) {
             return false;
         }
-        return text.contains("鏅")
-                || text.contains("榛")
-                || text.contains("鎾")
-                || text.contains("绾")
-                || text.contains("婧")
-                || text.contains("闆")
-                || text.contains("鍡")
-                || text.contains("瑙")
-                || text.contains("瓒")
-                || text.contains("鏈")
-                || text.contains("娌");
+        return text.contains("閺?)
+                || text.contains("姒?)
+                || text.contains("閹?)
+                || text.contains("缁?)
+                || text.contains("濠?)
+                || text.contains("闂?)
+                || text.contains("閸?)
+                || text.contains("鐟?)
+                || text.contains("鐡?)
+                || text.contains("閺?)
+                || text.contains("濞?);
     }
 
     */
@@ -933,8 +921,8 @@ public class NativePlayerActivity extends Activity {
                 super.onPageFinished(view, url);
                 if (!sniffing) return;
                 autoDismissAgeAndAdLayers(view);
-                showState("正在嗅探页面资源…", true, 1f);
-                showState("正在嗅探页面资源…", true, 1f);
+                showState("姝ｅ湪鍡呮帰椤甸潰璧勬簮鈥?, true, 1f);
+                showState("姝ｅ湪鍡呮帰椤甸潰璧勬簮鈥?, true, 1f);
                 showState("\u6b63\u5728\u55c5\u63a2\u9875\u9762\u8d44\u6e90\u2026", true, 1f);
                 showState("\u6b63\u5728\u55c5\u63a2\u9875\u9762\u8d44\u6e90\u2026", true, 1f);
                 probeCurrentPage(url, sniffCurrentDepth);
@@ -967,7 +955,7 @@ public class NativePlayerActivity extends Activity {
                 + "for(var i=0;i<selectors.length;i++){var nodes=document.querySelectorAll(selectors[i]);for(var j=0;j<nodes.length;j++){try{nodes[j].click();}catch(e){}}}"
                 + "var taps=document.querySelectorAll('button,a,div,span,input');"
                 + "for(var k=0;k<taps.length;k++){var el=taps[k];var label=((el.innerText||el.textContent||'')+' '+(el.value||'')).trim();"
-                + "if(label&&/我已年满18岁|进入|确认|同意|继续访问|继续播放|立即播放|跳过|关闭|enter|confirm|skip|close/i.test(label)){try{el.click();}catch(e){}}}"
+                + "if(label&&/鎴戝凡骞存弧18宀亅杩涘叆|纭|鍚屾剰|缁х画璁块棶|缁х画鎾斁|绔嬪嵆鎾斁|璺宠繃|鍏抽棴|enter|confirm|skip|close/i.test(label)){try{el.click();}catch(e){}}}"
                 + "}catch(e){}})();";
         view.evaluateJavascript(script, null);
     }
@@ -978,11 +966,10 @@ public class NativePlayerActivity extends Activity {
         releaseMediaPlayer();
         releaseArtPlayer();
         playUrl = null;
-        artPlayerFallbackTried = false;
         activeHeaders.clear();
-        showState("正在解析播放地址…", true, 1f);
-        showState("正在解析播放地址…", true, 1f);
-        showState("正在解析播放地址…", true, 1f);
+        showState("姝ｅ湪瑙ｆ瀽鎾斁鍦板潃鈥?, true, 1f);
+        showState("姝ｅ湪瑙ｆ瀽鎾斁鍦板潃鈥?, true, 1f);
+        showState("姝ｅ湪瑙ｆ瀽鎾斁鍦板潃鈥?, true, 1f);
         showState("\u6b63\u5728\u89e3\u6790\u64ad\u653e\u5730\u5740\u2026", true, 1f);
         if (source.raw != null && source.raw.contains("var rule")) {
             engine.runLazy(input, (result, err) -> runOnUiThread(() -> {
@@ -1022,9 +1009,9 @@ public class NativePlayerActivity extends Activity {
         releaseSniffer();
         releaseDkPlayer();
         playUrl = mediaUrl;
-        showState("正在加载播放器…", true, 1f);
-        showState("正在加载播放器…", true, 1f);
-        showState("正在加载播放器…", true, 1f);
+        showState("姝ｅ湪鍔犺浇鎾斁鍣ㄢ€?, true, 1f);
+        showState("姝ｅ湪鍔犺浇鎾斁鍣ㄢ€?, true, 1f);
+        showState("姝ｅ湪鍔犺浇鎾斁鍣ㄢ€?, true, 1f);
         showState("\u6b63\u5728\u52a0\u8f7d\u64ad\u653e\u5668\u2026", true, 1f);
         playbackPosition = 0L;
         playWhenReady = true;
@@ -1120,8 +1107,8 @@ public class NativePlayerActivity extends Activity {
         }
         String js = "(function(){try{"
                 + "function clickAdControls(){try{var sels=['.skip','.skip-btn','.skipad','.btn-skip','.ad-skip','.video-ad-skip','.close','.close-btn','.close-icon','.layui-layer-close','.icon-close','[class*=skip]','[class*=close]','[id*=skip]','[id*=close]'];"
-                + "for(var i=0;i<sels.length;i++){var nodes=document.querySelectorAll(sels[i]);for(var j=0;j<nodes.length;j++){var el=nodes[j];var text=((el.innerText||el.textContent||'')+' '+(el.value||'')).toLowerCase();if(!text||/skip|close|jump|跳过|关闭|继续播放|立即播放|进入播放|我已看完/.test(text)){try{el.click();}catch(e){}}}}"
-                + "var taps=document.querySelectorAll('button,a,div,span');for(var k=0;k<taps.length;k++){var item=taps[k];var label=((item.innerText||item.textContent||'')+' '+(item.value||'')).trim();if(label&&/跳过|关闭|继续播放|立即播放|进入播放|我已看完广告|skip|close/i.test(label)){try{item.click();}catch(e){}}}"
+                + "for(var i=0;i<sels.length;i++){var nodes=document.querySelectorAll(sels[i]);for(var j=0;j<nodes.length;j++){var el=nodes[j];var text=((el.innerText||el.textContent||'')+' '+(el.value||'')).toLowerCase();if(!text||/skip|close|jump|璺宠繃|鍏抽棴|缁х画鎾斁|绔嬪嵆鎾斁|杩涘叆鎾斁|鎴戝凡鐪嬪畬/.test(text)){try{el.click();}catch(e){}}}}"
+                + "var taps=document.querySelectorAll('button,a,div,span');for(var k=0;k<taps.length;k++){var item=taps[k];var label=((item.innerText||item.textContent||'')+' '+(item.value||'')).trim();if(label&&/璺宠繃|鍏抽棴|缁х画鎾斁|绔嬪嵆鎾斁|杩涘叆鎾斁|鎴戝凡鐪嬪畬骞垮憡|skip|close/i.test(label)){try{item.click();}catch(e){}}}"
                 + "}catch(e){}}"
                 + "function report(tag){try{var out=[];var seen={};"
                 + "function add(u,t){u=String(u||'').trim();if(!u||seen[u])return;seen[u]=1;out.push({url:u,type:t||''});try{if(/%[0-9a-f]{2}/i.test(u)){var du=decodeURIComponent(u);if(du&&du!==u&&!seen[du]){seen[du]=1;out.push({url:du,type:(t||'')+'-decoded'});}}}catch(e){}}"
@@ -1290,7 +1277,7 @@ public class NativePlayerActivity extends Activity {
                               try{ el.click(); }catch(e){}
                               continue;
                             }
-                            if(!text || /skip|close|jump|璺宠繃|鍏抽棴|缁х画鎾斁|绔嬪嵆鎾斁|杩涘叆鎾斁|鎴戝凡鐪嬪畬/.test(text)){
+                            if(!text || /skip|close|jump|鐠哄疇绻億閸忔娊妫磡缂佈呯敾閹绢厽鏂亅缁斿宓嗛幘顓熸杹|鏉╂稑鍙嗛幘顓熸杹|閹存垵鍑￠惇瀣暚/.test(text)){
                               try{ el.click(); }catch(e){}
                             }
                           }
@@ -1303,7 +1290,7 @@ public class NativePlayerActivity extends Activity {
                             try{ item.click(); }catch(e){}
                             continue;
                           }
-                          if(label && /璺宠繃|鍏抽棴|缁х画鎾斁|绔嬪嵆鎾斁|杩涘叆鎾斁|鎴戝凡鐪嬪畬骞垮憡|skip|close/i.test(label)){
+                          if(label && /鐠哄疇绻億閸忔娊妫磡缂佈呯敾閹绢厽鏂亅缁斿宓嗛幘顓熸杹|鏉╂稑鍙嗛幘顓熸杹|閹存垵鍑￠惇瀣暚楠炲灝鎲skip|close/i.test(label)){
                             try{ item.click(); }catch(e){}
                           }
                         }
@@ -1472,7 +1459,7 @@ public class NativePlayerActivity extends Activity {
             if (!updated) {
                 sniffCandidates.add(new SniffCandidate(candidateUrl, candidatePage, candidateOrigin, depth, score));
             }
-            showState("已找到媒体地址，正在选择最佳清晰度…", true, 1f);
+            showState("宸叉壘鍒板獟浣撳湴鍧€锛屾鍦ㄩ€夋嫨鏈€浣虫竻鏅板害鈥?, true, 1f);
             handler.removeCallbacks(playBestSniffCandidate);
             handler.postDelayed(playBestSniffCandidate, score >= 130 ? 450 : 900);
         });
@@ -1493,7 +1480,7 @@ public class NativePlayerActivity extends Activity {
             activeHeaders.put("Referer", best.pageUrl);
         }
         sniffing = false;
-        showState(finalAttempt ? "使用最佳嗅探地址开始播放…" : "已找到媒体地址，开始播放…", true, 1f);
+        showState(finalAttempt ? "浣跨敤鏈€浣冲梾鎺㈠湴鍧€寮€濮嬫挱鏀锯€? : "宸叉壘鍒板獟浣撳湴鍧€锛屽紑濮嬫挱鏀锯€?, true, 1f);
         playInPlace(best.url);
         return true;
     }
@@ -1786,7 +1773,7 @@ public class NativePlayerActivity extends Activity {
 
     private void handleDkPlayState(int playState) {
         if (playState == VideoView.STATE_PREPARING || playState == VideoView.STATE_BUFFERING) {
-            showState("正在缓冲视频…", true, 0.92f);
+            showState("姝ｅ湪缂撳啿瑙嗛鈥?, true, 0.92f);
             return;
         }
         if (playState == VideoView.STATE_PREPARED
@@ -1801,15 +1788,12 @@ public class NativePlayerActivity extends Activity {
             return;
         }
         if (playState == VideoView.STATE_ERROR) {
-            if (tryFallbackToArtPlayer("DKVideoPlayer 播放异常")) {
-                return;
-            }
-            showError("DKVideoPlayer 鎾斁寮傚父");
+            showError("DKVideoPlayer \u64ad\u653e\u5f02\u5e38\uff0c\u8bf7\u6362\u7ebf\u8def\u518d\u8bd5");
             return;
         }
         if (playState == VideoView.STATE_PLAYBACK_COMPLETED) {
             playbackPosition = 0L;
-            showState("播放完成", false, 0.95f);
+            showState("鎾斁瀹屾垚", false, 0.95f);
         }
     }
 
@@ -1871,43 +1855,6 @@ public class NativePlayerActivity extends Activity {
             return false;
         }
     }
-
-    private boolean tryFallbackToArtPlayer(String reason) {
-        if (safe(playUrl).isEmpty()) {
-            return false;
-        }
-        try {
-            Map<String, String> headers = buildPlayerHeaders();
-            StreamType primaryType = inferPrimaryStreamType(playUrl, headers);
-            if (primaryType != StreamType.HLS && primaryType != StreamType.PROGRESSIVE) {
-                return false;
-            }
-            if (!artPlayerFallbackTried) {
-                artPlayerFallbackTried = true;
-                cancelPrepareTimeout();
-                releaseMediaPlayer();
-                releaseDkPlayer();
-                showState(safe(reason).isEmpty()
-                        ? "\u6b63\u5728\u5207\u6362\u5907\u7528 Web \u64ad\u653e\u5668\u2026"
-                        : safe(reason) + "\uff0c\u6b63\u5728\u5207\u6362\u5907\u7528 Web \u64ad\u653e\u5668\u2026", true, 1f);
-                loadArtPlayer(playUrl, headers);
-                if (artPlayerWebView != null) {
-                    artPlayerWebView.setVisibility(View.VISIBLE);
-                }
-                if (playerView != null) {
-                    playerView.setVisibility(View.GONE);
-                }
-                if (dkPlayerView != null) {
-                    dkPlayerView.setVisibility(View.GONE);
-                }
-                return true;
-            }
-            return false;
-        } catch (Throwable ignored) {
-            return false;
-        }
-    }
-
     private void schedulePrepareTimeout() {
         handler.removeCallbacks(prepareTimeoutRunnable);
         handler.postDelayed(prepareTimeoutRunnable, PREPARE_TIMEOUT_MS);
@@ -2105,13 +2052,13 @@ public class NativePlayerActivity extends Activity {
             intent.setDataAndType(Uri.parse(playUrl), "video/*");
             startActivity(intent);
         } catch (ActivityNotFoundException e) {
-            Toast.makeText(this, "未找到可用的外部播放器", Toast.LENGTH_SHORT).show();
-            showError("未找到可用的外部播放器");
+            Toast.makeText(this, "鏈壘鍒板彲鐢ㄧ殑澶栭儴鎾斁鍣?, Toast.LENGTH_SHORT).show();
+            showError("鏈壘鍒板彲鐢ㄧ殑澶栭儴鎾斁鍣?);
         }
     }
 
     private void showReadyState() {
-        showState("开始播放", false, 1f);
+        showState("寮€濮嬫挱鏀?, false, 1f);
         handler.removeCallbacks(hideState);
         handler.postDelayed(hideState, 1200);
     }
@@ -2428,7 +2375,7 @@ public class NativePlayerActivity extends Activity {
 
         @JavascriptInterface
         public void onPlayerError(String message) {
-            runOnUiThread(() -> showError(safe(message).isEmpty() ? "Artplayer 播放异常" : safe(message)));
+            runOnUiThread(() -> showError(safe(message).isEmpty() ? "Artplayer 鎾斁寮傚父" : safe(message)));
         }
 
         @JavascriptInterface
@@ -2510,3 +2457,4 @@ public class NativePlayerActivity extends Activity {
         }
     }
 }
+
