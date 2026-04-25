@@ -1,4 +1,4 @@
-﻿package com.xiaomao.player;
+package com.xiaomao.player;
 
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
@@ -186,7 +186,6 @@ public class NativePlayerActivity extends Activity {
             showError(message);
         }
     };
-
     private enum StreamType {
         AUTO,
         HLS,
@@ -1796,7 +1795,6 @@ public class NativePlayerActivity extends Activity {
             showState("鎾斁瀹屾垚", false, 0.95f);
         }
     }
-
     private boolean prepareCurrentStreamType(Map<String, String> headers, boolean firstAttempt) {
         if (firstAttempt) {
             streamTypeIndex = 0;
@@ -1855,6 +1853,7 @@ public class NativePlayerActivity extends Activity {
             return false;
         }
     }
+
     private void schedulePrepareTimeout() {
         handler.removeCallbacks(prepareTimeoutRunnable);
         handler.postDelayed(prepareTimeoutRunnable, PREPARE_TIMEOUT_MS);
@@ -2457,4 +2456,3 @@ public class NativePlayerActivity extends Activity {
         }
     }
 }
-
