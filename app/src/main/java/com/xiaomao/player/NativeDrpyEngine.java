@@ -3,6 +3,7 @@ package com.xiaomao.player;
 import android.app.Activity;
 import android.text.TextUtils;
 import android.util.Base64;
+import android.webkit.WebChromeClient;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -21,6 +22,9 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -409,6 +413,10 @@ public class NativeDrpyEngine {
 
     public void runLazy(String input, Callback<LazyResult> callback) {
         String fallbackInput = input == null ? "" : input;
+        if (is4kvmSource()) {
+            runBackground(() -> resolve4kvmLazy(fallbackInput), new LazyResult(fallbackInput), callback);
+            return;
+        }
         String body = ""
                 + "__xmRunPreprocess();"
                 + "document.html='';"
@@ -466,6 +474,10 @@ public class NativeDrpyEngine {
                 || marker.contains("wyrrqof.com");
     }
 
+    private boolean is4kvmSource() {
+        String marker = (source == null ? "" : source.title + " " + source.host + " " + source.raw).toLowerCase();
+        return marker.contains("4kvm.me") || marker.contains("4k影视");
+    }
     private boolean shouldUseChiguaListFallback(ArrayList<MediaItem> items, String error) {
         return isChiguaSource() && (!TextUtils.isEmpty(error) || items == null || items.isEmpty());
     }
@@ -492,6 +504,123 @@ public class NativeDrpyEngine {
                 || result.parse != 0;
     }
 
+    private LazyResult resolve4kvmLazy(String input) throws Exception {
+        LazyResult result = new LazyResult(input);
+        String resolved = resolve4kvmPlayUrl(input);
+        result.url = TextUtils.isEmpty(resolved) ? input : resolved;
+        result.parse = 0;
+        result.jx = 0;
+        result.headers.put("Referer", abs(input));
+        result.headers.put("User-Agent", PC_USER_AGENT);
+        result.headers.put("Accept", "*/*");
+        result.headers.put("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8");
+        return result;
+    }
+
+    private String resolve4kvmPlayUrl(String input) throws Exception {
+        final String pageUrl = abs(input);
+        final CountDownLatch latch = new CountDownLatch(1);
+        final AtomicReference<String> payloadRef = new AtomicReference<>("");
+        final AtomicReference<String> errorRef = new AtomicReference<>("");
+        final WebView[] holder = new WebView[1];
+        activity.runOnUiThread(() -> {
+            WebView capture = new WebView(activity);
+            holder[0] = capture;
+            WebSettings settings = capture.getSettings();
+            settings.setJavaScriptEnabled(true);
+            settings.setDomStorageEnabled(true);
+            settings.setMediaPlaybackRequiresUserGesture(false);
+            settings.setUserAgentString(PC_USER_AGENT);
+            capture.addJavascriptInterface(new Object() {
+                @JavascriptInterface
+                public void onPayload(String payload) {
+                    if (TextUtils.isEmpty(payloadRef.get()) && !TextUtils.isEmpty(payload)) {
+                        payloadRef.set(payload);
+                        latch.countDown();
+                    }
+                }
+
+                @JavascriptInterface
+                public void onError(String message) {
+                    if (TextUtils.isEmpty(errorRef.get()) && !TextUtils.isEmpty(message)) {
+                        errorRef.set(message);
+                    }
+                }
+            }, "AndroidCapture");
+            capture.setWebChromeClient(new WebChromeClient());
+            capture.setWebViewClient(new WebViewClient() {
+                @Override
+                public void onPageFinished(WebView view, String url) {
+                    super.onPageFinished(view, url);
+                    view.evaluateJavascript(build4kvmResolverScript(), null);
+                }
+            });
+            java.util.HashMap<String, String> headers = new java.util.HashMap<>();
+            headers.put("Referer", source == null ? "https://www.4kvm.me/" : safe(source.host) + "/");
+            headers.put("User-Agent", PC_USER_AGENT);
+            capture.loadUrl(pageUrl, headers);
+        });
+        latch.await(20, TimeUnit.SECONDS);
+        activity.runOnUiThread(() -> {
+            try {
+                if (holder[0] != null) {
+                    holder[0].removeJavascriptInterface("AndroidCapture");
+                    holder[0].stopLoading();
+                    holder[0].loadUrl("about:blank");
+                    holder[0].destroy();
+                }
+            } catch (Exception ignored) {
+            }
+        });
+        String direct = extract4kvmUrlFromPayload(payloadRef.get());
+        if (!TextUtils.isEmpty(direct)) {
+            return direct;
+        }
+        if (!TextUtils.isEmpty(errorRef.get())) {
+            throw new IllegalStateException(errorRef.get());
+        }
+        return input;
+    }
+
+    private String build4kvmResolverScript() {
+        return "(function(){try{" +
+                "if(window.__xm4kvmResolverInstalled){return;}window.__xm4kvmResolverInstalled=1;" +
+                "function emit(detail){try{AndroidCapture.onPayload(JSON.stringify(detail||{}));}catch(e){}}" +
+                "window.addEventListener('player:update',function(event){try{var detail=event&&event.detail?event.detail:{};if(detail&&detail.quality_urls&&detail.quality_urls.length){emit(detail);}}catch(e){}},true);" +
+                "function trigger(){try{var manager=window.episodeManagerInstance;var target=null;if(manager){var selector='a[data-line=\"'+(manager.currentLine||1)+'\"][data-episode=\"'+(manager.currentEpisode||1)+'\"][dataid]';target=document.querySelector(selector);}if(!target){target=document.querySelector('a.episode-link[dataid][data-line][data-episode]');}if(!target){setTimeout(trigger,500);return;}var dataid=(target.getAttribute('dataid')||'').trim();if(!dataid){setTimeout(trigger,500);return;}var href=target.getAttribute('href')||location.href;var secret='';if(href.indexOf('/play/')>=0){secret=href.split('/play/')[1]||'';}if(manager&&typeof manager.loadPlayUrl==='function'){manager.loadPlayUrl(dataid,secret,'1080',false,true).catch(function(){});return;}AndroidCapture.onError('episodeManager.loadPlayUrl unavailable');}catch(err){try{AndroidCapture.onError(String(err));}catch(e){}}}" +
+                "trigger();setTimeout(trigger,1200);setTimeout(trigger,2800);setTimeout(trigger,5200);" +
+                "}catch(e){try{AndroidCapture.onError(String(e));}catch(err){}}})();";
+    }
+
+    private String extract4kvmUrlFromPayload(String payload) {
+        if (TextUtils.isEmpty(payload)) {
+            return "";
+        }
+        try {
+            JSONObject object = new JSONObject(payload);
+            JSONArray array = object.optJSONArray("quality_urls");
+            if (array == null || array.length() < 1) {
+                return "";
+            }
+            int current = object.optInt("current_quality", 0);
+            if (current >= 0 && current < array.length()) {
+                JSONObject item = array.optJSONObject(current);
+                String url = item == null ? "" : item.optString("url", "");
+                if (!TextUtils.isEmpty(url) && !"1".equals(url)) {
+                    return url;
+                }
+            }
+            for (int i = 0; i < array.length(); i++) {
+                JSONObject item = array.optJSONObject(i);
+                String url = item == null ? "" : item.optString("url", "");
+                if (!TextUtils.isEmpty(url) && !"1".equals(url)) {
+                    return url;
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        return "";
+    }
     private <T> void runBackground(BackgroundTask<T> task, T defaultValue, Callback<T> callback) {
         new Thread(() -> {
             T value = defaultValue;
