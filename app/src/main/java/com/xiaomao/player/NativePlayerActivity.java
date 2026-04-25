@@ -65,12 +65,18 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import xyz.doikki.videocontroller.StandardVideoController;
+import xyz.doikki.videoplayer.exo.ExoMediaPlayerFactory;
+import xyz.doikki.videoplayer.player.BaseVideoView;
+import xyz.doikki.videoplayer.player.VideoView;
+
 public class NativePlayerActivity extends Activity {
     private static final long PREPARE_TIMEOUT_MS = 15000L;
     private static final String DEFAULT_MOBILE_UA = "Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36";
 
     private PlayerView playerView;
     private ExoPlayer mediaPlayer;
+    private VideoView dkPlayerView;
     private WebView artPlayerWebView;
     private LinearLayout navBar;
     private FrameLayout playerBox;
@@ -104,6 +110,7 @@ public class NativePlayerActivity extends Activity {
     private boolean playWhenReady = true;
     private float selectedSpeed = 1.0f;
     private int resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT;
+    private int dkScreenScaleType = VideoView.SCREEN_SCALE_DEFAULT;
     private long playbackPosition = 0L;
     private final java.util.LinkedHashMap<String, String> activeHeaders = new java.util.LinkedHashMap<>();
 
@@ -134,7 +141,9 @@ public class NativePlayerActivity extends Activity {
     private final Runnable playBestSniffCandidate = () -> chooseBestSniffCandidate(false);
     private final Runnable prepareTimeoutRunnable = () -> {
         if (!preparedNotified) {
-            retryWithNextStreamType();
+            if (!retryWithNextStreamType()) {
+                showError("\u64ad\u653e\u5668\u52a0\u8f7d\u8d85\u65f6\uff0c\u8bf7\u6362\u7ebf\u8def\u518d\u8bd5");
+            }
         }
     };
     private final Runnable longPressSpeedRunnable = () -> {
@@ -277,7 +286,7 @@ public class NativePlayerActivity extends Activity {
         lineView.setEllipsize(TextUtils.TruncateAt.END);
         navText.addView(lineView, new LinearLayout.LayoutParams(-1, 0, 1));
 
-        TextView sourceTag = makeChip("原生播放", "#35141A", "#E75B68", "#FFE6EA");
+        TextView sourceTag = makeChip("DK 播放", "#35141A", "#E75B68", "#FFE6EA");
         LinearLayout.LayoutParams sourceTagLp = new LinearLayout.LayoutParams(-2, dp(32));
         sourceTagLp.leftMargin = dp(6);
         nav.addView(sourceTag, sourceTagLp);
@@ -298,7 +307,22 @@ public class NativePlayerActivity extends Activity {
         playerView.setVisibility(View.GONE);
         playerBox.addView(playerView, new FrameLayout.LayoutParams(-1, -1));
 
+        dkPlayerView = new VideoView(this);
+        dkPlayerView.setBackgroundColor(Color.BLACK);
+        dkPlayerView.setScreenScaleType(dkScreenScaleType);
+        StandardVideoController dkController = new StandardVideoController(this);
+        dkController.addDefaultControlComponent(title, false);
+        dkPlayerView.setVideoController(dkController);
+        dkPlayerView.addOnStateChangeListener(new BaseVideoView.SimpleOnStateChangeListener() {
+            @Override
+            public void onPlayStateChanged(int playState) {
+                handleDkPlayState(playState);
+            }
+        });
+        playerBox.addView(dkPlayerView, new FrameLayout.LayoutParams(-1, -1));
+
         artPlayerWebView = createArtPlayerWebView();
+        artPlayerWebView.setVisibility(View.GONE);
         playerBox.addView(artPlayerWebView, new FrameLayout.LayoutParams(-1, -1));
         bindPlayerGestures();
 
@@ -602,7 +626,7 @@ public class NativePlayerActivity extends Activity {
     }
 
     private void bindPlayerGestures() {
-        View gestureSurface = artPlayerWebView != null ? artPlayerWebView : playerView;
+        View gestureSurface = dkPlayerView != null ? dkPlayerView : (artPlayerWebView != null ? artPlayerWebView : playerView);
         if (gestureSurface == null) {
             return;
         }
@@ -645,11 +669,18 @@ public class NativePlayerActivity extends Activity {
     }
 
     private void cycleResizeMode() {
-        if (artPlayerWebView != null) {
-            artPlayerWebView.evaluateJavascript("window.xmPlayerToggleWebFullscreen && window.xmPlayerToggleWebFullscreen();", null);
+        if (dkPlayerView != null) {
+            if (dkScreenScaleType == VideoView.SCREEN_SCALE_DEFAULT) {
+                dkScreenScaleType = VideoView.SCREEN_SCALE_CENTER_CROP;
+            } else if (dkScreenScaleType == VideoView.SCREEN_SCALE_CENTER_CROP) {
+                dkScreenScaleType = VideoView.SCREEN_SCALE_MATCH_PARENT;
+            } else {
+                dkScreenScaleType = VideoView.SCREEN_SCALE_DEFAULT;
+            }
+            dkPlayerView.setScreenScaleType(dkScreenScaleType);
         }
         updateResizeButton();
-        showState(artPlayerWebFullscreen ? "退出网页全屏" : "进入网页全屏", false, 0.92f);
+        showState(currentResizeLabel(), false, 0.92f);
         handler.postDelayed(hideState, 800);
     }
 
@@ -666,7 +697,13 @@ public class NativePlayerActivity extends Activity {
     }
 
     private String currentResizeLabel() {
-        return artPlayerWebFullscreen ? "退出网页全屏" : "网页全屏";
+        if (dkScreenScaleType == VideoView.SCREEN_SCALE_CENTER_CROP) {
+            return "裁剪填充";
+        }
+        if (dkScreenScaleType == VideoView.SCREEN_SCALE_MATCH_PARENT) {
+            return "拉伸铺满";
+        }
+        return "适应";
     }
 
     private String formatSpeed(float speed) {
@@ -674,7 +711,9 @@ public class NativePlayerActivity extends Activity {
     }
 
     private void applyPlaybackSpeed(float speed) {
-        if (artPlayerWebView != null) {
+        if (dkPlayerView != null) {
+            dkPlayerView.setSpeed(speed);
+        } else if (artPlayerWebView != null) {
             artPlayerWebView.evaluateJavascript("window.xmPlayerSetRate && window.xmPlayerSetRate(" + speed + ");", null);
         } else if (mediaPlayer != null) {
             mediaPlayer.setPlaybackParameters(new PlaybackParameters(speed));
@@ -928,6 +967,7 @@ public class NativePlayerActivity extends Activity {
 
     private void resolveAndPlay() {
         releaseSniffer();
+        releaseDkPlayer();
         releaseMediaPlayer();
         releaseArtPlayer();
         playUrl = null;
@@ -972,6 +1012,7 @@ public class NativePlayerActivity extends Activity {
     private void playInPlace(String mediaUrl) {
         sniffing = false;
         releaseSniffer();
+        releaseDkPlayer();
         playUrl = mediaUrl;
         showState("正在加载播放器…", true, 1f);
         showState("正在加载播放器…", true, 1f);
@@ -980,7 +1021,7 @@ public class NativePlayerActivity extends Activity {
         playbackPosition = 0L;
         playWhenReady = true;
         try {
-            loadArtPlayer(mediaUrl, buildPlayerHeaders());
+            prepareDkPlayer(mediaUrl, buildPlayerHeaders());
         } catch (Throwable error) {
             Toast.makeText(this, "\u64ad\u653e\u5668\u521d\u59cb\u5316\u5931\u8d25\uff0c\u5c1d\u8bd5\u5916\u90e8\u64ad\u653e\u5668", Toast.LENGTH_SHORT).show();
             openExternalPlayer();
@@ -1645,6 +1686,55 @@ public class NativePlayerActivity extends Activity {
         }
     }
 
+    private void prepareDkPlayer(String mediaUrl, Map<String, String> headers) {
+        if (dkPlayerView == null) {
+            throw new IllegalStateException("DKVideoPlayer view missing");
+        }
+        releaseArtPlayer();
+        releaseMediaPlayer();
+        preparedNotified = false;
+        cancelPrepareTimeout();
+        dkPlayerView.setVisibility(View.VISIBLE);
+        if (artPlayerWebView != null) {
+            artPlayerWebView.setVisibility(View.GONE);
+        }
+        if (playerView != null) {
+            playerView.setVisibility(View.GONE);
+        }
+        dkPlayerView.setPlayerFactory(ExoMediaPlayerFactory.create());
+        dkPlayerView.setScreenScaleType(dkScreenScaleType);
+        dkPlayerView.setSpeed(tempSpeedBoost ? 2.0f : selectedSpeed);
+        dkPlayerView.setUrl(mediaUrl, headers);
+        dkPlayerView.start();
+        schedulePrepareTimeout();
+    }
+
+    private void handleDkPlayState(int playState) {
+        if (playState == VideoView.STATE_PREPARING || playState == VideoView.STATE_BUFFERING) {
+            showState("正在缓冲视频…", true, 0.92f);
+            return;
+        }
+        if (playState == VideoView.STATE_PREPARED
+                || playState == VideoView.STATE_PLAYING
+                || playState == VideoView.STATE_BUFFERED) {
+            if (dkPlayerView != null) {
+                dkPlayerView.setSpeed(tempSpeedBoost ? 2.0f : selectedSpeed);
+            }
+            preparedNotified = true;
+            cancelPrepareTimeout();
+            showReadyState();
+            return;
+        }
+        if (playState == VideoView.STATE_ERROR) {
+            showError("DKVideoPlayer 播放异常");
+            return;
+        }
+        if (playState == VideoView.STATE_PLAYBACK_COMPLETED) {
+            playbackPosition = 0L;
+            showState("播放完成", false, 0.95f);
+        }
+    }
+
     private boolean prepareCurrentStreamType(Map<String, String> headers, boolean firstAttempt) {
         if (firstAttempt) {
             streamTypeIndex = 0;
@@ -1726,6 +1816,20 @@ public class NativePlayerActivity extends Activity {
         mediaPlayer = null;
         if (playerView != null) {
             playerView.setPlayer(null);
+        }
+    }
+
+    private void releaseDkPlayer() {
+        cancelPrepareTimeout();
+        handler.removeCallbacks(longPressSpeedRunnable);
+        if (dkPlayerView == null) {
+            return;
+        }
+        try {
+            playbackPosition = Math.max(0L, dkPlayerView.getCurrentPosition());
+            playWhenReady = dkPlayerView.isPlaying();
+            dkPlayerView.release();
+        } catch (Exception ignored) {
         }
     }
 
@@ -1935,6 +2039,9 @@ public class NativePlayerActivity extends Activity {
     }
     @Override
     public void onBackPressed() {
+        if (dkPlayerView != null && dkPlayerView.onBackPressed()) {
+            return;
+        }
         if (fullscreenCustomView != null) {
             hideArtPlayerCustomView();
             return;
@@ -1952,6 +2059,7 @@ public class NativePlayerActivity extends Activity {
 
     private void returnToMainPage() {
         releaseSniffer();
+        releaseDkPlayer();
         releaseMediaPlayer();
         releaseArtPlayer();
         Intent intent = new Intent(this, MainActivity.class);
@@ -1964,6 +2072,9 @@ public class NativePlayerActivity extends Activity {
     protected void onResume() {
         super.onResume();
         if (artPlayerWebView != null) artPlayerWebView.onResume();
+        if (dkPlayerView != null && playWhenReady) {
+            dkPlayerView.resume();
+        }
         if (mediaPlayer != null && playWhenReady) {
             mediaPlayer.play();
         }
@@ -1974,6 +2085,11 @@ public class NativePlayerActivity extends Activity {
     protected void onPause() {
         if (sniffWeb != null) sniffWeb.onPause();
         if (artPlayerWebView != null) artPlayerWebView.onPause();
+        if (dkPlayerView != null) {
+            playbackPosition = Math.max(0L, dkPlayerView.getCurrentPosition());
+            playWhenReady = dkPlayerView.isPlaying();
+            dkPlayerView.pause();
+        }
         if (mediaPlayer != null) {
             playbackPosition = Math.max(0L, mediaPlayer.getCurrentPosition());
             playWhenReady = mediaPlayer.getPlayWhenReady();
@@ -1988,6 +2104,7 @@ public class NativePlayerActivity extends Activity {
         getWindow().clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
         handler.removeCallbacksAndMessages(null);
         releaseSniffer();
+        releaseDkPlayer();
         releaseMediaPlayer();
         releaseArtPlayer();
         if (artPlayerWebView != null) {

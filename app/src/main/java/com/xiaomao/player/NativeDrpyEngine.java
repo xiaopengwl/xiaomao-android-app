@@ -592,6 +592,7 @@ public class NativeDrpyEngine {
                 + "function __xmOrigin(u){try{var parsed=new URL(String(u||''), String(HOST||''));return parsed.protocol+'//'+parsed.host;}catch(e){return '';}}"
                 + "function __xmSyncReferer(headers,oldOrigin,newOrigin){if(!headers||typeof headers!=='object'||!newOrigin)return;var key='';if(Object.prototype.hasOwnProperty.call(headers,'Referer'))key='Referer';else if(Object.prototype.hasOwnProperty.call(headers,'referer'))key='referer';var value=key?String(headers[key]||''):'';if(!value||__xmOrigin(value)===oldOrigin){headers[key||'Referer']=String(newOrigin).replace(/\\/$/,'')+'/';}}"
                 + "function __xmSyncHost(meta,reqUrl){var finalOrigin=__xmOrigin(meta&&meta.finalUrl||'');if(!finalOrigin)return;var oldOrigin=__xmOrigin(rule&&rule.host||HOST)||__xmOrigin(HOST||'');HOST=finalOrigin;if(typeof rule==='object'&&rule){var reqOrigin=__xmOrigin(reqUrl||'');if(!rule.host||!oldOrigin||__xmOrigin(rule.host)===oldOrigin||(reqOrigin&&reqOrigin===oldOrigin))rule.host=finalOrigin;__xmSyncReferer(rule.headers,oldOrigin,finalOrigin);__xmSyncReferer(rule.play_headers,oldOrigin,finalOrigin);}}"
+                + "function __xmPatchKnownRule(){if(!rule||typeof rule!=='object')return;var marker=String(rule.title||'')+' '+String(rule.host||'');if(marker.indexOf('band.nnfndyhn.cc')<0&&marker.indexOf('吃瓜')<0)return;var primary='https://band.wyrrqof.com';var hosts=\"['https://band.wyrrqof.com','https://band.nnfndyhn.cc','https://51cg1.com','https://chigua.com','https://51cgm25.com','https://cg51.com']\";rule.host=primary;rule.headers=rule.headers||{};rule.headers.Referer=primary+'/';rule.play_headers=rule.play_headers||{};for(var hk in rule.headers){if(Object.prototype.hasOwnProperty.call(rule.headers,hk))rule.play_headers[hk]=rule.headers[hk];}rule.play_headers.Referer=primary+'/';var keys=['推荐','一级','搜索'];for(var i=0;i<keys.length;i++){var k=keys[i];if(typeof rule[k]!=='string')continue;rule[k]=String(rule[k]).replace(/var H='https:\\/\\/band\\.nnfndyhn\\.cc';/g,\"var H=rule.host||'\"+primary+\"';\").replace(/var HS=\\[[^\\]]*band\\.nnfndyhn\\.cc[^\\]]*\\]/g,'var HS='+hosts);}}"
                 + "function __xmMeta(url,opt){var obj=__xmPrepareReqOpt(opt||{});var raw=Android.requestMeta(String(url||''),JSON.stringify(obj||{}));var meta={body:'',headers:{},contentType:'',finalUrl:String(url||''),code:0};try{meta=JSON.parse(raw||'{}')||meta;}catch(e){}meta.headers=__xmNormalizeHeaders(meta.headers);meta.body=String(meta.body||'');meta.content=meta.body;meta.url=meta.finalUrl||String(url||'');document.html=meta.body;__xmSyncHost(meta,url);return meta;}"
                 + "function __xmReturn(meta,opt){var cfg=opt&&typeof opt==='object'?opt:{};if(cfg.onlyHeaders)return meta.headers||{};if(cfg.withHeaders||cfg.withStatusCode)return meta;return meta.body||'';}"
                 + "function request(url,opt){var meta=__xmMeta(url,opt||{});return __xmReturn(meta,opt||{});}"
@@ -603,6 +604,7 @@ public class NativeDrpyEngine {
                 + vendorJs
                 + helperJs
                 + raw
+                + "\n;try{__xmPatchKnownRule();}catch(e){};"
                 + "\n;";
     }
 
@@ -756,7 +758,12 @@ public class NativeDrpyEngine {
 
     private String defaultCookieForUrl(String url) {
         String hostKey = cookieHostKey(url).toLowerCase();
-        if (hostKey.contains("51cg1.com") || hostKey.contains("isppven.com") || hostKey.contains("51cg") || hostKey.contains("chigua.com")) {
+        if (hostKey.contains("51cg1.com")
+                || hostKey.contains("isppven.com")
+                || hostKey.contains("51cg")
+                || hostKey.contains("chigua.com")
+                || hostKey.contains("wyrrqof.com")
+                || hostKey.contains("nnfndyhn.cc")) {
             return "user-choose=true";
         }
         return "";

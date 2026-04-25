@@ -677,16 +677,16 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void updateKernelPanel() {
-        mineKernelNameView.setText("当前内核：原生播放器");
-        mineKernelTipView.setText("已移除 Exo，统一使用原生 JZ 播放内核，避免一直转圈和兼容性不一致。");
-        mineKernelSwitchButton.setText("仅保留原生");
+        mineKernelNameView.setText("当前内核：DKVideoPlayer");
+        mineKernelTipView.setText("播放页已接入 DKVideoPlayer，使用 Exo 后端播放 m3u8/mp4，保留倍速和长按加速。");
+        mineKernelSwitchButton.setText("DKVideoPlayer");
         mineKernelSwitchButton.setEnabled(false);
         mineKernelSwitchButton.setAlpha(0.6f);
     }
 
     private void togglePlayerKernel() {
         updateKernelPanel();
-        toast("已固定为原生播放器内核");
+        toast("已固定为 DKVideoPlayer");
     }
 
     private void openDetail(NativeDrpyEngine.MediaItem item) {
