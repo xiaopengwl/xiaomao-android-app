@@ -105,6 +105,7 @@ public class NativePlayerActivity extends Activity {
     private boolean artPlayerReady = false;
     private boolean artPlayerFullscreen = false;
     private boolean artPlayerWebFullscreen = false;
+    private boolean nativePlayerFallbackTried = false;
     private boolean artPlayerFallbackTried = false;
     private boolean preparedNotified = false;
     private boolean tempSpeedBoost = false;
@@ -188,9 +189,12 @@ public class NativePlayerActivity extends Activity {
             if (retryWithNextStreamType()) {
                 return;
             }
+            if (tryFallbackToArtPlayer("\u539f\u751f\u64ad\u653e\u5668\u64ad\u653e\u5f02\u5e38")) {
+                return;
+            }
             String message = safe(error == null ? "" : error.getMessage());
             if (message.isEmpty()) {
-                message = "播放器初始化失败";
+                message = "\u64ad\u653e\u5668\u521d\u59cb\u5316\u5931\u8d25";
             }
             showError(message);
         }
@@ -975,6 +979,7 @@ public class NativePlayerActivity extends Activity {
         releaseMediaPlayer();
         releaseArtPlayer();
         playUrl = null;
+        nativePlayerFallbackTried = false;
         artPlayerFallbackTried = false;
         activeHeaders.clear();
         showState("正在解析播放地址…", true, 1f);
@@ -1870,7 +1875,7 @@ public class NativePlayerActivity extends Activity {
     }
 
     private boolean tryFallbackToArtPlayer(String reason) {
-        if (artPlayerFallbackTried || safe(playUrl).isEmpty()) {
+        if (safe(playUrl).isEmpty()) {
             return false;
         }
         try {
@@ -1879,24 +1884,48 @@ public class NativePlayerActivity extends Activity {
             if (primaryType != StreamType.HLS && primaryType != StreamType.PROGRESSIVE) {
                 return false;
             }
-            artPlayerFallbackTried = true;
-            cancelPrepareTimeout();
-            releaseMediaPlayer();
-            releaseDkPlayer();
-            showState(safe(reason).isEmpty()
-                    ? "\u6b63\u5728\u5207\u6362\u5907\u7528\u64ad\u653e\u5668\u2026"
-                    : safe(reason) + "\uff0c\u6b63\u5728\u5207\u6362\u5907\u7528\u64ad\u653e\u5668\u2026", true, 1f);
-            loadArtPlayer(playUrl, headers);
-            if (artPlayerWebView != null) {
-                artPlayerWebView.setVisibility(View.VISIBLE);
+            if (!nativePlayerFallbackTried) {
+                nativePlayerFallbackTried = true;
+                cancelPrepareTimeout();
+                releaseDkPlayer();
+                releaseArtPlayer();
+                preparedNotified = false;
+                showState(safe(reason).isEmpty()
+                        ? "\u6b63\u5728\u5207\u6362\u539f\u751f\u64ad\u653e\u5668\u2026"
+                        : safe(reason) + "\uff0c\u6b63\u5728\u5207\u6362\u539f\u751f\u64ad\u653e\u5668\u2026", true, 1f);
+                if (dkPlayerView != null) {
+                    dkPlayerView.setVisibility(View.GONE);
+                }
+                if (artPlayerWebView != null) {
+                    artPlayerWebView.setVisibility(View.GONE);
+                }
+                if (playerView != null) {
+                    playerView.setVisibility(View.VISIBLE);
+                }
+                preparePlayer(headers, true);
+                return true;
             }
-            if (playerView != null) {
-                playerView.setVisibility(View.GONE);
+            if (!artPlayerFallbackTried) {
+                artPlayerFallbackTried = true;
+                cancelPrepareTimeout();
+                releaseMediaPlayer();
+                releaseDkPlayer();
+                showState(safe(reason).isEmpty()
+                        ? "\u6b63\u5728\u5207\u6362\u5907\u7528 Web \u64ad\u653e\u5668\u2026"
+                        : safe(reason) + "\uff0c\u6b63\u5728\u5207\u6362\u5907\u7528 Web \u64ad\u653e\u5668\u2026", true, 1f);
+                loadArtPlayer(playUrl, headers);
+                if (artPlayerWebView != null) {
+                    artPlayerWebView.setVisibility(View.VISIBLE);
+                }
+                if (playerView != null) {
+                    playerView.setVisibility(View.GONE);
+                }
+                if (dkPlayerView != null) {
+                    dkPlayerView.setVisibility(View.GONE);
+                }
+                return true;
             }
-            if (dkPlayerView != null) {
-                dkPlayerView.setVisibility(View.GONE);
-            }
-            return true;
+            return false;
         } catch (Throwable ignored) {
             return false;
         }
