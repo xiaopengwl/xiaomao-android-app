@@ -30,7 +30,7 @@
             android:layout_height="wrap_content"
             android:layout_marginStart="10dp"
             android:layout_weight="1"
-            android:text="片源管理"
+            android:text="@string/source_manage_title"
             android:textColor="#FFFFFF"
             android:textSize="18sp"
             android:textStyle="bold" />
@@ -39,7 +39,7 @@
             android:id="@+id/source_manage_import_button"
             android:layout_width="wrap_content"
             android:layout_height="40dp"
-            android:text="导入源"
+            android:text="@string/source_manage_import"
             android:textAllCaps="false"
             android:textColor="#042111"
             app:backgroundTint="#1FCB63"
@@ -53,7 +53,7 @@
         android:layout_marginStart="16dp"
         android:layout_marginTop="14dp"
         android:layout_marginEnd="16dp"
-        android:text="共 0 个片源"
+        android:text="@string/source_manage_title"
         android:textColor="#98B2A7"
         android:textSize="13sp" />
 
@@ -65,7 +65,7 @@
         android:layout_marginStart="16dp"
         android:layout_marginTop="12dp"
         android:layout_marginEnd="16dp"
-        android:text="打开设置"
+        android:text="@string/source_manage_open_settings"
         android:textAllCaps="false"
         android:textColor="#DDF4E5"
         app:cornerRadius="16dp"

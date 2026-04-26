@@ -16,6 +16,8 @@ import java.util.List;
 public class SourceManageAdapter extends RecyclerView.Adapter<SourceManageAdapter.SourceViewHolder> {
     public interface Listener {
         void onSelect(SourceStore.SourceItem item);
+        void onTest(SourceStore.SourceItem item);
+        void onDebug(SourceStore.SourceItem item);
         void onDelete(SourceStore.SourceItem item);
     }
 
@@ -48,14 +50,30 @@ public class SourceManageAdapter extends RecyclerView.Adapter<SourceManageAdapte
         SourceStore.SourceItem item = items.get(position);
         boolean selected = item.id.equals(selectedId);
         holder.titleView.setText(item.title);
-        holder.hostView.setText(item.host.isEmpty() ? "未提供站点地址" : item.host);
-        holder.typeView.setText(item.custom ? "自定义" : "内置");
-        holder.selectButton.setText(selected ? "当前使用中" : "切换到这里");
+        holder.hostView.setText(item.host.isEmpty()
+                ? holder.itemView.getContext().getString(R.string.source_manage_host_missing)
+                : item.host);
+        holder.typeView.setText(holder.itemView.getContext().getString(
+                item.custom ? R.string.source_manage_type_custom : R.string.source_manage_type_builtin
+        ));
+        holder.selectButton.setText(holder.itemView.getContext().getString(
+                selected ? R.string.source_manage_select_current : R.string.source_manage_select_action
+        ));
         holder.selectButton.setEnabled(!selected);
         holder.deleteButton.setVisibility(item.custom ? View.VISIBLE : View.GONE);
         holder.selectButton.setOnClickListener(v -> {
             if (listener != null) {
                 listener.onSelect(item);
+            }
+        });
+        holder.testButton.setOnClickListener(v -> {
+            if (listener != null) {
+                listener.onTest(item);
+            }
+        });
+        holder.debugButton.setOnClickListener(v -> {
+            if (listener != null) {
+                listener.onDebug(item);
             }
         });
         holder.deleteButton.setOnClickListener(v -> {
@@ -75,6 +93,8 @@ public class SourceManageAdapter extends RecyclerView.Adapter<SourceManageAdapte
         final TextView hostView;
         final TextView typeView;
         final MaterialButton selectButton;
+        final MaterialButton testButton;
+        final MaterialButton debugButton;
         final MaterialButton deleteButton;
 
         SourceViewHolder(@NonNull View itemView) {
@@ -83,6 +103,8 @@ public class SourceManageAdapter extends RecyclerView.Adapter<SourceManageAdapte
             hostView = itemView.findViewById(R.id.source_item_host);
             typeView = itemView.findViewById(R.id.source_item_type);
             selectButton = itemView.findViewById(R.id.source_item_select_button);
+            testButton = itemView.findViewById(R.id.source_item_test_button);
+            debugButton = itemView.findViewById(R.id.source_item_debug_button);
             deleteButton = itemView.findViewById(R.id.source_item_delete_button);
         }
     }

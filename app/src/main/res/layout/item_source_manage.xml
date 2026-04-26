@@ -41,7 +41,7 @@
             android:paddingTop="4dp"
             android:paddingEnd="10dp"
             android:paddingBottom="4dp"
-            android:text="内置"
+            android:text="@string/source_manage_type_builtin"
             android:textColor="#BFE7CB"
             android:textSize="12sp" />
 
@@ -56,7 +56,7 @@
                 android:layout_width="0dp"
                 android:layout_height="44dp"
                 android:layout_weight="1"
-                android:text="切换到这里"
+                android:text="@string/source_manage_select_action"
                 android:textAllCaps="false"
                 android:textColor="#042111"
                 app:backgroundTint="#1FCB63"
@@ -68,11 +68,43 @@
                 android:layout_width="wrap_content"
                 android:layout_height="44dp"
                 android:layout_marginStart="10dp"
-                android:text="删除"
+                android:text="@string/source_manage_delete_confirm"
                 android:textAllCaps="false"
                 android:textColor="#F7CBCB"
                 app:cornerRadius="14dp"
                 app:strokeColor="#804040" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:orientation="horizontal">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/source_item_test_button"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="0dp"
+                android:layout_height="42dp"
+                android:layout_weight="1"
+                android:text="@string/source_manage_test_action"
+                android:textAllCaps="false"
+                android:textColor="#DDF4E5"
+                app:cornerRadius="14dp"
+                app:strokeColor="#2A6340" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/source_item_debug_button"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="0dp"
+                android:layout_height="42dp"
+                android:layout_marginStart="10dp"
+                android:layout_weight="1"
+                android:text="@string/source_manage_debug_action"
+                android:textAllCaps="false"
+                android:textColor="#DDF4E5"
+                app:cornerRadius="14dp"
+                app:strokeColor="#2A6340" />
         </LinearLayout>
     </LinearLayout>
 
