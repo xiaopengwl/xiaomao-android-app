@@ -2,6 +2,8 @@ package com.xiaomao.player;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.os.Handler;
+import android.os.Looper;
 import android.text.TextUtils;
 
 import org.json.JSONArray;
@@ -11,10 +13,14 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -22,11 +28,13 @@ public final class SourceStore {
     private static final String PREFS = "xiaomao_sources";
     private static final String KEY_CUSTOM_SOURCES = "custom_sources";
     private static final String KEY_SELECTED_SOURCE_ID = "selected_source_id";
+    private static final String PC_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36";
     private static final Pattern TITLE_PATTERN = Pattern.compile("title\\s*:\\s*['\"]([^'\"]+)['\"]");
     private static final Pattern HOST_PATTERN = Pattern.compile("host\\s*:\\s*['\"]([^'\"]+)['\"]");
     private static final Pattern BARE_JS_FIELD_PATTERN = Pattern.compile(
             "(?m)^(\\s*(?:['\"][^'\"]+['\"]|[A-Za-z_\\u4e00-\\u9fa5][\\w\\u4e00-\\u9fa5]*)\\s*:\\s*)js\\s*:"
     );
+    private static final ExecutorService MIGRATION_EXECUTOR = Executors.newSingleThreadExecutor();
 
     public static final class SourceItem {
         public final String id;
@@ -37,7 +45,7 @@ public final class SourceStore {
 
         SourceItem(String id, String title, String host, String raw, boolean custom) {
             this.id = id == null ? "" : id;
-            this.title = title == null || title.trim().isEmpty() ? "?????" : title.trim();
+            this.title = title == null || title.trim().isEmpty() ? "未命名片源" : title.trim();
             this.host = host == null ? "" : host.trim();
             this.raw = raw == null ? "" : raw;
             this.custom = custom;
@@ -53,6 +61,10 @@ public final class SourceStore {
 
     private static SharedPreferences prefs(Context context) {
         return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+    }
+
+    public interface MigrationCallback {
+        void done(boolean changed);
     }
 
     public static ArrayList<SourceItem> loadAll(Context context) {
@@ -93,7 +105,7 @@ public final class SourceStore {
         String parsedTitle = title == null || title.trim().isEmpty() ? matchFirst(safeRaw, TITLE_PATTERN) : title.trim();
         String parsedHost = host == null || host.trim().isEmpty() ? matchFirst(safeRaw, HOST_PATTERN) : host.trim();
         if (parsedTitle.isEmpty()) {
-            parsedTitle = "?????";
+            parsedTitle = "自定义片源";
         }
         String id = "custom:" + System.currentTimeMillis();
         JSONObject object = new JSONObject();
@@ -133,6 +145,53 @@ public final class SourceStore {
             editor.putString(KEY_SELECTED_SOURCE_ID, "");
         }
         editor.apply();
+    }
+
+    public static boolean looksLikeRemoteRuleUrl(String raw) {
+        return !TextUtils.isEmpty(raw)
+                && (raw.startsWith("http://") || raw.startsWith("https://"));
+    }
+
+    public static String downloadRemoteRule(String rawUrl) throws Exception {
+        HttpURLConnection connection = null;
+        try {
+            connection = (HttpURLConnection) new URL(rawUrl).openConnection();
+            connection.setInstanceFollowRedirects(true);
+            connection.setConnectTimeout(15000);
+            connection.setReadTimeout(30000);
+            connection.setRequestMethod("GET");
+            connection.setRequestProperty("User-Agent", PC_USER_AGENT);
+            connection.setRequestProperty("Accept", "*/*");
+            int code = connection.getResponseCode();
+            InputStream stream = code >= 200 && code < 400
+                    ? connection.getInputStream()
+                    : connection.getErrorStream();
+            if (stream == null) {
+                throw new IllegalStateException("HTTP " + code);
+            }
+            String body = readStreamText(stream).trim();
+            if (code < 200 || code >= 400) {
+                throw new IllegalStateException("HTTP " + code);
+            }
+            if (!looksLikeRuleContent(body)) {
+                throw new IllegalArgumentException("downloaded content is not a rule file");
+            }
+            return body;
+        } finally {
+            if (connection != null) {
+                connection.disconnect();
+            }
+        }
+    }
+
+    public static void migrateRemoteCustomSourcesAsync(Context context, MigrationCallback callback) {
+        Context appContext = context.getApplicationContext();
+        MIGRATION_EXECUTOR.execute(() -> {
+            boolean changed = migrateRemoteCustomSources(appContext);
+            if (callback != null) {
+                new Handler(Looper.getMainLooper()).post(() -> callback.done(changed));
+            }
+        });
     }
 
     private static ArrayList<SourceItem> loadBuiltIn(Context context) {
@@ -179,10 +238,37 @@ public final class SourceStore {
                 } catch (Exception ignored) {
                 }
             }
+            String storedTitle = object.optString("title", "");
+            String resolvedTitle = storedTitle.trim();
+            if (resolvedTitle.isEmpty()) {
+                resolvedTitle = matchFirst(normalizedRaw, TITLE_PATTERN);
+                if (resolvedTitle.isEmpty()) {
+                    resolvedTitle = "自定义片源";
+                }
+            }
+            if (!TextUtils.equals(storedTitle, resolvedTitle)) {
+                changed = true;
+                try {
+                    object.put("title", resolvedTitle);
+                } catch (Exception ignored) {
+                }
+            }
+            String storedHost = object.optString("host", "");
+            String resolvedHost = storedHost.trim();
+            if (resolvedHost.isEmpty() && !looksLikeRemoteRuleUrl(normalizedRaw)) {
+                resolvedHost = matchFirst(normalizedRaw, HOST_PATTERN);
+            }
+            if (!TextUtils.equals(storedHost, resolvedHost)) {
+                changed = true;
+                try {
+                    object.put("host", resolvedHost);
+                } catch (Exception ignored) {
+                }
+            }
             migrated.put(object);
             list.add(new SourceItem(
                     object.optString("id", "custom:" + i),
-                    object.optString("title", "?????"),
+                    object.optString("title", "自定义片源"),
                     object.optString("host", ""),
                     normalizedRaw,
                     true
@@ -207,13 +293,45 @@ public final class SourceStore {
         try (InputStream inputStream = context.getAssets().open(path);
              InputStreamReader reader = new InputStreamReader(inputStream, StandardCharsets.UTF_8);
              BufferedReader bufferedReader = new BufferedReader(reader)) {
-            StringBuilder builder = new StringBuilder();
-            String line;
-            while ((line = bufferedReader.readLine()) != null) {
-                builder.append(line).append('\n');
-            }
-            return builder.toString();
+            return readBufferedText(bufferedReader);
         }
+    }
+
+    private static boolean migrateRemoteCustomSources(Context context) {
+        JSONArray array = getCustomArray(context);
+        JSONArray migrated = new JSONArray();
+        boolean changed = false;
+        for (int i = 0; i < array.length(); i++) {
+            JSONObject object = array.optJSONObject(i);
+            if (object == null) {
+                continue;
+            }
+            String raw = object.optString("raw", "").trim();
+            if (looksLikeRemoteRuleUrl(raw)) {
+                try {
+                    String downloadedRaw = normalizeRuleRaw(downloadRemoteRule(raw));
+                    if (looksLikeRuleContent(downloadedRaw)) {
+                        object.put("raw", downloadedRaw);
+                        String parsedHost = matchFirst(downloadedRaw, HOST_PATTERN);
+                        if (!parsedHost.isEmpty()) {
+                            object.put("host", parsedHost);
+                        }
+                        String storedTitle = object.optString("title", "").trim();
+                        String parsedTitle = matchFirst(downloadedRaw, TITLE_PATTERN);
+                        if (shouldReplaceTitle(storedTitle) && !parsedTitle.isEmpty()) {
+                            object.put("title", parsedTitle);
+                        }
+                        changed = true;
+                    }
+                } catch (Exception ignored) {
+                }
+            }
+            migrated.put(object);
+        }
+        if (changed) {
+            prefs(context).edit().putString(KEY_CUSTOM_SOURCES, migrated.toString()).apply();
+        }
+        return changed;
     }
 
     private static String matchFirst(String text, Pattern pattern) {
@@ -222,6 +340,16 @@ public final class SourceStore {
             return matcher.group(1).trim();
         }
         return "";
+    }
+
+    private static boolean shouldReplaceTitle(String title) {
+        if (title == null) {
+            return true;
+        }
+        String trimmed = title.trim();
+        return trimmed.isEmpty()
+                || "自定义片源".equals(trimmed)
+                || "未命名片源".equals(trimmed);
     }
 
     public static String normalizeRuleRaw(String raw) {
@@ -439,5 +567,22 @@ public final class SourceStore {
                 .replace("\\", "\\\\")
                 .replace("`", "\\`")
                 .replace("${", "\\${");
+    }
+
+    private static String readStreamText(InputStream inputStream) throws IOException {
+        try (InputStream stream = inputStream;
+             InputStreamReader reader = new InputStreamReader(stream, StandardCharsets.UTF_8);
+             BufferedReader bufferedReader = new BufferedReader(reader)) {
+            return readBufferedText(bufferedReader);
+        }
+    }
+
+    private static String readBufferedText(BufferedReader bufferedReader) throws IOException {
+        StringBuilder builder = new StringBuilder();
+        String line;
+        while ((line = bufferedReader.readLine()) != null) {
+            builder.append(line).append('\n');
+        }
+        return builder.toString();
     }
 }

@@ -86,4 +86,12 @@
     <string name="main_msg_kernel_switched_exo">已切换到 Exo 增强内核</string>
 
     <string name="main_msg_no_content">暂时没有内容</string>
+
+    <string name="import_msg_empty_rule">请先粘贴片源规则内容</string>
+    <string name="import_msg_downloading_rule">正在下载远程规则...</string>
+    <string name="import_msg_download_failed">远程规则下载失败：%1$s</string>
+    <string name="import_msg_invalid_rule">规则内容无效，缺少 var rule</string>
+    <string name="import_msg_imported">已导入片源：%1$s</string>
+    <string name="import_msg_network_error">网络异常</string>
+    <string name="import_msg_not_rule_file">下载内容不是规则文件</string>
 </resources>

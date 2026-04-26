@@ -95,6 +95,7 @@ public class MainActivity extends AppCompatActivity {
     private int sourceVersion = 0;
     private int contentVersion = 0;
     private boolean ignoreBottomSelection = false;
+    private boolean sourceMigrationRunning = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -108,6 +109,7 @@ public class MainActivity extends AppCompatActivity {
         }
         applyTabState();
         loadSources();
+        scheduleRemoteSourceMigration();
     }
 
     @Override
@@ -123,6 +125,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         syncSourceIfNeeded();
+        scheduleRemoteSourceMigration();
     }
 
     private void bindViews() {
@@ -258,6 +261,20 @@ public class MainActivity extends AppCompatActivity {
                 && TextUtils.equals(left.title, right.title)
                 && TextUtils.equals(left.host, right.host)
                 && TextUtils.equals(left.raw, right.raw);
+    }
+
+    private void scheduleRemoteSourceMigration() {
+        if (sourceMigrationRunning) {
+            return;
+        }
+        sourceMigrationRunning = true;
+        SourceStore.migrateRemoteCustomSourcesAsync(getApplicationContext(), changed -> {
+            sourceMigrationRunning = false;
+            if (!changed || isFinishing() || isDestroyed()) {
+                return;
+            }
+            syncSourceIfNeeded();
+        });
     }
 
     private SourceStore.SourceItem findSourceById(ArrayList<SourceStore.SourceItem> items, String sourceId) {
