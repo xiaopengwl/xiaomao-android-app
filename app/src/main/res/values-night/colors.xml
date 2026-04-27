@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="xm_bg">#0B1118</color>
+    <color name="xm_surface">#121A24</color>
+    <color name="xm_surface_alt">#17212D</color>
+    <color name="xm_surface_soft">#1B2635</color>
+    <color name="xm_stroke">#273446</color>
+    <color name="xm_stroke_soft">#33465E</color>
+    <color name="xm_text_primary">#F5F7FA</color>
+    <color name="xm_text_secondary">#A7B3C2</color>
+    <color name="xm_text_muted">#7B8798</color>
+    <color name="xm_accent">#32D27D</color>
+    <color name="xm_accent_dark">#08160F</color>
+    <color name="xm_badge">#F2B54A</color>
+    <color name="xm_badge_text">#2A1900</color>
+    <color name="xm_info_bg">#1A2940</color>
+    <color name="xm_info_text">#CFE2FF</color>
+    <color name="xm_danger">#E5747A</color>
+    <color name="xm_danger_soft">#4C252A</color>
+</resources>
