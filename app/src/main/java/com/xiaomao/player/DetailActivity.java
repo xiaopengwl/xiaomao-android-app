@@ -12,6 +12,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
 
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.chip.Chip;
@@ -50,6 +51,7 @@ public class DetailActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        ThemeHelper.apply(this);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_detail);
         bindViews();
@@ -98,18 +100,18 @@ public class DetailActivity extends AppCompatActivity {
     }
 
     private void setupViews() {
-        toolbarTitleView.setText(itemTitle.isEmpty() ? "影视详情" : itemTitle);
-        titleView.setText(itemTitle.isEmpty() ? "正在加载详情..." : itemTitle);
-        metaView.setText(itemRemark.isEmpty() ? "正在解析线路与选集" : itemRemark);
-        contentView.setText("剧情简介、播放线路和选集会在解析完成后显示。");
+        toolbarTitleView.setText(itemTitle.isEmpty() ? getString(R.string.detail_toolbar_title) : itemTitle);
+        titleView.setText(itemTitle.isEmpty() ? getString(R.string.detail_loading) : itemTitle);
+        metaView.setText(itemRemark.isEmpty() ? getString(R.string.detail_meta_loading) : itemRemark);
+        contentView.setText(getString(R.string.detail_content_loading));
         PosterLoader.load(posterView, itemPoster, itemTitle);
     }
 
     private void loadDetail() {
-        showLoading("正在加载详情...");
+        showLoading(getString(R.string.detail_loading));
         engine.loadDetail(itemUrl, itemTitle, itemPoster, (detail, err) -> {
             if (!TextUtils.isEmpty(err) && detail.playGroups.isEmpty()) {
-                showLoading("详情加载失败\n" + err);
+                showLoading(getString(R.string.detail_loading_failed, err));
                 return;
             }
             currentDetail = detail;
@@ -121,8 +123,8 @@ public class DetailActivity extends AppCompatActivity {
         loadingContainer.setVisibility(View.GONE);
         toolbarTitleView.setText(detail.title);
         titleView.setText(detail.title);
-        metaView.setText(detail.remark.isEmpty() ? "可播放线路已加载" : detail.remark);
-        contentView.setText(detail.content.isEmpty() ? "当前片源没有返回剧情简介。" : detail.content);
+        metaView.setText(detail.remark.isEmpty() ? getString(R.string.detail_line_ready) : detail.remark);
+        contentView.setText(detail.content.isEmpty() ? getString(R.string.detail_no_content) : detail.content);
         PosterLoader.load(posterView, detail.poster, detail.title);
         renderEpisodeGroups(detail.playGroups);
         playFirstButton.setEnabled(findFirstPlayable(detail) != null);
@@ -132,16 +134,23 @@ public class DetailActivity extends AppCompatActivity {
         groupsContainer.removeAllViews();
         if (groups == null || groups.isEmpty()) {
             TextView emptyView = new TextView(this);
-            emptyView.setText("当前片源没有返回可播放线路。");
-            emptyView.setTextColor(0xFFA7B3C2);
+            emptyView.setText(getString(R.string.detail_no_lines));
+            emptyView.setTextColor(ContextCompat.getColor(this, R.color.xm_text_secondary));
             emptyView.setTextSize(14f);
             groupsContainer.addView(emptyView);
             return;
         }
+
+        int headerColor = ContextCompat.getColor(this, R.color.xm_text_primary);
+        int chipTextColor = ContextCompat.getColor(this, R.color.xm_text_primary);
+        int chipBackgroundColor = ContextCompat.getColor(this, R.color.xm_surface_alt);
+        int chipStrokeColor = ContextCompat.getColor(this, R.color.xm_stroke_soft);
+        int chipRippleColor = ContextCompat.getColor(this, R.color.xm_accent);
+
         for (NativeDrpyEngine.EpisodeGroup group : groups) {
             TextView header = new TextView(this);
             header.setText(group.name);
-            header.setTextColor(0xFFF5F7FA);
+            header.setTextColor(headerColor);
             header.setTextSize(15f);
             header.setTypeface(header.getTypeface(), android.graphics.Typeface.BOLD);
             LinearLayout.LayoutParams headerParams = new LinearLayout.LayoutParams(
@@ -170,11 +179,11 @@ public class DetailActivity extends AppCompatActivity {
                 chip.setClickable(true);
                 chip.setEnsureMinTouchTargetSize(false);
                 chip.setMinHeight(dp(36));
-                chip.setTextColor(0xFFF5F7FA);
-                chip.setChipBackgroundColor(ColorStateList.valueOf(0xFF1A2940));
-                chip.setChipStrokeColor(ColorStateList.valueOf(0xFF33465E));
+                chip.setTextColor(chipTextColor);
+                chip.setChipBackgroundColor(ColorStateList.valueOf(chipBackgroundColor));
+                chip.setChipStrokeColor(ColorStateList.valueOf(chipStrokeColor));
                 chip.setChipStrokeWidth(dp(1));
-                chip.setRippleColor(ColorStateList.valueOf(0x3332D27D));
+                chip.setRippleColor(ColorStateList.valueOf(chipRippleColor));
                 final int index = i;
                 chip.setOnClickListener(v -> openNativePlayer(group, index));
                 chipGroup.addView(chip);
@@ -185,7 +194,7 @@ public class DetailActivity extends AppCompatActivity {
     private void playFirstEpisode() {
         EpisodeTarget target = findFirstPlayable(currentDetail);
         if (target == null) {
-            toast("当前没有可播放的选集");
+            toast(getString(R.string.detail_no_episode));
             return;
         }
         openNativePlayer(target.group, target.index);
@@ -208,7 +217,7 @@ public class DetailActivity extends AppCompatActivity {
 
     private void openNativePlayer(NativeDrpyEngine.EpisodeGroup group, int index) {
         if (group == null || group.items == null || index < 0 || index >= group.items.size()) {
-            toast("选集信息无效");
+            toast(getString(R.string.detail_invalid_episode));
             return;
         }
         ArrayList<String> names = new ArrayList<>();
