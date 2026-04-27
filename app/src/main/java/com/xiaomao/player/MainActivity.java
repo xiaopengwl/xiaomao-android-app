@@ -18,6 +18,7 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -99,6 +100,7 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        ThemeHelper.apply(this);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         bindViews();
@@ -165,6 +167,9 @@ public class MainActivity extends AppCompatActivity {
         rankRecyclerView.setLayoutManager(new LinearLayoutManager(this));
         rankRecyclerView.setAdapter(rankAdapter);
         rankAdapter.setOnItemClickListener(this::openDetail);
+
+        swipeRefreshLayout.setColorSchemeColors(ContextCompat.getColor(this, R.color.xm_accent));
+        swipeRefreshLayout.setProgressBackgroundColorSchemeColor(ContextCompat.getColor(this, R.color.xm_surface));
     }
 
     private void setupEvents() {
@@ -643,16 +648,21 @@ public class MainActivity extends AppCompatActivity {
         chip.setClickable(true);
         chip.setChipMinHeight(dp(36));
         chip.setEnsureMinTouchTargetSize(false);
+        int checkedText = ContextCompat.getColor(this, R.color.xm_accent_dark);
+        int defaultText = ContextCompat.getColor(this, R.color.xm_text_primary);
+        int checkedBg = ContextCompat.getColor(this, R.color.xm_accent);
+        int defaultBg = ContextCompat.getColor(this, R.color.xm_surface_alt);
+        int strokeColor = ContextCompat.getColor(this, R.color.xm_stroke_soft);
         chip.setTextColor(new ColorStateList(
                 new int[][]{new int[]{android.R.attr.state_checked}, new int[]{}},
-                new int[]{0xFF08160F, 0xFFF5F7FA}
+                new int[]{checkedText, defaultText}
         ));
         chip.setChipBackgroundColor(new ColorStateList(
                 new int[][]{new int[]{android.R.attr.state_checked}, new int[]{}},
-                new int[]{0xFF32D27D, 0xFF1A2940}
+                new int[]{checkedBg, defaultBg}
         ));
         chip.setChipStrokeWidth(dp(1));
-        chip.setChipStrokeColor(ColorStateList.valueOf(0xFF33465E));
+        chip.setChipStrokeColor(ColorStateList.valueOf(strokeColor));
         return chip;
     }
 
@@ -674,6 +684,7 @@ public class MainActivity extends AppCompatActivity {
         updatePager();
         updateMinePanel();
         updateKernelPanel();
+        syncKernelPanelLabels();
     }
 
     private void syncBottomSelection(int itemId) {
@@ -695,16 +706,24 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void updateKernelPanel() {
-        mineKernelNameView.setText("当前内核：DKVideoPlayer");
-        mineKernelTipView.setText("播放页已接入 DKVideoPlayer，使用 Exo 后端播放 m3u8/mp4，保留倍速和长按加速。");
-        mineKernelSwitchButton.setText("DKVideoPlayer");
+        mineKernelNameView.setText(getString(R.string.main_mine_kernel_name));
+        mineKernelTipView.setText(getString(R.string.main_mine_kernel_tip));
+        mineKernelSwitchButton.setText(getString(R.string.main_mine_kernel_switch));
         mineKernelSwitchButton.setEnabled(false);
         mineKernelSwitchButton.setAlpha(0.6f);
     }
 
     private void togglePlayerKernel() {
         updateKernelPanel();
-        toast("已固定为 DKVideoPlayer");
+        toast(getString(R.string.main_msg_kernel_fixed_dk));
+    }
+
+    private void syncKernelPanelLabels() {
+        mineKernelNameView.setText(getString(R.string.main_mine_kernel_name));
+        mineKernelTipView.setText(getString(R.string.main_mine_kernel_tip));
+        mineKernelSwitchButton.setText(getString(R.string.main_mine_kernel_switch));
+        mineKernelSwitchButton.setEnabled(false);
+        mineKernelSwitchButton.setAlpha(0.6f);
     }
 
     private void openDetail(NativeDrpyEngine.MediaItem item) {
