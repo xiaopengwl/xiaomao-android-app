@@ -1,7 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
     <style name="Theme.Xiaomao" parent="Theme.MaterialComponents.DayNight.NoActionBar">
-        <item name="android:statusBarColor" tools:targetApi="l">#07111e</item>
-        <item name="android:navigationBarColor">#07111e</item>
+        <item name="colorPrimary">@color/xm_surface</item>
+        <item name="colorPrimaryVariant">@color/xm_surface_alt</item>
+        <item name="colorSecondary">@color/xm_accent</item>
+        <item name="colorSurface">@color/xm_surface</item>
+        <item name="android:windowBackground">@color/xm_bg</item>
+        <item name="android:statusBarColor" tools:targetApi="l">@color/xm_bg</item>
+        <item name="android:navigationBarColor">@color/xm_bg</item>
     </style>
 </resources>

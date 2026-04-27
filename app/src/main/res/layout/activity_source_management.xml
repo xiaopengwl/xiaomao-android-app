@@ -3,37 +3,51 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#081018"
+    android:background="@color/xm_bg"
     android:orientation="vertical">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="#111B21"
+        android:background="@color/xm_surface"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:paddingStart="14dp"
-        android:paddingTop="14dp"
-        android:paddingEnd="14dp"
+        android:paddingStart="16dp"
+        android:paddingTop="16dp"
+        android:paddingEnd="16dp"
         android:paddingBottom="14dp">
 
         <ImageButton
             android:id="@+id/source_manage_back_button"
-            android:layout_width="42dp"
-            android:layout_height="42dp"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
             android:background="@android:color/transparent"
             android:src="@android:drawable/ic_media_previous"
-            android:tint="#FFFFFF" />
+            android:tint="@color/xm_text_primary" />
 
-        <TextView
+        <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginStart="10dp"
             android:layout_weight="1"
-            android:text="@string/source_manage_title"
-            android:textColor="#FFFFFF"
-            android:textSize="18sp"
-            android:textStyle="bold" />
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/source_manage_title"
+                android:textColor="@color/xm_text_primary"
+                android:textSize="20sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:text="统一换源、排障测试与规则调试"
+                android:textColor="@color/xm_text_muted"
+                android:textSize="12sp" />
+        </LinearLayout>
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/source_manage_import_button"
@@ -41,45 +55,59 @@
             android:layout_height="40dp"
             android:text="@string/source_manage_import"
             android:textAllCaps="false"
-            android:textColor="#042111"
-            app:backgroundTint="#1FCB63"
-            app:cornerRadius="12dp" />
+            android:textColor="@color/xm_accent_dark"
+            app:backgroundTint="@color/xm_accent"
+            app:cornerRadius="10dp" />
     </LinearLayout>
 
-    <TextView
-        android:id="@+id/source_manage_summary"
+    <com.google.android.material.card.MaterialCardView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginStart="16dp"
         android:layout_marginTop="14dp"
         android:layout_marginEnd="16dp"
-        android:text="@string/source_manage_title"
-        android:textColor="#98B2A7"
-        android:textSize="13sp" />
+        app:cardBackgroundColor="@color/xm_surface"
+        app:cardCornerRadius="12dp"
+        app:strokeColor="@color/xm_stroke"
+        app:strokeWidth="1dp">
 
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/source_manage_settings_button"
-        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-        android:layout_width="match_parent"
-        android:layout_height="48dp"
-        android:layout_marginStart="16dp"
-        android:layout_marginTop="12dp"
-        android:layout_marginEnd="16dp"
-        android:text="@string/source_manage_open_settings"
-        android:textAllCaps="false"
-        android:textColor="#DDF4E5"
-        app:cornerRadius="16dp"
-        app:strokeColor="#2A6340" />
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="14dp">
+
+            <TextView
+                android:id="@+id/source_manage_summary"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/source_manage_title"
+                android:textColor="@color/xm_text_secondary"
+                android:textSize="13sp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/source_manage_settings_button"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:layout_marginTop="12dp"
+                android:text="@string/source_manage_open_settings"
+                android:textAllCaps="false"
+                android:textColor="@color/xm_text_primary"
+                app:cornerRadius="10dp"
+                app:strokeColor="@color/xm_stroke_soft" />
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/source_manage_recycler"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_marginTop="10dp"
+        android:layout_marginTop="12dp"
         android:layout_weight="1"
         android:clipToPadding="false"
         android:paddingStart="16dp"
         android:paddingEnd="16dp"
-        android:paddingBottom="18dp" />
+        android:paddingBottom="20dp" />
 
 </LinearLayout>

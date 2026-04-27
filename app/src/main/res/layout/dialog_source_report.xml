@@ -12,7 +12,7 @@
         android:id="@+id/source_report_subtitle"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:textColor="#6B7280"
+        android:textColor="@color/xm_text_muted"
         android:textSize="13sp" />
 
     <ScrollView
@@ -28,7 +28,7 @@
             android:fontFamily="monospace"
             android:lineSpacingExtra="4dp"
             android:paddingBottom="8dp"
-            android:textColor="#111827"
+            android:textColor="@color/xm_text_primary"
             android:textIsSelectable="true"
             android:textSize="13sp" />
     </ScrollView>

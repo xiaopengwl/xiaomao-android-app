@@ -645,14 +645,14 @@ public class MainActivity extends AppCompatActivity {
         chip.setEnsureMinTouchTargetSize(false);
         chip.setTextColor(new ColorStateList(
                 new int[][]{new int[]{android.R.attr.state_checked}, new int[]{}},
-                new int[]{0xFF052111, 0xFFD2E7D9}
+                new int[]{0xFF08160F, 0xFFF5F7FA}
         ));
         chip.setChipBackgroundColor(new ColorStateList(
                 new int[][]{new int[]{android.R.attr.state_checked}, new int[]{}},
-                new int[]{0xFF1FCB63, 0xFF122019}
+                new int[]{0xFF32D27D, 0xFF1A2940}
         ));
         chip.setChipStrokeWidth(dp(1));
-        chip.setChipStrokeColor(ColorStateList.valueOf(0xFF28523A));
+        chip.setChipStrokeColor(ColorStateList.valueOf(0xFF33465E));
         return chip;
     }
 
@@ -666,6 +666,7 @@ public class MainActivity extends AppCompatActivity {
         rankRecyclerView.setVisibility(showRank ? View.VISIBLE : View.GONE);
         mineScrollView.setVisibility(showMine ? View.VISIBLE : View.GONE);
         pageControlsView.setVisibility(showMine ? View.GONE : View.VISIBLE);
+        pageTextView.setVisibility(showMine ? View.GONE : View.VISIBLE);
 
         if (showMine) {
             emptyContainer.setVisibility(View.GONE);
@@ -767,6 +768,7 @@ public class MainActivity extends AppCompatActivity {
     private void updatePager() {
         pageTextView.setText(getString(R.string.main_page_label, currentPage));
         boolean enabled = currentSource != null && currentTab != MainTab.MINE;
+        pageTextView.setAlpha(enabled ? 1f : 0.72f);
         prevButton.setEnabled(enabled && currentPage > 1);
         nextButton.setEnabled(enabled);
         homeButton.setEnabled(enabled);

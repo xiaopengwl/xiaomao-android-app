@@ -133,7 +133,7 @@ public class DetailActivity extends AppCompatActivity {
         if (groups == null || groups.isEmpty()) {
             TextView emptyView = new TextView(this);
             emptyView.setText("当前片源没有返回可播放线路。");
-            emptyView.setTextColor(0xFF95A89E);
+            emptyView.setTextColor(0xFFA7B3C2);
             emptyView.setTextSize(14f);
             groupsContainer.addView(emptyView);
             return;
@@ -141,14 +141,14 @@ public class DetailActivity extends AppCompatActivity {
         for (NativeDrpyEngine.EpisodeGroup group : groups) {
             TextView header = new TextView(this);
             header.setText(group.name);
-            header.setTextColor(0xFFFFFFFF);
-            header.setTextSize(16f);
+            header.setTextColor(0xFFF5F7FA);
+            header.setTextSize(15f);
             header.setTypeface(header.getTypeface(), android.graphics.Typeface.BOLD);
             LinearLayout.LayoutParams headerParams = new LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT
             );
-            headerParams.topMargin = dp(14);
+            headerParams.topMargin = dp(12);
             groupsContainer.addView(header, headerParams);
 
             ChipGroup chipGroup = new ChipGroup(this);
@@ -168,10 +168,13 @@ public class DetailActivity extends AppCompatActivity {
                 chip.setText(episode.name.isEmpty() ? ("播放 " + (i + 1)) : episode.name);
                 chip.setCheckable(false);
                 chip.setClickable(true);
-                chip.setTextColor(0xFFDDF4E5);
-                chip.setChipBackgroundColor(ColorStateList.valueOf(0xFF122019));
-                chip.setChipStrokeColor(ColorStateList.valueOf(0xFF28523A));
+                chip.setEnsureMinTouchTargetSize(false);
+                chip.setMinHeight(dp(36));
+                chip.setTextColor(0xFFF5F7FA);
+                chip.setChipBackgroundColor(ColorStateList.valueOf(0xFF1A2940));
+                chip.setChipStrokeColor(ColorStateList.valueOf(0xFF33465E));
                 chip.setChipStrokeWidth(dp(1));
+                chip.setRippleColor(ColorStateList.valueOf(0x3332D27D));
                 final int index = i;
                 chip.setOnClickListener(v -> openNativePlayer(group, index));
                 chipGroup.addView(chip);

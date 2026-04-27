@@ -4,9 +4,9 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginBottom="12dp"
-    app:cardBackgroundColor="#121D1A"
-    app:cardCornerRadius="22dp"
-    app:strokeColor="#1F3A2A"
+    app:cardBackgroundColor="@color/xm_surface"
+    app:cardCornerRadius="12dp"
+    app:strokeColor="@color/xm_stroke"
     app:strokeWidth="1dp">
 
     <LinearLayout
@@ -18,21 +18,21 @@
 
         <TextView
             android:id="@+id/rank_number"
-            android:layout_width="42dp"
-            android:layout_height="42dp"
-            android:background="#1FCB63"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:background="@drawable/xm_pill_badge"
             android:gravity="center"
             android:text="1"
-            android:textColor="#082111"
-            android:textSize="18sp"
+            android:textColor="@color/xm_badge_text"
+            android:textSize="16sp"
             android:textStyle="bold" />
 
         <ImageView
             android:id="@+id/rank_poster"
-            android:layout_width="78dp"
-            android:layout_height="108dp"
+            android:layout_width="72dp"
+            android:layout_height="98dp"
             android:layout_marginStart="12dp"
-            android:background="#182824"
+            android:background="@color/xm_surface_soft"
             android:scaleType="centerCrop" />
 
         <LinearLayout
@@ -47,8 +47,8 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:maxLines="2"
-                android:textColor="#FFFFFF"
-                android:textSize="16sp"
+                android:textColor="@color/xm_text_primary"
+                android:textSize="15sp"
                 android:textStyle="bold" />
 
             <TextView
@@ -57,22 +57,22 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="6dp"
                 android:maxLines="2"
-                android:textColor="#A4BDB2"
-                android:textSize="13sp" />
+                android:textColor="@color/xm_text_secondary"
+                android:textSize="12sp" />
 
             <TextView
                 android:id="@+id/rank_hint"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
-                android:background="#183024"
-                android:paddingStart="10dp"
+                android:background="@drawable/xm_pill_info"
+                android:paddingStart="8dp"
                 android:paddingTop="4dp"
-                android:paddingEnd="10dp"
+                android:paddingEnd="8dp"
                 android:paddingBottom="4dp"
                 android:text="点击查看详情"
-                android:textColor="#BFE7CB"
-                android:textSize="12sp" />
+                android:textColor="@color/xm_info_text"
+                android:textSize="11sp" />
         </LinearLayout>
     </LinearLayout>
 
