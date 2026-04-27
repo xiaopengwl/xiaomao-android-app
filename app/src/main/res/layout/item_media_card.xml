@@ -38,7 +38,7 @@
                 android:paddingTop="4dp"
                 android:paddingEnd="8dp"
                 android:paddingBottom="4dp"
-                android:text="热播"
+                android:text="@string/card_badge_hot"
                 android:textColor="@color/xm_badge_text"
                 android:textSize="11sp"
                 android:textStyle="bold" />
