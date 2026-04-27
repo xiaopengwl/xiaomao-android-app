@@ -1,4 +1,4 @@
-package com.xiaomao.player;
+﻿package com.xiaomao.player;
 
 import android.app.Activity;
 import android.content.Intent;
@@ -64,6 +64,8 @@ public class MainActivity extends AppCompatActivity {
     private MaterialButton homeButton;
     private MaterialButton prevButton;
     private MaterialButton nextButton;
+    private MaterialButton mineSettingsButton;
+    private MaterialButton mineImportButton;
     private MaterialButton mineSourceManageButton;
     private MaterialButton mineKernelSwitchButton;
     private TextInputEditText searchInput;
@@ -148,6 +150,8 @@ public class MainActivity extends AppCompatActivity {
         homeButton = findViewById(R.id.home_button);
         prevButton = findViewById(R.id.prev_button);
         nextButton = findViewById(R.id.next_button);
+        mineSettingsButton = findViewById(R.id.mine_settings_button);
+        mineImportButton = findViewById(R.id.mine_import_button);
         mineSourceManageButton = findViewById(R.id.mine_source_manage_button);
         mineKernelSwitchButton = findViewById(R.id.mine_kernel_switch_button);
         searchInput = findViewById(R.id.search_input);
@@ -177,6 +181,8 @@ public class MainActivity extends AppCompatActivity {
         homeButton.setOnClickListener(v -> openHomeTab(true));
         prevButton.setOnClickListener(v -> changePage(-1));
         nextButton.setOnClickListener(v -> changePage(1));
+        mineSettingsButton.setOnClickListener(v -> openNativePage(SettingsActivity.class));
+        mineImportButton.setOnClickListener(v -> openNativePage(ImportSourceActivity.class));
         mineSourceManageButton.setOnClickListener(v -> openNativePage(SourceManagementActivity.class));
         mineKernelSwitchButton.setOnClickListener(v -> togglePlayerKernel());
         swipeRefreshLayout.setOnRefreshListener(() -> reloadCurrentPage(true));

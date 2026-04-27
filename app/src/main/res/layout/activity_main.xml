@@ -216,6 +216,66 @@
                 android:paddingEnd="18dp"
                 android:paddingBottom="20dp">
 
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="10dp"
+                    android:text="@string/main_mine_quick_actions"
+                    android:textColor="@color/xm_text_muted"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="12dp"
+                    android:orientation="horizontal">
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/mine_settings_button"
+                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                        android:layout_width="0dp"
+                        android:layout_height="46dp"
+                        android:layout_weight="1"
+                        android:insetTop="0dp"
+                        android:insetBottom="0dp"
+                        android:text="@string/main_mine_quick_settings"
+                        android:textAllCaps="false"
+                        android:textColor="@color/xm_text_primary"
+                        app:cornerRadius="10dp"
+                        app:strokeColor="@color/xm_stroke_soft" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/mine_import_button"
+                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                        android:layout_width="0dp"
+                        android:layout_height="46dp"
+                        android:layout_marginStart="8dp"
+                        android:layout_weight="1"
+                        android:insetTop="0dp"
+                        android:insetBottom="0dp"
+                        android:text="@string/main_mine_quick_import"
+                        android:textAllCaps="false"
+                        android:textColor="@color/xm_text_primary"
+                        app:cornerRadius="10dp"
+                        app:strokeColor="@color/xm_stroke_soft" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/mine_source_manage_button"
+                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                        android:layout_width="0dp"
+                        android:layout_height="46dp"
+                        android:layout_marginStart="8dp"
+                        android:layout_weight="1"
+                        android:insetTop="0dp"
+                        android:insetBottom="0dp"
+                        android:text="@string/main_mine_quick_manage"
+                        android:textAllCaps="false"
+                        android:textColor="@color/xm_text_primary"
+                        app:cornerRadius="10dp"
+                        app:strokeColor="@color/xm_stroke_soft" />
+                </LinearLayout>
+
                 <com.google.android.material.card.MaterialCardView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -254,6 +314,15 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="4dp"
                             android:text="@string/main_mine_host_placeholder"
+                            android:textColor="@color/xm_text_secondary"
+                            android:textSize="13sp" />
+
+                        <TextView
+                            android:id="@+id/mine_feature_text"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="10dp"
+                            android:text="@string/main_mine_source_desc"
                             android:textColor="@color/xm_text_secondary"
                             android:textSize="13sp" />
                     </LinearLayout>
@@ -310,53 +379,6 @@
                             android:textColor="@color/xm_accent_dark"
                             app:backgroundTint="@color/xm_accent"
                             app:cornerRadius="10dp" />
-                    </LinearLayout>
-                </com.google.android.material.card.MaterialCardView>
-
-                <com.google.android.material.card.MaterialCardView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="12dp"
-                    app:cardBackgroundColor="@color/xm_surface"
-                    app:cardCornerRadius="12dp"
-                    app:strokeColor="@color/xm_stroke"
-                    app:strokeWidth="1dp">
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="vertical"
-                        android:padding="16dp">
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="@string/main_mine_source_title"
-                            android:textColor="@color/xm_text_primary"
-                            android:textSize="16sp"
-                            android:textStyle="bold" />
-
-                        <TextView
-                            android:id="@+id/mine_feature_text"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="10dp"
-                            android:text="@string/main_mine_source_desc"
-                            android:textColor="@color/xm_text_secondary"
-                            android:textSize="13sp" />
-
-                        <com.google.android.material.button.MaterialButton
-                            android:id="@+id/mine_source_manage_button"
-                            android:layout_width="wrap_content"
-                            android:layout_height="42dp"
-                            android:layout_marginTop="14dp"
-                            android:text="@string/main_mine_source_button"
-                            android:textAllCaps="false"
-                            android:textColor="@color/xm_text_primary"
-                            app:backgroundTint="@color/xm_surface_alt"
-                            app:cornerRadius="10dp"
-                            app:strokeColor="@color/xm_stroke_soft"
-                            app:strokeWidth="1dp" />
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
             </LinearLayout>

@@ -16,11 +16,15 @@
 
     <string name="main_mine_current">当前配置</string>
     <string name="main_mine_source_loading">片源：加载中</string>
-    <string name="main_mine_host_placeholder">站点：--</string>
+    <string name="main_mine_host_placeholder">站点：-</string>
+    <string name="main_mine_quick_actions">常用操作</string>
+    <string name="main_mine_quick_settings">设置</string>
+    <string name="main_mine_quick_import">导入</string>
+    <string name="main_mine_quick_manage">管理</string>
     <string name="main_mine_kernel_title">播放内核</string>
     <string name="main_mine_kernel_name">当前内核：DKVideoPlayer</string>
-    <string name="main_mine_kernel_tip">播放页已接入 DKVideoPlayer，使用 Exo 后端播放 m3u8/mp4，保留倍速和长按加速。</string>
-    <string name="main_mine_kernel_switch">DKVideoPlayer</string>
+    <string name="main_mine_kernel_tip">播放页固定使用 DKVideoPlayer，负责承接规则解析后的直链播放，适合 m3u8 与 mp4。</string>
+    <string name="main_mine_kernel_switch">当前已固定</string>
     <string name="main_mine_source_title">片源管理</string>
     <string name="main_mine_source_desc">管理片源、导入规则、切换站点，并进入设置页调整外观与使用习惯。</string>
     <string name="main_mine_source_button">打开片源管理</string>
@@ -133,7 +137,7 @@
 
     <string name="source_manage_title">片源管理</string>
     <string name="source_manage_subtitle">统一换源、排障测试与规则调试</string>
-    <string name="source_manage_import">导入源</string>
+    <string name="source_manage_import">导入片源</string>
     <string name="source_manage_open_settings">打开设置</string>
     <string name="source_manage_summary">共 %1$d 个片源，切换后会立刻作用于首页和播放页。</string>
     <string name="source_manage_switch_success">已切换到：%1$s</string>
@@ -167,7 +171,7 @@
     <string name="source_manage_debug_value_unknown">未知</string>
     <string name="source_manage_test_start">开始测试片源链路...</string>
     <string name="source_manage_test_finish">测试完成。</string>
-    <string name="source_manage_test_cancel">测试已关闭。</string>
+    <string name="source_manage_test_cancel">测试已取消。</string>
     <string name="source_manage_test_ok">[OK]</string>
     <string name="source_manage_test_fail">[FAIL]</string>
     <string name="source_manage_test_skip">[SKIP]</string>
