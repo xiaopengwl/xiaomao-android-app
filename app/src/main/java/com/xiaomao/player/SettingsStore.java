@@ -10,6 +10,7 @@ public final class SettingsStore {
     private static final String KEY_KEEP_LAST_SEARCH = "keep_last_search";
     private static final String KEY_LAST_SEARCH = "last_search";
     private static final String KEY_PLAYER_KERNEL = "player_kernel";
+    private static final String KEY_NIGHT_MODE = "night_mode";
 
     public static final String PLAYER_KERNEL_SYSTEM = "system";
     public static final String PLAYER_KERNEL_EXO = "exo";
@@ -68,5 +69,13 @@ public final class SettingsStore {
 
     public static boolean useExoKernel(Context context) {
         return false;
+    }
+
+    public static boolean nightModeEnabled(Context context) {
+        return prefs(context).getBoolean(KEY_NIGHT_MODE, false);
+    }
+
+    public static void setNightModeEnabled(Context context, boolean enabled) {
+        prefs(context).edit().putBoolean(KEY_NIGHT_MODE, enabled).apply();
     }
 }
