@@ -146,7 +146,7 @@ public class NativePlayerActivity extends Activity {
     private final Runnable longPressSpeedRunnable = () -> {
         tempSpeedBoost = true;
         applyPlaybackSpeed(2.0f);
-        showState("闂傚倸鍊搁崐鐢稿磻閹剧粯鐓欑紒瀣健椤庢鏌ｉ敃鈧…鐑藉蓟濞戙垹绫嶉柛灞惧焹閺嬪懘姊?2.0x", false, 0.9f);
+        showState("长按中，临时 2.0x 播放", false, 0.9f);
     };
     private final Runnable hideState = () -> {
         if (playerOverlay != null && !sniffing) {
@@ -204,7 +204,7 @@ public class NativePlayerActivity extends Activity {
         if (line.isEmpty()) line = "\u9ed8\u8ba4\u7ebf\u8def";
         seriesTitle = safe(getIntent().getStringExtra("series_title"));
         if (seriesTitle.isEmpty()) {
-            int split = title.indexOf(" 闂?");
+            int split = title.indexOf(" · ");
             seriesTitle = split > 0 ? title.substring(0, split) : title;
         }
         ArrayList<String> names = getIntent().getStringArrayListExtra("episode_names");
@@ -635,7 +635,7 @@ public class NativePlayerActivity extends Activity {
                 if (tempSpeedBoost) {
                     tempSpeedBoost = false;
                     applyPlaybackSpeed(selectedSpeed);
-                    showState("闂傚倷娴囬鏍储瑜版帒鍨傜憸鐗堝吹?" + formatSpeed(selectedSpeed), false, 0.9f);
+                    showState("恢复为 " + formatSpeed(selectedSpeed), false, 0.9f);
                     handler.postDelayed(hideState, 800);
                 }
             }
@@ -657,7 +657,7 @@ public class NativePlayerActivity extends Activity {
             applyPlaybackSpeed(selectedSpeed);
         }
         updateSpeedButton();
-        showState("闂傚倷绀佸﹢閬嶆惞鎼淬劌鍌ㄥù鐘差儏濡ê銆掑锝呬壕闂佸搫鑻幊姗€骞冮姀鐘垫殝闂侇叏绠戦弫?" + formatSpeed(selectedSpeed), false, 0.92f);
+        showState("切换倍速为 " + formatSpeed(selectedSpeed), false, 0.92f);
         handler.postDelayed(hideState, 800);
     }
 
@@ -723,7 +723,7 @@ public class NativePlayerActivity extends Activity {
         String episodeName = currentIndex >= 0 && currentIndex < episodeNames.size() ? episodeNames.get(currentIndex) : "\u64ad\u653e";
         titleView.setText(seriesTitle + " \u00b7 " + episodeName);
         lineView.setText("\u7ebf\u8def: " + line + " \u00b7 \u6e90: " + source.title + " \u00b7 \u5171 " + episodeInputs.size() + " \u96c6 \u00b7 \u55c5\u63a2\u6df1\u5ea6 " + maxSniffDepth);
-        title = seriesTitle + " 闂?" + episodeName;
+        title = seriesTitle + " · " + episodeName;
     }
 
     private void buildEpisodeButtons() {
@@ -761,10 +761,10 @@ public class NativePlayerActivity extends Activity {
     /*
     private void normalizePlaybackDefaults() {
         if (title.isEmpty() || looksBrokenPlaybackText(title)) {
-            title = "闂備浇宕甸崰鎰版偡閵夈儙娑樷攽鐎ｃ劉鍋撻崒鐐查唶闁哄洨鍋熼鎺戭渻閵堝棙灏甸柛鐘冲姍瀵?;
+            title = "闂傚倷娴囧畷鐢稿窗閹扮増鍋￠柕澶堝剻濞戞ǚ鏀介悗锝冨妷閸嬫捇宕掗悙鏌ュ敹闂佸搫娲ㄩ崑鐔碱敊閹烘埈娓婚柕鍫濇鐏忕敻鏌涢悩鍐插鐎?;
         }
         if (line.isEmpty() || looksBrokenPlaybackText(line)) {
-            line = "婵犳鍠楃敮妤冪矙閹烘せ鈧箓宕奸妷顔芥櫍闂佺厧顫曢崐妤€螞椤栫偞鐓犻柟棰佺閻忥綁鏌?;
+            line = "濠电姵顔栭崰妤冩暜濡ゅ啰鐭欓柟鐑樸仜閳ь剨绠撳畷濂稿Ψ椤旇姤娅嶉梻浣哄帶椤洟宕愬Δ鈧灋妞ゆ牜鍋為悡鐘绘煙妫颁胶顦﹂柣蹇ョ秮閺?;
         }
         if (seriesTitle.isEmpty() || looksBrokenPlaybackText(seriesTitle)) {
             seriesTitle = title;
@@ -790,17 +790,17 @@ public class NativePlayerActivity extends Activity {
     private void refreshHeaderText() {
         String episodeName = currentIndex >= 0 && currentIndex < episodeNames.size()
                 ? safe(episodeNames.get(currentIndex))
-                : "闂傚倷绀佸﹢閬嶆惞鎼淬劌鍌ㄥù鐘差儏濡?;
+                : "播放";
         if (episodeName.isEmpty()) {
-            episodeName = "闂傚倷绀佸﹢閬嶆惞鎼淬劌鍌ㄥù鐘差儏濡?;
+            episodeName = "播放";
         }
         seriesTitle = safe(seriesTitle).isEmpty() ? title : seriesTitle;
-        title = seriesTitle + " 闂?" + episodeName;
+        title = seriesTitle + " · " + episodeName;
         if (titleView != null) {
             titleView.setText(title);
         }
         if (lineView != null) {
-            lineView.setText("缂傚倸鍊烽悞锕€鐣峰鈧畷鏇熺節濮橆厼鍓? " + line + " 闂?濠? " + source.title + " 闂?闂?" + episodeInputs.size() + " 闂?闂?闂傚倷鑳剁涵鍫曞焵椤掑啯鐝柛锝嗘そ閹粙顢涘☉娆戝嚒闁兼寧鍔欓弻娑樜旈崘銊ょ捕濡?" + maxSniffDepth);
+            lineView.setText("线路: " + line + " · 源: " + source.title + " · 共 " + episodeInputs.size() + " 集 · 嗅探深度 " + maxSniffDepth);
         }
     }
 
@@ -809,17 +809,17 @@ public class NativePlayerActivity extends Activity {
         if (text.isEmpty()) {
             return false;
         }
-        return text.contains("闂?)
-                || text.contains("濠?)
-                || text.contains("闂?)
-                || text.contains("缂?)
-                || text.contains("婵?)
-                || text.contains("闂?)
-                || text.contains("闂?)
-                || text.contains("闂?)
-                || text.contains("闂?)
-                || text.contains("闂?)
-                || text.contains("婵?);
+        return text.contains("��")
+                || text.contains("闂")
+                || text.contains("婵")
+                || text.contains("缂")
+                || text.contains("濠");
+
+
+
+
+
+
     }
 
     */
@@ -953,7 +953,7 @@ public class NativePlayerActivity extends Activity {
                 + "for(var i=0;i<selectors.length;i++){var nodes=document.querySelectorAll(selectors[i]);for(var j=0;j<nodes.length;j++){try{nodes[j].click();}catch(e){}}}"
                 + "var taps=document.querySelectorAll('button,a,div,span,input');"
                 + "for(var k=0;k<taps.length;k++){var el=taps[k];var label=((el.innerText||el.textContent||'')+' '+(el.value||'')).trim();"
-                + "if(label&&/闂傚倷鑳堕幊鎾绘偤閵娾晛鍨傞柣銏㈩焾缁€鍕煥閻斿搫啸鐎规挷绶氶幃妤€鈽夊▍顓т簼閹?8闂佽楠搁崢婊堝磻閹捐秮鐟邦煥閸愨晛娅ゅ┑鐐跺椤曆囧煡婢跺á鐔煎传閸曨剝绶缂傚倷鑳堕搹搴ㄥ矗鎼淬劌绐楁繛鎴欏焺閺佸洨绱掗鍏煎殗闁哄本绋戦～婵嬵敆娴ｈ瀚抽梻浣告啞閹告儳鈻撻鍌滅＝闁稿本鐟х粔顒勬煕濞戝崬鐏￠柡鍡曞嵆閺岋綁鎮╂潏鈺婃М濠电偛鐨烽埀顒佺窞濞戞氨鐭撻柕澹懐锛濇繛杈剧到閻楀棝骞婇幇鏉挎瀬濡わ絽鍟悡娆戠磽娴ｉ潧鐏╂鐐搭殜閺岋繝宕掑▎鎴犳碀缂傚倸鍊烽悞锕傚蓟閵娾晩鏁勯柛娑卞幘閺嗐倝鏌涢埄鍐槈缂佺姷绮妵鍕箻鐠虹儤鐎鹃梺鍝勵槺閻ｎ剟姊洪懡銈呅㈤柟纰卞亰閹潡宕堕埡鍌氬簥闂佺楠哥€氫即寮诲☉婊呯杸闁哄倸绨遍弸娆忊攽閳藉棗浜為柨娑楄含nter|confirm|skip|close/i.test(label)){try{el.click();}catch(e){}}}"
+                + "if(label&&/闂傚倸鍊烽懗鍫曞箠閹剧粯鍋ら柕濞炬櫅閸ㄥ倿鏌ｉ姀銏╃劸缂佲偓閸曨垱鐓ラ柣鏂挎惈鍟搁悗瑙勬尫缁舵岸骞冨Δ鈧埥澶娾枍椤撗傜凹闁?8闂備浇顕ф鎼佸储濠婂牆纾婚柟鎹愮М閻熼偊鐓ラ柛鎰ㄦ櫅濞呫倕鈹戦悙璺侯棈妞ゆ泦鍥х叀濠㈣泛谩閻旂厧浼犻柛鏇ㄥ墲缁额暍缂傚倸鍊烽懗鍫曟惞鎼淬劌鐭楅幖娣妼缁愭绻涢幋娆忕労闁轰礁娲ㄧ槐鎺楊敊閸忕厧娈楅梺鍝勬湰缁嬫垿锝炲┑瀣垫晢濞达綀顫夌€氭娊姊绘担鍛婂暈闁瑰憡鍎抽埢鎾活敆閸屾粎锛濋梺绋挎湰閻熝呯矓椤掑嫭鐓曟繛鎴濆船閻忥繝鏌￠崱鏇炲祮闁哄矉缍侀幃鈺傛綇閳哄﹥袦婵犵數鍋涢惃鐑藉焵椤掍胶绐炴繛鎴炴皑閻捇鏌曟竟顖氭噽閿涙繃绻涙潏鍓у埌闁绘妫濋獮濠囧箛閺夋寧鐎俊銈忕到閸燁垶鎮″▎鎴犵＝濞达綁娼ч悘鈺傤殽閻愭惌娈滈柡宀嬬節瀹曟帒鈻庨幋鐘崇缂傚倸鍊搁崐鐑芥倿閿曞倸钃熼柕濞炬櫓閺佸嫰鏌涘☉鍗炲箻闁哄棎鍊濋弻娑㈠焺閸愵亖妲堢紓浣哄Х缁垶濡甸崟顖氱閻犺櫣鍎ら悗楣冩⒑閸濆嫷妲洪柣锝庡墴濮婃椽鎳￠妶鍛呫垽鏌熺喊鍗炰喊闁诡喖娼″畷鍫曞煛閸屾艾绨ラ梻浣侯焾妤犲摜鈧矮鍗冲璇测槈濠婂懐鏉搁梺鍝勫€哥花閬嶅几濞嗗繆鏀介柍钘夋娴滅偤鏌ㄥ☉妤勫惈nter|confirm|skip|close/i.test(label)){try{el.click();}catch(e){}}}"
                 + "}catch(e){}})();";
         view.evaluateJavascript(script, null);
     }
@@ -1105,8 +1105,8 @@ public class NativePlayerActivity extends Activity {
         }
         String js = "(function(){try{"
                 + "function clickAdControls(){try{var sels=['.skip','.skip-btn','.skipad','.btn-skip','.ad-skip','.video-ad-skip','.close','.close-btn','.close-icon','.layui-layer-close','.icon-close','[class*=skip]','[class*=close]','[id*=skip]','[id*=close]'];"
-                + "for(var i=0;i<sels.length;i++){var nodes=document.querySelectorAll(sels[i]);for(var j=0;j<nodes.length;j++){var el=nodes[j];var text=((el.innerText||el.textContent||'')+' '+(el.value||'')).toLowerCase();if(!text||/skip|close|jump|闂備浇宕垫慨鎾箹椤愶附鍋柛銉㈡櫆瀹曟煡鏌涙惔鈥愁伃闁哄本绋栫粻娑㈠棘鎼存挻鐏嗘繝纰樻閸嬪棝鏁嶆担铏圭＝闁稿本鐟х粔顒勬煕濞戝崬鐏￠柡鍡曞嵆濮婃椽宕烽鈩冾€楅梺鍛娒肩划娆忣嚕椤掍胶顩查柛娑卞灣绾惧ジ鏌￠崒娑卞劌闁稿骸绻掗埀顒冾潐閹哥螞濠靛宓佹慨妞诲亾妞ゃ垺锕㈤幃銏ゅ川婵犲啰鐣獆闂備礁鎼ˇ顐﹀疾濠婂懐鐭欓柟杈剧畱閻鏌涢埄鍐槈缂佺姷绮妵鍕箻鐠虹儤鐎鹃梺鍝勵槺閻ｎ剟姊绘担鐑樺殌闁宦板姂瀹曞綊鎮界粙璺槱闂佽法鍠撴慨鐢稿磿閹达附鍊甸柨婵嗙凹缁ㄤ粙鏌?.test(text)){try{el.click();}catch(e){}}}}"
-                + "var taps=document.querySelectorAll('button,a,div,span');for(var k=0;k<taps.length;k++){var item=taps[k];var label=((item.innerText||item.textContent||'')+' '+(item.value||'')).trim();if(label&&/闂備浇宕垫慨鎾箹椤愶附鍋柛銉㈡櫆瀹曟煡鏌涙惔鈥愁伃闁哄本绋栫粻娑㈠棘鎼存挻鐏嗘繝纰樻閸嬪棝鏁嶆担铏圭＝闁稿本鐟х粔顒勬煕濞戝崬鐏￠柡鍡曞嵆濮婃椽宕烽鈩冾€楅梺鍛娒肩划娆忣嚕椤掍胶顩查柛娑卞灣绾惧ジ鏌￠崒娑卞劌闁稿骸绻掗埀顒冾潐閹哥螞濠靛宓佹慨妞诲亾妞ゃ垺锕㈤幃銏ゅ川婵犲啰鐣獆闂備礁鎼ˇ顐﹀疾濠婂懐鐭欓柟杈剧畱閻鏌涢埄鍐槈缂佺姷绮妵鍕箻鐠虹儤鐎鹃梺鍝勵槺閻ｎ剟姊绘担鐑樺殌闁宦板姂瀹曞綊鎮界粙璺槱闂佽法鍠撴慨鐢稿磿閹达附鍊甸柨婵嗙凹缁ㄤ粙鏌￠崱妯碱暡妞ゃ劊鍎甸幃娆撴嚑椤戣儻妾搁梻浣烘嚀濡﹪寮ㄩˇ妾廼p|close/i.test(label)){try{item.click();}catch(e){}}}"
+                + "for(var i=0;i<sels.length;i++){var nodes=document.querySelectorAll(sels[i]);for(var j=0;j<nodes.length;j++){var el=nodes[j];var text=((el.innerText||el.textContent||'')+' '+(el.value||'')).toLowerCase();if(!text||/skip|close|jump|闂傚倷娴囧畷鍨叏閹绢喖绠规い鎰堕檮閸嬵亪鏌涢妷銏℃珕鐎规洘鐓￠弻娑欐償閳ユ剚浼冮梺鍝勬湰缁嬫牜绮诲☉銏犳閹煎瓨鎸婚悘鍡樼節绾版ɑ顫婇柛瀣閺佸秵鎷呴搹鍦紳闂佺鏈悷褏绮旈鍕厱婵炴垵宕悘锟犳煛閸℃洖宓嗘慨濠冩そ瀹曠兘顢橀埄鍐锯偓妤呮⒑閸涘⊕鑲╁垝濞嗗浚鍤曟い鎺嶈兌椤╂煡鏌涘☉鍗炵仯缁炬儳銈搁弻锟犲磼濞戝崬鍔岄梺绋块缁绘帡鍩€椤掑喚娼愰柟鍝ヮ焾铻炴繝闈涱儑瀹撲焦鎱ㄥ璇蹭壕濡炪們鍨洪敃銏ゅ箖閵忋倕宸濆┑鐘插暟閻ｇ崋闂傚倷绀侀幖顐λ囬锕€鐤炬繝濠傛噽閻瑩鏌熸潏鍓х暠闁活厽顨婇弻娑㈠焺閸愵亖妲堢紓浣哄Х缁垶濡甸崟顖氱閻犺櫣鍎ら悗楣冩⒑閸濆嫷妲洪柣锝庡墴濮婄粯鎷呴悜妯烘畬闂佸鏉垮鐎规洖缍婇幃鐣岀矙鐠侯煈妲遍梻浣芥硶閸犳挻鎱ㄩ悽绋跨？闁硅揪闄勯崐鐢告煥濠靛棛鍑圭紒銊ょ矙閺?.test(text)){try{el.click();}catch(e){}}}}"
+                + "var taps=document.querySelectorAll('button,a,div,span');for(var k=0;k<taps.length;k++){var item=taps[k];var label=((item.innerText||item.textContent||'')+' '+(item.value||'')).trim();if(label&&/闂傚倷娴囧畷鍨叏閹绢喖绠规い鎰堕檮閸嬵亪鏌涢妷銏℃珕鐎规洘鐓￠弻娑欐償閳ユ剚浼冮梺鍝勬湰缁嬫牜绮诲☉銏犳閹煎瓨鎸婚悘鍡樼節绾版ɑ顫婇柛瀣閺佸秵鎷呴搹鍦紳闂佺鏈悷褏绮旈鍕厱婵炴垵宕悘锟犳煛閸℃洖宓嗘慨濠冩そ瀹曠兘顢橀埄鍐锯偓妤呮⒑閸涘⊕鑲╁垝濞嗗浚鍤曟い鎺嶈兌椤╂煡鏌涘☉鍗炵仯缁炬儳銈搁弻锟犲磼濞戝崬鍔岄梺绋块缁绘帡鍩€椤掑喚娼愰柟鍝ヮ焾铻炴繝闈涱儑瀹撲焦鎱ㄥ璇蹭壕濡炪們鍨洪敃銏ゅ箖閵忋倕宸濆┑鐘插暟閻ｇ崋闂傚倷绀侀幖顐λ囬锕€鐤炬繝濠傛噽閻瑩鏌熸潏鍓х暠闁活厽顨婇弻娑㈠焺閸愵亖妲堢紓浣哄Х缁垶濡甸崟顖氱閻犺櫣鍎ら悗楣冩⒑閸濆嫷妲洪柣锝庡墴濮婄粯鎷呴悜妯烘畬闂佸鏉垮鐎规洖缍婇幃鐣岀矙鐠侯煈妲遍梻浣芥硶閸犳挻鎱ㄩ悽绋跨？闁硅揪闄勯崐鐢告煥濠靛棛鍑圭紒銊ょ矙閺岋繝宕卞Ο纰辨殹濡炪們鍔婇崕鐢稿箖濞嗘挻鍤戞い鎴ｅ劵濡炬悂姊绘担鐑樺殌婵☆垰锕銊┧囧寤紁|close/i.test(label)){try{item.click();}catch(e){}}}"
                 + "}catch(e){}}"
                 + "function report(tag){try{var out=[];var seen={};"
                 + "function add(u,t){u=String(u||'').trim();if(!u||seen[u])return;seen[u]=1;out.push({url:u,type:t||''});try{if(/%[0-9a-f]{2}/i.test(u)){var du=decodeURIComponent(u);if(du&&du!==u&&!seen[du]){seen[du]=1;out.push({url:du,type:(t||'')+'-decoded'});}}}catch(e){}}"
@@ -1275,7 +1275,7 @@ public class NativePlayerActivity extends Activity {
                               try{ el.click(); }catch(e){}
                               continue;
                             }
-                            if(!text || /skip|close|jump|闂傚倷娴囧畷鍨叏閹绢喖绠规い鎰堕檮閸嬵亪鏌涢妷銏℃珕鐎规洘鐓￠弻娑欐償閳ユ剚浼冮梺鍝勬湰缁嬫牜绮诲☉銏犳閹煎瓨鎸婚悘鍡樼節绾版ɑ顫婇柛瀣閺佸秵鎷呴搹鍦紳闂佺鏈悷褏绮旈鍕厱婵炴垵宕悘锟犳煛閸℃洖宓嗘慨濠冩そ瀹曠兘顢橀埄鍐锯偓妤呮⒑閸涘⊕鑲╁垝濞嗗浚鍤曟い鎺嶈兌椤╂煡鏌涘☉鍗炵仯缁炬儳銈搁弻锟犲磼濞戝崬鍔岄梺绋块缁绘帡鍩€椤掑喚娼愰柟鍝ヮ焾铻炴繝闈涱儑瀹撲焦鎱ㄥ璇蹭壕濡炪們鍨洪敃銏ゅ箖閵忋倕宸濆┑鐘插暟閻ｇ崋闂傚倷绀侀幖顐λ囬锕€鐤炬繝濠傛噽閻瑩鏌熸潏鍓х暠闁活厽顨婇弻娑㈠焺閸愵亖妲堢紓浣哄Х缁垶濡甸崟顖氱閻犺櫣鍎ら悗楣冩⒑閸濆嫷妲洪柣锝庡墴濮婄粯鎷呴悜妯烘畬闂佸鏉垮鐎规洖缍婇幃鐣岀矙鐠侯煈妲遍梻浣芥硶閸犳挻鎱ㄩ悽绋跨？闁硅揪闄勯崐鐢告煥濠靛棛鍑圭紒銊ょ矙閺?.test(text)){
+                            if(!text || /skip|close|jump|闂傚倸鍊峰ù鍥х暦閸偅鍙忛柟缁㈠枛缁犺銇勯幇鍫曟闁稿浜弻娑㈠Ψ閵忊剝鐝曢悗瑙勬礃閻擄繝寮诲☉娆愬劅闁炽儲鍓氭导鍐⒑閸濆嫭婀扮紒瀣墱缁鈽夐姀鐘愁棟闁圭厧鐡ㄩ幐濠氭倶閸℃绡€缁剧増蓱椤﹪鏌涚€ｎ亝顥㈤柡浣哥У閹峰懘鎼归崷顓ㄧ闯闂備胶顭堥張顒勬偡瑜忕划鏃堫敆閸曨剛鍘卞┑鐐村灥瀹曨剟鎮橀敓鐘崇厸闁糕剝娲栧畵鍡樻叏婵犲啯銇濈€规洜鍏橀、姗€鍩勯崘閿亾濡ゅ懏鈷戦柛娑樷姇閼测晛鍨濇繛鍡楁禋閸ゆ洘銇勯幒宥堝厡妞も晜鐓￠弻娑樷槈閸楃偟浠紒鐐劤閵堟悂寮婚敓鐘茬＜婵炴垵宕崝宀勬⒑缁嬪潡顎楃紒缁樺浮閸┾偓妞ゆ帒鍠氬鎰版煙閸濄儺鐒鹃摶鐐寸節闂堟侗鍎戠€规挷鐒﹂幈銊ヮ渻鐠囪弓澹曟俊鐐€戦崹娲晝閵忋倕绠栭柕蹇嬪€曞婵嗏攽閻樻彃鏆熼柣锝囧磱闂傚倸鍊风粈渚€骞栭位鍥敃閿曗偓閻ょ偓绻濇繝鍌涘櫧闁活厽鐟╅弻鐔告綇閸撗呮殸闂佹椿鍘介〃濠囧蓟濞戙垹鐒洪柛鎰典簴濡插牏绱撴担鍝勑ョ紒顕呭灦婵＄敻宕熼姘鳖啋闁荤姾娅ｉ崕銈夋倵妤ｅ啯鈷戦柛婵嗗濡叉椽鏌ｉ敐搴″⒋婵﹦绮幏鍛存倻濡儤鐣梻浣割吔閺夊灝顫囬悗瑙勬礀缂嶅﹪骞冮悾宀€鐭欓悹渚厛濡查亶姊绘担鑺ョ《闁哥姵鎸婚幈銊╂偨缁嬭法锛熼梺纭呮彧闂勫嫰宕愰悽鍛婄叆婵犻潧妫涢崙鍦磼閵娿倗鐭欓柡?.test(text)){
                               try{ el.click(); }catch(e){}
                             }
                           }
@@ -1288,7 +1288,7 @@ public class NativePlayerActivity extends Activity {
                             try{ item.click(); }catch(e){}
                             continue;
                           }
-                          if(label && /闂傚倷娴囧畷鍨叏閹绢喖绠规い鎰堕檮閸嬵亪鏌涢妷銏℃珕鐎规洘鐓￠弻娑欐償閳ユ剚浼冮梺鍝勬湰缁嬫牜绮诲☉銏犳閹煎瓨鎸婚悘鍡樼節绾版ɑ顫婇柛瀣閺佸秵鎷呴搹鍦紳闂佺鏈悷褏绮旈鍕厱婵炴垵宕悘锟犳煛閸℃洖宓嗘慨濠冩そ瀹曠兘顢橀埄鍐锯偓妤呮⒑閸涘⊕鑲╁垝濞嗗浚鍤曟い鎺嶈兌椤╂煡鏌涘☉鍗炵仯缁炬儳銈搁弻锟犲磼濞戝崬鍔岄梺绋块缁绘帡鍩€椤掑喚娼愰柟鍝ヮ焾铻炴繝闈涱儑瀹撲焦鎱ㄥ璇蹭壕濡炪們鍨洪敃銏ゅ箖閵忋倕宸濆┑鐘插暟閻ｇ崋闂傚倷绀侀幖顐λ囬锕€鐤炬繝濠傛噽閻瑩鏌熸潏鍓х暠闁活厽顨婇弻娑㈠焺閸愵亖妲堢紓浣哄Х缁垶濡甸崟顖氱閻犺櫣鍎ら悗楣冩⒑閸濆嫷妲洪柣锝庡墴濮婄粯鎷呴悜妯烘畬闂佸鏉垮鐎规洖缍婇幃鐣岀矙鐠侯煈妲遍梻浣芥硶閸犳挻鎱ㄩ悽绋跨？闁硅揪闄勯崐鐢告煥濠靛棛鍑圭紒銊ょ矙閺岋繝宕卞Ο纰辨殹濡炪們鍔婇崕鐢稿箖濞嗘挻鍤戞い鎴ｅ劵濡炬悂姊绘担鐑樺殌婵☆垰锕銊┧囧寤紁|close/i.test(label)){
+                          if(label && /闂傚倸鍊峰ù鍥х暦閸偅鍙忛柟缁㈠枛缁犺銇勯幇鍫曟闁稿浜弻娑㈠Ψ閵忊剝鐝曢悗瑙勬礃閻擄繝寮诲☉娆愬劅闁炽儲鍓氭导鍐⒑閸濆嫭婀扮紒瀣墱缁鈽夐姀鐘愁棟闁圭厧鐡ㄩ幐濠氭倶閸℃绡€缁剧増蓱椤﹪鏌涚€ｎ亝顥㈤柡浣哥У閹峰懘鎼归崷顓ㄧ闯闂備胶顭堥張顒勬偡瑜忕划鏃堫敆閸曨剛鍘卞┑鐐村灥瀹曨剟鎮橀敓鐘崇厸闁糕剝娲栧畵鍡樻叏婵犲啯銇濈€规洜鍏橀、姗€鍩勯崘閿亾濡ゅ懏鈷戦柛娑樷姇閼测晛鍨濇繛鍡楁禋閸ゆ洘銇勯幒宥堝厡妞も晜鐓￠弻娑樷槈閸楃偟浠紒鐐劤閵堟悂寮婚敓鐘茬＜婵炴垵宕崝宀勬⒑缁嬪潡顎楃紒缁樺浮閸┾偓妞ゆ帒鍠氬鎰版煙閸濄儺鐒鹃摶鐐寸節闂堟侗鍎戠€规挷鐒﹂幈銊ヮ渻鐠囪弓澹曟俊鐐€戦崹娲晝閵忋倕绠栭柕蹇嬪€曞婵嗏攽閻樻彃鏆熼柣锝囧磱闂傚倸鍊风粈渚€骞栭位鍥敃閿曗偓閻ょ偓绻濇繝鍌涘櫧闁活厽鐟╅弻鐔告綇閸撗呮殸闂佹椿鍘介〃濠囧蓟濞戙垹鐒洪柛鎰典簴濡插牏绱撴担鍝勑ョ紒顕呭灦婵＄敻宕熼姘鳖啋闁荤姾娅ｉ崕銈夋倵妤ｅ啯鈷戦柛婵嗗濡叉椽鏌ｉ敐搴″⒋婵﹦绮幏鍛存倻濡儤鐣梻浣割吔閺夊灝顫囬悗瑙勬礀缂嶅﹪骞冮悾宀€鐭欓悹渚厛濡查亶姊绘担鑺ョ《闁哥姵鎸婚幈銊╂偨缁嬭法锛熼梺纭呮彧闂勫嫰宕愰悽鍛婄叆婵犻潧妫涢崙鍦磼閵娿倗鐭欓柡宀嬬節瀹曞崬螣绾拌鲸娈规俊鐐€戦崝濠囧磿閻㈢绠栨繛鍡樻尰閸ゆ垶銇勯幋锝呭姷婵＄偓鎮傚缁樻媴閻戞ê娈屽┑鈽嗗灠閿曨亜顕ｉ妸鈹у洤顬婂绱亅close/i.test(label)){
                             try{ item.click(); }catch(e){}
                           }
                         }
