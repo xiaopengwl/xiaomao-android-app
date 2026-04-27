@@ -44,7 +44,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="2dp"
-                android:text="统一换源、排障测试与规则调试"
+                android:text="@string/source_manage_subtitle"
                 android:textColor="@color/xm_text_muted"
                 android:textSize="12sp" />
         </LinearLayout>
