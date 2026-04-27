@@ -30,6 +30,6 @@
             android:paddingBottom="8dp"
             android:textColor="@color/xm_text_primary"
             android:textIsSelectable="true"
-            android:textSize="13sp" />
+            android:textSize="14sp" />
     </ScrollView>
 </LinearLayout>

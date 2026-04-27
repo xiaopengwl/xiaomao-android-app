@@ -21,7 +21,7 @@
             android:layout_width="42dp"
             android:layout_height="42dp"
             android:background="#1A2133"
-            android:contentDescription="返回"
+            android:contentDescription="@string/common_back"
             android:padding="10dp"
             android:src="@android:drawable/ic_media_previous"
             android:tint="#FFFFFF" />
@@ -40,7 +40,7 @@
                 android:layout_height="wrap_content"
                 android:ellipsize="end"
                 android:maxLines="1"
-                android:text="晓鹏壳子"
+                android:text="@string/player_title_default"
                 android:textColor="#FFFFFF"
                 android:textSize="17sp"
                 android:textStyle="bold" />
@@ -52,7 +52,7 @@
                 android:layout_marginTop="4dp"
                 android:ellipsize="end"
                 android:maxLines="1"
-                android:text="JZVideo 原生播放"
+                android:text="@string/player_subtitle_native"
                 android:textColor="#9CB0D3"
                 android:textSize="12sp" />
         </LinearLayout>
@@ -62,7 +62,7 @@
             android:layout_width="wrap_content"
             android:layout_height="40dp"
             android:backgroundTint="#193F33"
-            android:text="外部播放"
+            android:text="@string/player_external_action"
             android:textColor="#E7FFF1"
             android:textSize="12sp"
             android:textStyle="bold" />

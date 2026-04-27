@@ -1,11 +1,13 @@
 package com.xiaomao.player;
 
+import android.content.res.ColorStateList;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.button.MaterialButton;
@@ -60,6 +62,14 @@ public class SourceManageAdapter extends RecyclerView.Adapter<SourceManageAdapte
                 selected ? R.string.source_manage_select_current : R.string.source_manage_select_action
         ));
         holder.selectButton.setEnabled(!selected);
+        int accent = ContextCompat.getColor(holder.itemView.getContext(), R.color.xm_accent);
+        int accentDark = ContextCompat.getColor(holder.itemView.getContext(), R.color.xm_accent_dark);
+        int surfaceAlt = ContextCompat.getColor(holder.itemView.getContext(), R.color.xm_surface_alt);
+        int textPrimary = ContextCompat.getColor(holder.itemView.getContext(), R.color.xm_text_primary);
+        holder.selectButton.setStrokeWidth(selected ? dp(holder.itemView, 1) : 0);
+        holder.selectButton.setStrokeColor(ColorStateList.valueOf(selected ? accent : ContextCompat.getColor(holder.itemView.getContext(), R.color.xm_stroke_soft)));
+        holder.selectButton.setBackgroundTintList(ColorStateList.valueOf(selected ? surfaceAlt : accent));
+        holder.selectButton.setTextColor(selected ? textPrimary : accentDark);
         holder.deleteButton.setVisibility(item.custom ? View.VISIBLE : View.GONE);
         holder.selectButton.setOnClickListener(v -> {
             if (listener != null) {
@@ -81,6 +91,10 @@ public class SourceManageAdapter extends RecyclerView.Adapter<SourceManageAdapte
                 listener.onDelete(item);
             }
         });
+    }
+
+    private static int dp(View view, int value) {
+        return (int) (value * view.getResources().getDisplayMetrics().density + 0.5f);
     }
 
     @Override

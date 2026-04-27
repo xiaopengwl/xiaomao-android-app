@@ -11,6 +11,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textfield.TextInputEditText;
 
+import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -101,7 +102,8 @@ public class ImportSourceActivity extends AppCompatActivity {
         if (message == null || message.trim().isEmpty()) {
             return getString(R.string.import_msg_network_error);
         }
-        if ("下载内容不是规则文件".equals(message) || "downloaded content is not a rule file".equals(message)) {
+        String normalized = message.trim().toLowerCase(Locale.ROOT);
+        if (normalized.contains("downloaded content is not a rule file") || message.contains("规则文件")) {
             return getString(R.string.import_msg_not_rule_file);
         }
         return message;

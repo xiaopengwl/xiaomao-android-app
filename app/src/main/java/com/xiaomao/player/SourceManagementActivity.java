@@ -29,6 +29,7 @@ public class SourceManagementActivity extends AppCompatActivity {
     private static final int TEST_STEP_TOTAL = 6;
 
     private TextView summaryView;
+    private TextView activeSourceView;
     private final SourceManageAdapter adapter = new SourceManageAdapter();
     private final ActivityResultLauncher<Intent> pageLauncher =
             registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
@@ -52,6 +53,7 @@ public class SourceManagementActivity extends AppCompatActivity {
         MaterialButton importButton = findViewById(R.id.source_manage_import_button);
         MaterialButton settingsButton = findViewById(R.id.source_manage_settings_button);
         summaryView = findViewById(R.id.source_manage_summary);
+        activeSourceView = findViewById(R.id.source_manage_active_source);
         RecyclerView recyclerView = findViewById(R.id.source_manage_recycler);
 
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
@@ -99,6 +101,14 @@ public class SourceManagementActivity extends AppCompatActivity {
             selectedId = items.get(0).id;
         }
         summaryView.setText(getString(R.string.source_manage_summary, items.size()));
+        String activeTitle = getString(R.string.source_manage_active_source_empty);
+        for (SourceStore.SourceItem item : items) {
+            if (TextUtils.equals(item.id, selectedId)) {
+                activeTitle = getString(R.string.source_manage_active_source, item.title);
+                break;
+            }
+        }
+        activeSourceView.setText(activeTitle);
         adapter.submitList(items, selectedId);
     }
 

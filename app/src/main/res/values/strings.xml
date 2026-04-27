@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">小猫影视</string>
+    <string name="common_back">返回</string>
 
     <string name="nav_home">推荐</string>
     <string name="nav_library">片库</string>
@@ -140,6 +141,8 @@
     <string name="source_manage_import">导入片源</string>
     <string name="source_manage_open_settings">打开设置</string>
     <string name="source_manage_summary">共 %1$d 个片源，切换后会立刻作用于首页和播放页。</string>
+    <string name="source_manage_active_source">当前片源：%1$s</string>
+    <string name="source_manage_active_source_empty">当前片源：未选择</string>
     <string name="source_manage_switch_success">已切换到：%1$s</string>
     <string name="source_manage_delete_title">删除自定义片源</string>
     <string name="source_manage_delete_message">确认删除“%1$s”吗？</string>
@@ -192,4 +195,12 @@
     <string name="source_manage_test_result_item">测试条目：%1$s</string>
     <string name="source_manage_test_result_error">错误：%1$s</string>
     <string name="source_manage_test_result_summary">总结：%1$d/%2$d 项通过</string>
+
+    <string name="player_title_default">视频播放</string>
+    <string name="player_subtitle_native">JZVideo 原生播放</string>
+    <string name="player_subtitle_native_headers">JZVideo 原生播放 · 已附带请求头</string>
+    <string name="player_external_action">外部播放</string>
+    <string name="player_no_playable_url">没有可播放地址</string>
+    <string name="player_init_failed_external">播放器初始化失败，正在尝试外部播放器</string>
+    <string name="player_no_external_player">未找到可用的外部播放器</string>
 </resources>

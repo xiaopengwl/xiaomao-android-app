@@ -22,6 +22,7 @@
             android:layout_width="40dp"
             android:layout_height="40dp"
             android:background="@android:color/transparent"
+            android:contentDescription="@string/common_back"
             android:src="@android:drawable/ic_media_previous"
             android:tint="@color/xm_text_primary" />
 
@@ -84,6 +85,16 @@
                 android:text="@string/source_manage_title"
                 android:textColor="@color/xm_text_secondary"
                 android:textSize="13sp" />
+
+            <TextView
+                android:id="@+id/source_manage_active_source"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="@string/source_manage_active_source_empty"
+                android:textColor="@color/xm_text_primary"
+                android:textSize="15sp"
+                android:textStyle="bold" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/source_manage_settings_button"

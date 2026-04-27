@@ -48,11 +48,13 @@ public class PlayerActivity extends AppCompatActivity {
         headersJson = safe(getIntent().getStringExtra("headers"));
 
         if (titleText.isEmpty()) {
-            titleText = "晓鹏壳子";
+            titleText = getString(R.string.player_title_default);
         }
 
         titleView.setText(titleText);
-        subtitleView.setText(parseHeaders(headersJson).isEmpty() ? "JZVideo 原生播放" : "JZVideo 原生播放 · 已附带请求头");
+        subtitleView.setText(parseHeaders(headersJson).isEmpty()
+                ? getString(R.string.player_subtitle_native)
+                : getString(R.string.player_subtitle_native_headers));
 
         backButton.setOnClickListener(v -> returnToMainPage());
         externalButton.setOnClickListener(v -> openExternal());
@@ -62,7 +64,7 @@ public class PlayerActivity extends AppCompatActivity {
 
     private void startPlayback() {
         if (TextUtils.isEmpty(playUrl)) {
-            Toast.makeText(this, "No playable url", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.player_no_playable_url), Toast.LENGTH_SHORT).show();
             finish();
             return;
         }
@@ -74,7 +76,7 @@ public class PlayerActivity extends AppCompatActivity {
             }
             playerView.startVideo();
         } catch (Throwable error) {
-            Toast.makeText(this, "JZVideo init failed, trying external player", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.player_init_failed_external), Toast.LENGTH_SHORT).show();
             openExternal();
         }
     }
@@ -103,7 +105,7 @@ public class PlayerActivity extends AppCompatActivity {
             intent.setDataAndType(Uri.parse(playUrl), "video/*");
             startActivity(intent);
         } catch (ActivityNotFoundException e) {
-            Toast.makeText(this, "No external player found", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.player_no_external_player), Toast.LENGTH_SHORT).show();
         }
     }
 
