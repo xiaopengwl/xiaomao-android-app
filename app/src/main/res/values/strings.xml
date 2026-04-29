@@ -8,7 +8,8 @@
     <string name="nav_rank">榜单</string>
     <string name="nav_mine">我的</string>
 
-    <string name="main_header_subtitle">聚合浏览、换源排障与播放调试</string>
+    <string name="main_header_eyebrow">STREAM CONSOLE</string>
+    <string name="main_header_subtitle">精选片库、榜单推荐与更稳定的播放体验</string>
     <string name="main_search_hint">输入片名、演员、关键词</string>
     <string name="main_search_action">搜索</string>
     <string name="main_section_home">推荐</string>
@@ -96,7 +97,7 @@
 
     <string name="settings_title">设置</string>
     <string name="settings_done">完成</string>
-    <string name="settings_summary">把界面调亮一点，常用行为也放在这里统一设置。</string>
+    <string name="settings_summary">外观与常用行为统一在这里管理，夜间模式也会同步作用到主要页面。</string>
     <string name="settings_night_mode">夜间模式</string>
     <string name="settings_night_mode_desc">开启后切换为深色界面，适合夜间使用。</string>
     <string name="settings_remember_source">记住上次选择的片源</string>
@@ -108,7 +109,7 @@
 
     <string name="detail_toolbar_title">影视详情</string>
     <string name="detail_play_now">立即播放</string>
-    <string name="detail_episode_title">播放线路与选集</string>
+    <string name="detail_episode_title">选集与播放方式</string>
     <string name="detail_loading">正在加载详情...</string>
     <string name="detail_loading_failed">详情加载失败\n%1$s</string>
     <string name="detail_meta_loading">正在解析线路与选集</string>
@@ -124,7 +125,7 @@
 
     <string name="import_title">导入片源</string>
     <string name="import_save">保存</string>
-    <string name="import_summary">支持粘贴 JS 影视源规则，保存后会直接出现在片源管理中。</string>
+    <string name="import_summary">支持粘贴 JS 影视源规则，保存后会直接加入片源管理并立即可切换。</string>
     <string name="import_title_hint">片源名称（可不填）</string>
     <string name="import_host_hint">站点地址 host（可不填）</string>
     <string name="import_rule_hint">粘贴完整片源规则</string>
@@ -137,7 +138,7 @@
     <string name="import_msg_not_rule_file">下载内容不是规则文件</string>
 
     <string name="source_manage_title">片源管理</string>
-    <string name="source_manage_subtitle">统一换源、排障测试与规则调试</string>
+    <string name="source_manage_subtitle">统一换源、测试规则，并维护常用站点</string>
     <string name="source_manage_import">导入片源</string>
     <string name="source_manage_open_settings">打开设置</string>
     <string name="source_manage_summary">共 %1$d 个片源，切换后会立刻作用于首页和播放页。</string>

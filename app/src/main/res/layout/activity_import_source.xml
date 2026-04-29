@@ -9,7 +9,7 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@color/xm_surface"
+        android:background="@drawable/xm_top_bar_bg"
         android:gravity="center_vertical"
         android:orientation="horizontal"
         android:paddingStart="16dp"
@@ -21,8 +21,9 @@
             android:id="@+id/import_back_button"
             android:layout_width="40dp"
             android:layout_height="40dp"
-            android:background="@android:color/transparent"
+            android:background="@drawable/xm_toolbar_button_bg"
             android:contentDescription="@string/common_back"
+            android:padding="9dp"
             android:src="@android:drawable/ic_media_previous"
             android:tint="@color/xm_text_primary" />
 
@@ -72,10 +73,12 @@
                 android:layout_marginTop="16dp"
                 android:hint="@string/import_title_hint"
                 app:boxBackgroundColor="@color/xm_surface"
-                app:boxCornerRadiusBottomEnd="16dp"
-                app:boxCornerRadiusBottomStart="16dp"
-                app:boxCornerRadiusTopEnd="16dp"
-                app:boxCornerRadiusTopStart="16dp">
+                app:boxCornerRadiusBottomEnd="12dp"
+                app:boxCornerRadiusBottomStart="12dp"
+                app:boxCornerRadiusTopEnd="12dp"
+                app:boxCornerRadiusTopStart="12dp"
+                app:boxStrokeColor="@color/xm_stroke_soft"
+                app:hintTextColor="@color/xm_text_muted">
 
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/import_title_input"
@@ -92,10 +95,12 @@
                 android:layout_marginTop="14dp"
                 android:hint="@string/import_host_hint"
                 app:boxBackgroundColor="@color/xm_surface"
-                app:boxCornerRadiusBottomEnd="16dp"
-                app:boxCornerRadiusBottomStart="16dp"
-                app:boxCornerRadiusTopEnd="16dp"
-                app:boxCornerRadiusTopStart="16dp">
+                app:boxCornerRadiusBottomEnd="12dp"
+                app:boxCornerRadiusBottomStart="12dp"
+                app:boxCornerRadiusTopEnd="12dp"
+                app:boxCornerRadiusTopStart="12dp"
+                app:boxStrokeColor="@color/xm_stroke_soft"
+                app:hintTextColor="@color/xm_text_muted">
 
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/import_host_input"
@@ -112,10 +117,12 @@
                 android:layout_marginTop="14dp"
                 android:hint="@string/import_rule_hint"
                 app:boxBackgroundColor="@color/xm_surface"
-                app:boxCornerRadiusBottomEnd="16dp"
-                app:boxCornerRadiusBottomStart="16dp"
-                app:boxCornerRadiusTopEnd="16dp"
-                app:boxCornerRadiusTopStart="16dp">
+                app:boxCornerRadiusBottomEnd="12dp"
+                app:boxCornerRadiusBottomStart="12dp"
+                app:boxCornerRadiusTopEnd="12dp"
+                app:boxCornerRadiusTopStart="12dp"
+                app:boxStrokeColor="@color/xm_stroke_soft"
+                app:hintTextColor="@color/xm_text_muted">
 
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/import_raw_input"

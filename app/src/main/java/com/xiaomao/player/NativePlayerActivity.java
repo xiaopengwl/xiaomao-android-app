@@ -1,4 +1,4 @@
-package com.xiaomao.player;
+﻿package com.xiaomao.player;
 
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
@@ -32,6 +32,7 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.core.content.ContextCompat;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PlaybackException;
@@ -244,23 +245,23 @@ public class NativePlayerActivity extends Activity {
     private void buildUi() {
         LinearLayout page = new LinearLayout(this);
         page.setOrientation(LinearLayout.VERTICAL);
-        page.setBackgroundColor(Color.parseColor("#090B10"));
+        page.setBackgroundColor(color(R.color.xm_player_bg));
 
         navBar = new LinearLayout(this);
         LinearLayout nav = navBar;
         nav.setOrientation(LinearLayout.HORIZONTAL);
         nav.setGravity(Gravity.CENTER_VERTICAL);
         nav.setPadding(dp(12), dp(10), dp(12), dp(10));
-        nav.setBackgroundColor(Color.parseColor("#0B0F18"));
+        nav.setBackgroundColor(color(R.color.xm_player_nav));
         page.addView(nav, new LinearLayout.LayoutParams(-1, dp(72)));
 
         TextView back = new TextView(this);
         back.setText("<");
-        back.setTextColor(Color.WHITE);
+        back.setTextColor(color(R.color.xm_player_text_primary));
         back.setTextSize(30);
         back.setTypeface(Typeface.DEFAULT_BOLD);
         back.setGravity(Gravity.CENTER);
-        back.setBackground(cardBg("#171D2B", "#2D3548", 18));
+        back.setBackground(cardBgRes(R.color.xm_player_panel_alt, R.color.xm_player_stroke, 14));
         nav.addView(back, new LinearLayout.LayoutParams(dp(42), dp(42)));
         back.setOnClickListener(v -> onBackPressed());
 
@@ -269,23 +270,23 @@ public class NativePlayerActivity extends Activity {
         navText.setPadding(dp(10), 0, dp(10), 0);
         nav.addView(navText, new LinearLayout.LayoutParams(0, -1, 1));
 
-        titleView = makeText("", 16, "#FFFFFF", true);
+        titleView = makeText("", 16, R.color.xm_player_text_primary, true);
         titleView.setSingleLine(true);
         titleView.setEllipsize(TextUtils.TruncateAt.END);
         navText.addView(titleView, new LinearLayout.LayoutParams(-1, 0, 1));
 
-        lineView = makeText("", 11, "#9EAFD6", false);
+        lineView = makeText("", 11, R.color.xm_player_text_secondary, false);
         lineView.setSingleLine(true);
         lineView.setEllipsize(TextUtils.TruncateAt.END);
         navText.addView(lineView, new LinearLayout.LayoutParams(-1, 0, 1));
 
-        TextView sourceTag = makeChip("DK \u64ad\u653e", "#35141A", "#E75B68", "#FFE6EA");
+        TextView sourceTag = makeChip("DK \u5f15\u64ce", R.color.xm_player_chip_primary_bg, R.color.xm_player_chip_primary_stroke, R.color.xm_player_chip_primary_text);
         LinearLayout.LayoutParams sourceTagLp = new LinearLayout.LayoutParams(-2, dp(32));
         sourceTagLp.leftMargin = dp(6);
         nav.addView(sourceTag, sourceTagLp);
 
         playerBox = new FrameLayout(this);
-        playerBox.setBackground(cardBg("#05070B", "#151B2A", 0));
+        playerBox.setBackground(cardBgRes(R.color.xm_player_bg, R.color.xm_player_stroke, 0));
         playerBoxLayoutParams = new LinearLayout.LayoutParams(-1, dp(232));
         page.addView(playerBox, playerBoxLayoutParams);
 
@@ -328,7 +329,7 @@ public class NativePlayerActivity extends Activity {
         playerOverlay = overlay;
         playerBox.addView(overlay, new FrameLayout.LayoutParams(-1, -1));
 
-        portraitExitButton = makeChip("\u9000\u51fa\u5168\u5c4f", "#B5121F", "#FF5E6C", "#FFFFFF");
+        portraitExitButton = makeChip("\u9000\u51fa\u5168\u5c4f", R.color.xm_player_chip_tonal_bg, R.color.xm_player_chip_tonal_stroke, R.color.xm_player_chip_tonal_text);
         portraitExitButton.setVisibility(View.GONE);
         portraitExitButton.setOnClickListener(v -> applyPlayerBoxMode(false));
         FrameLayout.LayoutParams portraitExitLp = new FrameLayout.LayoutParams(-2, dp(34), Gravity.TOP | Gravity.END);
@@ -339,7 +340,7 @@ public class NativePlayerActivity extends Activity {
         loading = new ProgressBar(this);
         overlay.addView(loading, new LinearLayout.LayoutParams(dp(38), dp(38)));
 
-        stateView = makeText("\u6b63\u5728\u89e3\u6790\u64ad\u653e\u5730\u5740...", 14, "#DDE5FF", false);
+        stateView = makeText("\u6b63\u5728\u89e3\u6790\u64ad\u653e\u5730\u5740...", 14, R.color.xm_player_text_primary, false);
         stateView.setGravity(Gravity.CENTER);
         stateView.setPadding(dp(14), dp(14), dp(14), 0);
         overlay.addView(stateView, new LinearLayout.LayoutParams(-2, -2));
@@ -357,11 +358,11 @@ public class NativePlayerActivity extends Activity {
         LinearLayout heroCard = new LinearLayout(this);
         heroCard.setOrientation(LinearLayout.VERTICAL);
         heroCard.setPadding(dp(16), dp(16), dp(16), dp(16));
-        heroCard.setBackground(cardBg("#101521", "#222D42", 20));
+        heroCard.setBackground(cardBgRes(R.color.xm_player_panel, R.color.xm_player_stroke, 12));
         root.addView(heroCard, new LinearLayout.LayoutParams(-1, -2));
 
-        heroCard.addView(makeText("\u539f\u751f\u89e3\u6790\u64ad\u653e", 18, "#FFFFFF", true));
-        TextView tip = makeText("\u89e3\u6790\u62ff\u5230\u76f4\u94fe\u540e\u4ea4\u7ed9\u64ad\u653e\u5668\u64ad\u653e\u3002", 13, "#C9D4F4", false);
+        heroCard.addView(makeText("\u5f53\u524d\u64ad\u653e", 18, R.color.xm_player_text_primary, true));
+        TextView tip = makeText("\u81ea\u52a8\u89e3\u6790\u76f4\u94fe\u3001\u5207\u6362\u9009\u96c6\uff0c\u5e76\u7531 DK \u64ad\u653e\u5668\u627f\u63a5\u64ad\u653e\u3002", 13, R.color.xm_player_text_secondary, false);
         tip.setPadding(0, dp(10), 0, 0);
         heroCard.addView(tip);
 
@@ -369,8 +370,8 @@ public class NativePlayerActivity extends Activity {
         chips.setOrientation(LinearLayout.HORIZONTAL);
         chips.setPadding(0, dp(12), 0, 0);
         heroCard.addView(chips);
-        TextView lineChip = makeChip("\u7ebf\u8def " + line, "#1A2337", "#3D4B72", "#DCE7FF");
-        TextView sourceChip = makeChip("\u6e90 " + source.title, "#182717", "#2F7E57", "#D8FFE7");
+        TextView lineChip = makeChip("\u7ebf\u8def " + line, R.color.xm_player_chip_tonal_bg, R.color.xm_player_chip_tonal_stroke, R.color.xm_player_chip_tonal_text);
+        TextView sourceChip = makeChip("\u7247\u6e90 " + source.title, R.color.xm_player_chip_primary_bg, R.color.xm_player_chip_primary_stroke, R.color.xm_player_chip_primary_text);
         lineChip.setSingleLine(true);
         lineChip.setEllipsize(TextUtils.TruncateAt.END);
         sourceChip.setSingleLine(true);
@@ -381,7 +382,7 @@ public class NativePlayerActivity extends Activity {
         chips.addView(lineChip, chip1);
         chips.addView(sourceChip, new LinearLayout.LayoutParams(-2, dp(34)));
 
-        TextView episodeTitle = makeText("\u9009\u96c6", 16, "#FFFFFF", true);
+        TextView episodeTitle = makeText("\u9009\u96c6\u4e0e\u64ad\u653e", 16, R.color.xm_player_text_primary, true);
         episodeTitle.setPadding(0, dp(18), 0, dp(8));
         root.addView(episodeTitle);
 
@@ -391,10 +392,10 @@ public class NativePlayerActivity extends Activity {
         playModeRow.setPadding(0, 0, 0, dp(8));
         root.addView(playModeRow, new LinearLayout.LayoutParams(-1, -2));
 
-        TextView modeHint = makeText("\u7ad6\u5c4f\u89c6\u9891\u53ef\u4ee5\u5207\u6362\u66f4\u5927\u7684\u64ad\u653e\u533a\u57df", 12, "#9EAFD6", false);
+        TextView modeHint = makeText("\u9700\u8981\u66f4\u6c89\u6d78\u7684\u89c2\u770b\u65b9\u5f0f\u65f6\uff0c\u53ef\u5207\u6362\u5230\u5168\u5c4f\u64ad\u653e\u3002", 12, R.color.xm_player_text_secondary, false);
         playModeRow.addView(modeHint, new LinearLayout.LayoutParams(0, -2, 1));
 
-        portraitModeButton = makeChip("\u7ad6\u5c4f\u64ad\u653e", "#1A2337", "#3D4B72", "#DCE7FF");
+        portraitModeButton = makeChip("\u5168\u5c4f\u64ad\u653e", R.color.xm_player_chip_tonal_bg, R.color.xm_player_chip_tonal_stroke, R.color.xm_player_chip_tonal_text);
         portraitModeButton.setOnClickListener(v -> togglePortraitPlayerMode());
         playModeRow.addView(portraitModeButton, new LinearLayout.LayoutParams(-2, dp(34)));
 
@@ -404,13 +405,13 @@ public class NativePlayerActivity extends Activity {
         playerActionRow.setPadding(0, 0, 0, dp(8));
         root.addView(playerActionRow, new LinearLayout.LayoutParams(-1, -2));
 
-        speedButton = makeChip("1.0x", "#13202F", "#2C567A", "#DCEEFF");
+        speedButton = makeChip("1.0x", R.color.xm_player_chip_tonal_bg, R.color.xm_player_chip_tonal_stroke, R.color.xm_player_chip_tonal_text);
         speedButton.setOnClickListener(v -> cyclePlaybackSpeed());
         LinearLayout.LayoutParams speedLp = new LinearLayout.LayoutParams(-2, dp(34));
         speedLp.rightMargin = dp(8);
         playerActionRow.addView(speedButton, speedLp);
 
-        resizeButton = makeChip("\u9002\u914d", "#13202F", "#2C567A", "#DCEEFF");
+        resizeButton = makeChip("\u9002\u914d", R.color.xm_player_chip_tonal_bg, R.color.xm_player_chip_tonal_stroke, R.color.xm_player_chip_tonal_text);
         resizeButton.setOnClickListener(v -> cycleResizeMode());
         playerActionRow.addView(resizeButton, new LinearLayout.LayoutParams(-2, dp(34)));
 
@@ -420,7 +421,7 @@ public class NativePlayerActivity extends Activity {
         LinearLayout railCard = new LinearLayout(this);
         railCard.setOrientation(LinearLayout.VERTICAL);
         railCard.setPadding(dp(12), dp(10), dp(12), dp(12));
-        railCard.setBackground(cardBg("#0F1420", "#28334D", 18));
+        railCard.setBackground(cardBgRes(R.color.xm_player_panel_alt, R.color.xm_player_stroke, 12));
         root.addView(railCard, new LinearLayout.LayoutParams(-1, -2));
 
         HorizontalScrollView scrollRail = new HorizontalScrollView(this);
@@ -467,11 +468,11 @@ public class NativePlayerActivity extends Activity {
             getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         }
         if (portraitModeButton != null) {
-            portraitModeButton.setText(enabled ? "\u9000\u51fa\u5168\u5c4f" : "\u7ad6\u5c4f\u5168\u5c4f");
+            portraitModeButton.setText(enabled ? "\u9000\u51fa\u5168\u5c4f" : "\u5168\u5c4f\u64ad\u653e");
             portraitModeButton.setBackground(enabled
-                    ? cardBg("#E50914", "#FF5260", 16)
-                    : cardBg("#1A2337", "#3D4B72", 16));
-            portraitModeButton.setTextColor(Color.parseColor("#FFFFFF"));
+                    ? cardBgRes(R.color.xm_player_chip_primary_bg, R.color.xm_player_chip_primary_stroke, 16)
+                    : cardBgRes(R.color.xm_player_chip_tonal_bg, R.color.xm_player_chip_tonal_stroke, 16));
+            portraitModeButton.setTextColor(color(enabled ? R.color.xm_player_chip_primary_text : R.color.xm_player_chip_tonal_text));
         }
     }
 
@@ -722,7 +723,7 @@ public class NativePlayerActivity extends Activity {
     private void updateHeader() {
         String episodeName = currentIndex >= 0 && currentIndex < episodeNames.size() ? episodeNames.get(currentIndex) : "\u64ad\u653e";
         titleView.setText(seriesTitle + " \u00b7 " + episodeName);
-        lineView.setText("\u7ebf\u8def: " + line + " \u00b7 \u6e90: " + source.title + " \u00b7 \u5171 " + episodeInputs.size() + " \u96c6 \u00b7 \u55c5\u63a2\u6df1\u5ea6 " + maxSniffDepth);
+        lineView.setText(buildHeaderMetaText());
         title = seriesTitle + " · " + episodeName;
     }
 
@@ -733,14 +734,16 @@ public class NativePlayerActivity extends Activity {
             TextView ep = new TextView(this);
             ep.setText(episodeNames.get(i).isEmpty() ? ("\u7b2c" + (i + 1) + "\u96c6") : episodeNames.get(i));
             ep.setTextSize(13);
-            ep.setTextColor(Color.parseColor(i == currentIndex ? "#FFFFFF" : "#DDE6FF"));
+            ep.setTextColor(color(i == currentIndex ? R.color.xm_player_chip_primary_text : R.color.xm_player_text_primary));
             ep.setTypeface(Typeface.DEFAULT_BOLD);
             ep.setGravity(Gravity.CENTER);
             ep.setSingleLine(true);
             ep.setEllipsize(TextUtils.TruncateAt.END);
             ep.setMaxWidth(dp(260));
             ep.setPadding(dp(16), 0, dp(16), 0);
-            ep.setBackground(i == currentIndex ? cardBg("#E50914", "#FF5260", 18) : cardBg("#182033", "#33415F", 18));
+            ep.setBackground(i == currentIndex
+                    ? cardBgRes(R.color.xm_player_chip_primary_bg, R.color.xm_player_chip_primary_stroke, 18)
+                    : cardBgRes(R.color.xm_player_panel_alt, R.color.xm_player_stroke, 18));
             LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-2, dp(40));
             params.rightMargin = dp(8);
             episodeWrap.addView(ep, params);
@@ -864,11 +867,14 @@ public class NativePlayerActivity extends Activity {
             titleView.setText(title);
         }
         if (lineView != null) {
-            lineView.setText("\u7ebf\u8def: " + line
-                    + " \u00b7 \u6e90: " + source.title
-                    + " \u00b7 \u5171 " + episodeInputs.size() + " \u96c6"
-                    + " \u00b7 \u55c5\u63a2\u6df1\u5ea6 " + maxSniffDepth);
+            lineView.setText(buildHeaderMetaText());
         }
+    }
+
+    private String buildHeaderMetaText() {
+        return "\u7ebf\u8def: " + line
+                + " \u00b7 \u7247\u6e90: " + source.title
+                + " \u00b7 \u5171 " + episodeInputs.size() + " \u96c6";
     }
 
     private boolean looksBrokenPlaybackTextSafe(String value) {
@@ -919,10 +925,7 @@ public class NativePlayerActivity extends Activity {
                 super.onPageFinished(view, url);
                 if (!sniffing) return;
                 autoDismissAgeAndAdLayers(view);
-                showState("\u6b63\u5728\u55c5\u63a2\u9875\u9762\u8d44\u6e90...", true, 1f);
-                showState("\u6b63\u5728\u55c5\u63a2\u9875\u9762\u8d44\u6e90...", true, 1f);
-                showState("\u6b63\u5728\u55c5\u63a2\u9875\u9762\u8d44\u6e90\u2026", true, 1f);
-                showState("\u6b63\u5728\u55c5\u63a2\u9875\u9762\u8d44\u6e90\u2026", true, 1f);
+                showLoadingState("\u6b63\u5728\u55c5\u63a2\u9875\u9762\u8d44\u6e90\u2026");
                 probeCurrentPage(url, sniffCurrentDepth);
             }
         });
@@ -933,27 +936,15 @@ public class NativePlayerActivity extends Activity {
         if (view == null) {
             return;
         }
-        if (System.currentTimeMillis() >= 0) {
-            String strongScript = "(function(){try{"
-                    + "try{document.cookie='user-choose=true; path=/; SameSite=Lax';document.cookie='newuser=1; path=/; SameSite=Lax';localStorage.setItem('newuser','1');sessionStorage.setItem('newuser','1');}catch(e){}"
-                    + "function tapAll(selectors){for(var i=0;i<selectors.length;i++){var nodes=document.querySelectorAll(selectors[i]);for(var j=0;j<nodes.length;j++){try{nodes[j].click();}catch(e){}}}}"
-                    + "function shouldTap(label){label=String(label||'').trim();if(!label)return false;return /(?:18|adult|continue|confirm|agree|allow|enter|play|skip|close|warning|visit|\\u6211\\u5df2\\u6ee118\\u5468\\u5c81|\\u8fdb\\u5165|\\u786e\\u8ba4|\\u540c\\u610f|\\u7ee7\\u7eed\\u8bbf\\u95ee|\\u7ee7\\u7eed\\u64ad\\u653e|\\u7acb\\u5373\\u64ad\\u653e|\\u8df3\\u8fc7|\\u5173\\u95ed)/i.test(label);}"
-                    + "var selectors=['#wanrningconfirm','#warningconfirm','.confirm','.btn-confirm','.popup-confirm','.dialog-confirm','.enter','.enter-btn','.skip','.skip-btn','.skipad','.btn-skip','.ad-skip','.video-ad-skip','.close','.close-btn','.close-icon','.layui-layer-close','.icon-close','[data-dismiss]','[class*=confirm]','[id*=confirm]','[class*=skip]','[id*=skip]','[class*=close]','[id*=close]'];"
-                    + "tapAll(selectors);"
-                    + "var taps=document.querySelectorAll('button,a,div,span,input');"
-                    + "for(var k=0;k<taps.length;k++){var el=taps[k];var label=((el.innerText||el.textContent||'')+' '+(el.value||'')).trim();if(shouldTap(label)){try{el.click();}catch(e){}}}"
-                    + "setTimeout(function(){tapAll(selectors);},600);setTimeout(function(){tapAll(selectors);},1600);setTimeout(function(){tapAll(selectors);},3200);"
-                    + "}catch(e){}})();";
-            view.evaluateJavascript(strongScript, null);
-            return;
-        }
         String script = "(function(){try{"
-                + "try{document.cookie='user-choose=true; path=/';localStorage.setItem('newuser','1');}catch(e){}"
-                + "var selectors=['#wanrningconfirm','.confirm','.skip','.skip-btn','.skipad','.btn-skip','.ad-skip','.video-ad-skip','.close','.close-btn','.close-icon','.layui-layer-close','.icon-close'];"
-                + "for(var i=0;i<selectors.length;i++){var nodes=document.querySelectorAll(selectors[i]);for(var j=0;j<nodes.length;j++){try{nodes[j].click();}catch(e){}}}"
+                + "try{document.cookie='user-choose=true; path=/; SameSite=Lax';document.cookie='newuser=1; path=/; SameSite=Lax';localStorage.setItem('newuser','1');sessionStorage.setItem('newuser','1');}catch(e){}"
+                + "function tapAll(selectors){for(var i=0;i<selectors.length;i++){var nodes=document.querySelectorAll(selectors[i]);for(var j=0;j<nodes.length;j++){try{nodes[j].click();}catch(e){}}}}"
+                + "function shouldTap(label){label=String(label||'').trim();if(!label)return false;return /(?:18|adult|continue|confirm|agree|allow|enter|play|skip|close|warning|visit|\\u6211\\u5df2\\u6ee118\\u5468\\u5c81|\\u8fdb\\u5165|\\u786e\\u8ba4|\\u540c\\u610f|\\u7ee7\\u7eed\\u8bbf\\u95ee|\\u7ee7\\u7eed\\u64ad\\u653e|\\u7acb\\u5373\\u64ad\\u653e|\\u8df3\\u8fc7|\\u5173\\u95ed)/i.test(label);}"
+                + "var selectors=['#wanrningconfirm','#warningconfirm','.confirm','.btn-confirm','.popup-confirm','.dialog-confirm','.enter','.enter-btn','.skip','.skip-btn','.skipad','.btn-skip','.ad-skip','.video-ad-skip','.close','.close-btn','.close-icon','.layui-layer-close','.icon-close','[data-dismiss]','[class*=confirm]','[id*=confirm]','[class*=skip]','[id*=skip]','[class*=close]','[id*=close]'];"
+                + "tapAll(selectors);"
                 + "var taps=document.querySelectorAll('button,a,div,span,input');"
-                + "for(var k=0;k<taps.length;k++){var el=taps[k];var label=((el.innerText||el.textContent||'')+' '+(el.value||'')).trim();"
-                + "if(label&&/闂傚倸鍊烽懗鍫曞箠閹剧粯鍋ら柕濞炬櫅閸ㄥ倿鏌ｉ姀銏╃劸缂佲偓閸曨垱鐓ラ柣鏂挎惈鍟搁悗瑙勬尫缁舵岸骞冨Δ鈧埥澶娾枍椤撗傜凹闁?8闂備浇顕ф鎼佸储濠婂牆纾婚柟鎹愮М閻熼偊鐓ラ柛鎰ㄦ櫅濞呫倕鈹戦悙璺侯棈妞ゆ泦鍥х叀濠㈣泛谩閻旂厧浼犻柛鏇ㄥ墲缁额暍缂傚倸鍊烽懗鍫曟惞鎼淬劌鐭楅幖娣妼缁愭绻涢幋娆忕労闁轰礁娲ㄧ槐鎺楊敊閸忕厧娈楅梺鍝勬湰缁嬫垿锝炲┑瀣垫晢濞达綀顫夌€氭娊姊绘担鍛婂暈闁瑰憡鍎抽埢鎾活敆閸屾粎锛濋梺绋挎湰閻熝呯矓椤掑嫭鐓曟繛鎴濆船閻忥繝鏌￠崱鏇炲祮闁哄矉缍侀幃鈺傛綇閳哄﹥袦婵犵數鍋涢惃鐑藉焵椤掍胶绐炴繛鎴炴皑閻捇鏌曟竟顖氭噽閿涙繃绻涙潏鍓у埌闁绘妫濋獮濠囧箛閺夋寧鐎俊銈忕到閸燁垶鎮″▎鎴犵＝濞达綁娼ч悘鈺傤殽閻愭惌娈滈柡宀嬬節瀹曟帒鈻庨幋鐘崇缂傚倸鍊搁崐鐑芥倿閿曞倸钃熼柕濞炬櫓閺佸嫰鏌涘☉鍗炲箻闁哄棎鍊濋弻娑㈠焺閸愵亖妲堢紓浣哄Х缁垶濡甸崟顖氱閻犺櫣鍎ら悗楣冩⒑閸濆嫷妲洪柣锝庡墴濮婃椽鎳￠妶鍛呫垽鏌熺喊鍗炰喊闁诡喖娼″畷鍫曞煛閸屾艾绨ラ梻浣侯焾妤犲摜鈧矮鍗冲璇测槈濠婂懐鏉搁梺鍝勫€哥花閬嶅几濞嗗繆鏀介柍钘夋娴滅偤鏌ㄥ☉妤勫惈nter|confirm|skip|close/i.test(label)){try{el.click();}catch(e){}}}"
+                + "for(var k=0;k<taps.length;k++){var el=taps[k];var label=((el.innerText||el.textContent||'')+' '+(el.value||'')).trim();if(shouldTap(label)){try{el.click();}catch(e){}}}"
+                + "setTimeout(function(){tapAll(selectors);},600);setTimeout(function(){tapAll(selectors);},1600);setTimeout(function(){tapAll(selectors);},3200);"
                 + "}catch(e){}})();";
         view.evaluateJavascript(script, null);
     }
@@ -965,10 +956,7 @@ public class NativePlayerActivity extends Activity {
         releaseArtPlayer();
         playUrl = null;
         activeHeaders.clear();
-        showState("\u6b63\u5728\u89e3\u6790\u64ad\u653e\u5730\u5740...", true, 1f);
-        showState("\u6b63\u5728\u89e3\u6790\u64ad\u653e\u5730\u5740...", true, 1f);
-        showState("\u6b63\u5728\u89e3\u6790\u64ad\u653e\u5730\u5740...", true, 1f);
-        showState("\u6b63\u5728\u89e3\u6790\u64ad\u653e\u5730\u5740\u2026", true, 1f);
+        showLoadingState("\u6b63\u5728\u89e3\u6790\u64ad\u653e\u5730\u5740\u2026");
         if (source.raw != null && source.raw.contains("var rule")) {
             engine.runLazy(input, (result, err) -> runOnUiThread(() -> {
                 if ((result == null || safe(result.url).isEmpty()) && err != null && !err.isEmpty()) {
@@ -1007,10 +995,7 @@ public class NativePlayerActivity extends Activity {
         releaseSniffer();
         releaseDkPlayer();
         playUrl = mediaUrl;
-        showState("\u6b63\u5728\u52a0\u8f7d\u64ad\u653e\u5668...", true, 1f);
-        showState("\u6b63\u5728\u52a0\u8f7d\u64ad\u653e\u5668...", true, 1f);
-        showState("\u6b63\u5728\u52a0\u8f7d\u64ad\u653e\u5668...", true, 1f);
-        showState("\u6b63\u5728\u52a0\u8f7d\u64ad\u653e\u5668\u2026", true, 1f);
+        showLoadingState("\u6b63\u5728\u52a0\u8f7d\u64ad\u653e\u5668\u2026");
         playbackPosition = 0L;
         playWhenReady = true;
         try {
@@ -2073,6 +2058,10 @@ public class NativePlayerActivity extends Activity {
         stateView.setText(text);
     }
 
+    private void showLoadingState(String text) {
+        showState(text, true, 1f);
+    }
+
     private void showError(String text) {
         sniffing = false;
         releaseSniffer();
@@ -2177,29 +2166,37 @@ public class NativePlayerActivity extends Activity {
         super.onDestroy();
     }
 
-    private TextView makeText(String text, int sp, String color, boolean bold) {
+    private TextView makeText(String text, int sp, int colorRes, boolean bold) {
         TextView view = new TextView(this);
         view.setText(text);
         view.setTextSize(sp);
-        view.setTextColor(Color.parseColor(color));
+        view.setTextColor(color(colorRes));
         if (bold) view.setTypeface(Typeface.DEFAULT_BOLD);
         return view;
     }
 
-    private TextView makeChip(String text, String bg, String stroke, String color) {
-        TextView chip = makeText(text, 11, color, true);
+    private TextView makeChip(String text, int bgRes, int strokeRes, int textRes) {
+        TextView chip = makeText(text, 11, textRes, true);
         chip.setGravity(Gravity.CENTER);
         chip.setPadding(dp(10), 0, dp(10), 0);
-        chip.setBackground(cardBg(bg, stroke, 16));
+        chip.setBackground(cardBgRes(bgRes, strokeRes, 16));
         return chip;
     }
 
-    private GradientDrawable cardBg(String color, String stroke, int radiusDp) {
+    private GradientDrawable cardBg(int color, int stroke, int radiusDp) {
         GradientDrawable drawable = new GradientDrawable();
-        drawable.setColor(Color.parseColor(color));
+        drawable.setColor(color);
         drawable.setCornerRadius(dp(radiusDp));
-        drawable.setStroke(dp(1), Color.parseColor(stroke));
+        drawable.setStroke(dp(1), stroke);
         return drawable;
+    }
+
+    private GradientDrawable cardBgRes(int colorRes, int strokeRes, int radiusDp) {
+        return cardBg(color(colorRes), color(strokeRes), radiusDp);
+    }
+
+    private int color(int colorRes) {
+        return ContextCompat.getColor(this, colorRes);
     }
 
     private String buildHeadersJson() {

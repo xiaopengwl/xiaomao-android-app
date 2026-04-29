@@ -5,8 +5,8 @@
     android:layout_height="wrap_content"
     android:layout_marginBottom="12dp"
     app:cardBackgroundColor="@color/xm_surface"
-    app:cardCornerRadius="12dp"
-    app:strokeColor="@color/xm_stroke"
+    app:cardCornerRadius="10dp"
+    app:strokeColor="@color/xm_stroke_soft"
     app:strokeWidth="1dp">
 
     <LinearLayout

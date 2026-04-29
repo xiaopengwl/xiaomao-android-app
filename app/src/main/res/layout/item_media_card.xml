@@ -5,8 +5,8 @@
     android:layout_height="wrap_content"
     android:layout_marginBottom="14dp"
     app:cardBackgroundColor="@color/xm_surface"
-    app:cardCornerRadius="12dp"
-    app:strokeColor="@color/xm_stroke"
+    app:cardCornerRadius="10dp"
+    app:strokeColor="@color/xm_stroke_soft"
     app:strokeWidth="1dp">
 
     <LinearLayout
@@ -16,7 +16,7 @@
 
         <FrameLayout
             android:layout_width="match_parent"
-            android:layout_height="206dp">
+            android:layout_height="214dp">
 
             <ImageView
                 android:id="@+id/card_poster"
@@ -35,9 +35,9 @@
                 android:layout_marginTop="10dp"
                 android:background="@drawable/xm_pill_badge"
                 android:paddingStart="8dp"
-                android:paddingTop="4dp"
+                android:paddingTop="3dp"
                 android:paddingEnd="8dp"
-                android:paddingBottom="4dp"
+                android:paddingBottom="3dp"
                 android:text="@string/card_badge_hot"
                 android:textColor="@color/xm_badge_text"
                 android:textSize="11sp"
@@ -59,7 +59,7 @@
                 android:layout_height="wrap_content"
                 android:maxLines="2"
                 android:textColor="@color/xm_text_primary"
-                android:textSize="15sp"
+                android:textSize="16sp"
                 android:textStyle="bold" />
 
             <TextView
