@@ -2610,7 +2610,8 @@ public class NativePlayerActivity extends Activity {
             for (String next : nested) {
                 if (shouldSniffUrl(next)) enqueueSniffFrame(next, depth + 1);
             }
-            runOnUiThread(() -> scheduleNextSniffTask(foundMedia ? 1500L : 120L));
+            final boolean hasMedia = foundMedia;
+            runOnUiThread(() -> scheduleNextSniffTask(hasMedia ? 1500L : 120L));
         }
     }
 
