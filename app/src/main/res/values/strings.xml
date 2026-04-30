@@ -8,7 +8,6 @@
     <string name="nav_rank">榜单</string>
     <string name="nav_mine">我的</string>
 
-    <string name="main_header_eyebrow">STREAM CONSOLE</string>
     <string name="main_header_subtitle">精选片库、榜单推荐与更稳定的播放体验</string>
     <string name="main_search_hint">输入片名、演员、关键词</string>
     <string name="main_search_action">搜索</string>
@@ -16,19 +15,19 @@
     <string name="main_status_preparing">正在准备片源...</string>
     <string name="main_empty_placeholder">内容会显示在这里</string>
 
-    <string name="main_mine_current">当前配置</string>
+    <string name="main_mine_current">当前片源</string>
     <string name="main_mine_source_loading">片源：加载中</string>
     <string name="main_mine_host_placeholder">站点：-</string>
     <string name="main_mine_quick_actions">常用操作</string>
     <string name="main_mine_quick_settings">设置</string>
     <string name="main_mine_quick_import">导入</string>
     <string name="main_mine_quick_manage">管理</string>
-    <string name="main_mine_kernel_title">播放内核</string>
-    <string name="main_mine_kernel_name">当前内核：DKVideoPlayer</string>
-    <string name="main_mine_kernel_tip">播放页固定使用 DKVideoPlayer，负责承接规则解析后的直链播放，适合 m3u8 与 mp4。</string>
-    <string name="main_mine_kernel_switch">当前已固定</string>
+    <string name="main_mine_kernel_title">应用信息</string>
+    <string name="main_mine_kernel_name">版本：%1$s</string>
+    <string name="main_mine_kernel_tip">播放内核：DKVideoPlayer，适合 m3u8 与 mp4 直链播放。</string>
+    <string name="main_mine_kernel_switch">打开设置</string>
     <string name="main_mine_source_title">片源管理</string>
-    <string name="main_mine_source_desc">管理片源、导入规则、切换站点，并进入设置页调整外观与使用习惯。</string>
+    <string name="main_mine_source_desc">首页、片库和播放页都会使用当前片源。</string>
     <string name="main_mine_source_button">打开片源管理</string>
 
     <string name="main_page_home">首页</string>
@@ -46,7 +45,7 @@
     <string name="main_msg_rank_title">榜单</string>
     <string name="main_msg_rank_cached">已显示当前榜单内容</string>
     <string name="main_msg_mine_title">我的</string>
-    <string name="main_msg_mine_status">管理片源、切换站点，并调整常用设置</string>
+    <string name="main_msg_mine_status">浏览内容、管理片源，并调整应用设置</string>
 
     <string name="main_msg_home_loading">正在加载推荐内容...</string>
     <string name="main_msg_home_failed">推荐加载失败：%1$s</string>
@@ -91,13 +90,13 @@
     <string name="main_msg_kernel_switch_exo">切换到 Exo 内核</string>
     <string name="main_msg_kernel_switched_system">已切换到系统默认内核</string>
     <string name="main_msg_kernel_switched_exo">已切换到 Exo 增强内核</string>
-    <string name="main_msg_kernel_fixed_dk">当前固定使用 DKVideoPlayer</string>
+    <string name="main_msg_kernel_fixed_dk">当前版本使用 DKVideoPlayer</string>
 
     <string name="main_msg_no_content">暂时没有内容</string>
 
     <string name="settings_title">设置</string>
     <string name="settings_done">完成</string>
-    <string name="settings_summary">外观与常用行为统一在这里管理，夜间模式也会同步作用到主要页面。</string>
+    <string name="settings_summary">外观、浏览习惯和版本信息统一在这里管理。</string>
     <string name="settings_night_mode">夜间模式</string>
     <string name="settings_night_mode_desc">开启后切换为深色界面，适合夜间使用。</string>
     <string name="settings_remember_source">记住上次选择的片源</string>
@@ -106,10 +105,14 @@
     <string name="settings_default_library_desc">关闭时默认进入推荐页。</string>
     <string name="settings_keep_search">保留上次搜索关键词</string>
     <string name="settings_keep_search_desc">再次打开应用时，搜索框会保留最近一次输入。</string>
+    <string name="settings_about_title">版本信息</string>
+    <string name="settings_about_version">当前版本：%1$s</string>
+    <string name="settings_about_core">播放内核：DKVideoPlayer</string>
+    <string name="settings_about_support">当前版本面向直链播放和常用片源切换场景。</string>
 
     <string name="detail_toolbar_title">影视详情</string>
     <string name="detail_play_now">立即播放</string>
-    <string name="detail_episode_title">选集与播放方式</string>
+    <string name="detail_episode_title">播放</string>
     <string name="detail_loading">正在加载详情...</string>
     <string name="detail_loading_failed">详情加载失败\n%1$s</string>
     <string name="detail_meta_loading">正在解析线路与选集</string>
@@ -125,7 +128,7 @@
 
     <string name="import_title">导入片源</string>
     <string name="import_save">保存</string>
-    <string name="import_summary">支持粘贴 JS 影视源规则，保存后会直接加入片源管理并立即可切换。</string>
+    <string name="import_summary">支持粘贴 JS 影视源规则，保存后会直接加入片源管理。</string>
     <string name="import_title_hint">片源名称（可不填）</string>
     <string name="import_host_hint">站点地址 host（可不填）</string>
     <string name="import_rule_hint">粘贴完整片源规则</string>
@@ -138,10 +141,10 @@
     <string name="import_msg_not_rule_file">下载内容不是规则文件</string>
 
     <string name="source_manage_title">片源管理</string>
-    <string name="source_manage_subtitle">统一换源、测试规则，并维护常用站点</string>
+    <string name="source_manage_subtitle">切换、测试与维护片源</string>
     <string name="source_manage_import">导入片源</string>
-    <string name="source_manage_open_settings">打开设置</string>
-    <string name="source_manage_summary">共 %1$d 个片源，切换后会立刻作用于首页和播放页。</string>
+    <string name="source_manage_open_settings">应用设置</string>
+    <string name="source_manage_summary">已添加 %1$d 个片源，切换后会立即作用于浏览和播放。</string>
     <string name="source_manage_active_source">当前片源：%1$s</string>
     <string name="source_manage_active_source_empty">当前片源：未选择</string>
     <string name="source_manage_switch_success">已切换到：%1$s</string>
@@ -155,9 +158,9 @@
     <string name="source_manage_select_current">当前使用中</string>
     <string name="source_manage_select_action">切换到这里</string>
     <string name="source_manage_test_action">测试</string>
-    <string name="source_manage_debug_action">调试</string>
-    <string name="source_manage_debug_title">片源调试：%1$s</string>
-    <string name="source_manage_test_title">片源测试：%1$s</string>
+    <string name="source_manage_debug_action">详情</string>
+    <string name="source_manage_debug_title">片源信息：%1$s</string>
+    <string name="source_manage_test_title">片源连通性测试：%1$s</string>
     <string name="source_manage_debug_source_id">内部 ID：%1$s</string>
     <string name="source_manage_debug_source_type">来源类型：%1$s</string>
     <string name="source_manage_debug_selected">当前选中：%1$s</string>
@@ -185,7 +188,7 @@
     <string name="source_manage_test_search">搜索</string>
     <string name="source_manage_test_detail">详情</string>
     <string name="source_manage_test_lazy">懒加载</string>
-    <string name="source_manage_test_subtitle">按分类、推荐、搜索、详情、懒加载顺序测试</string>
+    <string name="source_manage_test_subtitle">按分类、推荐、搜索、详情与播放直链顺序测试</string>
     <string name="source_manage_debug_subtitle">显示当前片源的规则、站点与关键字段</string>
     <string name="source_manage_test_result_count">返回 %1$d 条</string>
     <string name="source_manage_test_result_groups">返回 %1$d 个播放组</string>

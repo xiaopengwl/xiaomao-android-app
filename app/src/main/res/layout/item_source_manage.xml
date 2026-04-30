@@ -60,61 +60,63 @@
                 android:textStyle="bold" />
         </LinearLayout>
 
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/source_item_select_button"
+            android:layout_width="match_parent"
+            android:layout_height="40dp"
+            android:layout_marginTop="12dp"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:text="@string/source_manage_select_action"
+            android:textAllCaps="false"
+            android:textColor="@color/xm_accent_dark"
+            app:backgroundTint="@color/xm_accent"
+            app:cornerRadius="8dp" />
+
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="8dp"
             android:orientation="horizontal">
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/source_item_select_button"
-                android:layout_width="0dp"
-                android:layout_height="40dp"
-                android:layout_weight="1"
-                android:text="@string/source_manage_select_action"
-                android:textAllCaps="false"
-                android:textColor="@color/xm_accent_dark"
-                app:backgroundTint="@color/xm_accent"
-                app:cornerRadius="10dp" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/source_item_test_button"
                 style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                 android:layout_width="0dp"
-                android:layout_height="40dp"
-                android:layout_marginStart="8dp"
+                android:layout_height="38dp"
                 android:layout_weight="1"
                 android:text="@string/source_manage_test_action"
                 android:textAllCaps="false"
                 android:textColor="@color/xm_text_primary"
-                app:cornerRadius="10dp"
+                app:cornerRadius="8dp"
                 app:strokeColor="@color/xm_stroke_soft" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/source_item_debug_button"
                 style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                 android:layout_width="0dp"
-                android:layout_height="40dp"
+                android:layout_height="38dp"
                 android:layout_marginStart="8dp"
                 android:layout_weight="1"
                 android:text="@string/source_manage_debug_action"
                 android:textAllCaps="false"
                 android:textColor="@color/xm_text_primary"
-                app:cornerRadius="10dp"
+                app:cornerRadius="8dp"
                 app:strokeColor="@color/xm_stroke_soft" />
-        </LinearLayout>
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/source_item_delete_button"
-            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-            android:layout_width="wrap_content"
-            android:layout_height="38dp"
-            android:layout_marginTop="10dp"
-            android:text="@string/source_manage_delete_confirm"
-            android:textAllCaps="false"
-            android:textColor="@color/xm_danger"
-            app:cornerRadius="10dp"
-            app:strokeColor="@color/xm_danger_soft" />
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/source_item_delete_button"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="0dp"
+                android:layout_height="38dp"
+                android:layout_marginStart="8dp"
+                android:layout_weight="1"
+                android:text="@string/source_manage_delete_confirm"
+                android:textAllCaps="false"
+                android:textColor="@color/xm_danger"
+                app:cornerRadius="8dp"
+                app:strokeColor="@color/xm_danger_soft" />
+        </LinearLayout>
     </LinearLayout>
 
 </com.google.android.material.card.MaterialCardView>

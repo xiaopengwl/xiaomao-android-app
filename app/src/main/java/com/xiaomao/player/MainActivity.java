@@ -184,7 +184,7 @@ public class MainActivity extends AppCompatActivity {
         mineSettingsButton.setOnClickListener(v -> openNativePage(SettingsActivity.class));
         mineImportButton.setOnClickListener(v -> openNativePage(ImportSourceActivity.class));
         mineSourceManageButton.setOnClickListener(v -> openNativePage(SourceManagementActivity.class));
-        mineKernelSwitchButton.setOnClickListener(v -> togglePlayerKernel());
+        mineKernelSwitchButton.setOnClickListener(v -> openNativePage(SettingsActivity.class));
         swipeRefreshLayout.setOnRefreshListener(() -> reloadCurrentPage(true));
         searchInput.setOnEditorActionListener((v, actionId, event) -> {
             boolean enterPressed = event != null
@@ -712,24 +712,19 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void updateKernelPanel() {
-        mineKernelNameView.setText(getString(R.string.main_mine_kernel_name));
+        mineKernelNameView.setText(getString(R.string.main_mine_kernel_name, BuildConfig.VERSION_NAME));
         mineKernelTipView.setText(getString(R.string.main_mine_kernel_tip));
         mineKernelSwitchButton.setText(getString(R.string.main_mine_kernel_switch));
-        mineKernelSwitchButton.setEnabled(false);
-        mineKernelSwitchButton.setAlpha(0.6f);
-    }
-
-    private void togglePlayerKernel() {
-        updateKernelPanel();
-        toast(getString(R.string.main_msg_kernel_fixed_dk));
+        mineKernelSwitchButton.setEnabled(true);
+        mineKernelSwitchButton.setAlpha(1f);
     }
 
     private void syncKernelPanelLabels() {
-        mineKernelNameView.setText(getString(R.string.main_mine_kernel_name));
+        mineKernelNameView.setText(getString(R.string.main_mine_kernel_name, BuildConfig.VERSION_NAME));
         mineKernelTipView.setText(getString(R.string.main_mine_kernel_tip));
         mineKernelSwitchButton.setText(getString(R.string.main_mine_kernel_switch));
-        mineKernelSwitchButton.setEnabled(false);
-        mineKernelSwitchButton.setAlpha(0.6f);
+        mineKernelSwitchButton.setEnabled(true);
+        mineKernelSwitchButton.setAlpha(1f);
     }
 
     private void openDetail(NativeDrpyEngine.MediaItem item) {

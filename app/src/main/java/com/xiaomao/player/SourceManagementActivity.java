@@ -30,6 +30,8 @@ public class SourceManagementActivity extends AppCompatActivity {
 
     private TextView summaryView;
     private TextView activeSourceView;
+    private android.view.View emptyCardView;
+    private RecyclerView recyclerView;
     private final SourceManageAdapter adapter = new SourceManageAdapter();
     private final ActivityResultLauncher<Intent> pageLauncher =
             registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
@@ -51,10 +53,12 @@ public class SourceManagementActivity extends AppCompatActivity {
     private void bindViews() {
         ImageButton backButton = findViewById(R.id.source_manage_back_button);
         MaterialButton importButton = findViewById(R.id.source_manage_import_button);
+        MaterialButton emptyImportButton = findViewById(R.id.source_manage_empty_button);
         MaterialButton settingsButton = findViewById(R.id.source_manage_settings_button);
         summaryView = findViewById(R.id.source_manage_summary);
         activeSourceView = findViewById(R.id.source_manage_active_source);
-        RecyclerView recyclerView = findViewById(R.id.source_manage_recycler);
+        emptyCardView = findViewById(R.id.source_manage_empty_card);
+        recyclerView = findViewById(R.id.source_manage_recycler);
 
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
         recyclerView.setAdapter(adapter);
@@ -90,7 +94,8 @@ public class SourceManagementActivity extends AppCompatActivity {
         });
 
         backButton.setOnClickListener(v -> finish());
-        importButton.setOnClickListener(v -> pageLauncher.launch(new Intent(this, ImportSourceActivity.class)));
+        importButton.setOnClickListener(v -> openImportPage());
+        emptyImportButton.setOnClickListener(v -> openImportPage());
         settingsButton.setOnClickListener(v -> pageLauncher.launch(new Intent(this, SettingsActivity.class)));
     }
 
@@ -110,6 +115,13 @@ public class SourceManagementActivity extends AppCompatActivity {
         }
         activeSourceView.setText(activeTitle);
         adapter.submitList(items, selectedId);
+        boolean hasItems = !items.isEmpty();
+        recyclerView.setVisibility(hasItems ? android.view.View.VISIBLE : android.view.View.GONE);
+        emptyCardView.setVisibility(hasItems ? android.view.View.GONE : android.view.View.VISIBLE);
+    }
+
+    private void openImportPage() {
+        pageLauncher.launch(new Intent(this, ImportSourceActivity.class));
     }
 
     private void confirmDelete(SourceStore.SourceItem item) {

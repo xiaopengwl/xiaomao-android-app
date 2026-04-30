@@ -39,7 +39,7 @@
                 android:layout_height="wrap_content"
                 android:text="@string/source_manage_title"
                 android:textColor="@color/xm_text_primary"
-                android:textSize="20sp"
+                android:textSize="19sp"
                 android:textStyle="bold" />
 
             <TextView
@@ -48,7 +48,7 @@
                 android:layout_marginTop="2dp"
                 android:text="@string/source_manage_subtitle"
                 android:textColor="@color/xm_text_muted"
-                android:textSize="12sp" />
+                android:textSize="11sp" />
         </LinearLayout>
 
         <com.google.android.material.button.MaterialButton
@@ -97,17 +97,73 @@
                 android:textSize="15sp"
                 android:textStyle="bold" />
 
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:text="@string/source_manage_subtitle"
+                android:textColor="@color/xm_text_muted"
+                android:textSize="12sp" />
+
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/source_manage_settings_button"
                 style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                 android:layout_width="wrap_content"
-                android:layout_height="40dp"
+                android:layout_height="38dp"
                 android:layout_marginTop="12dp"
                 android:text="@string/source_manage_open_settings"
                 android:textAllCaps="false"
                 android:textColor="@color/xm_text_primary"
-                app:cornerRadius="10dp"
+                app:cornerRadius="8dp"
                 app:strokeColor="@color/xm_stroke_soft" />
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/source_manage_empty_card"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="12dp"
+        android:layout_marginEnd="16dp"
+        android:visibility="gone"
+        app:cardBackgroundColor="@color/xm_surface"
+        app:cardCornerRadius="10dp"
+        app:strokeColor="@color/xm_stroke_soft"
+        app:strokeWidth="1dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_horizontal"
+            android:orientation="vertical"
+            android:paddingStart="18dp"
+            android:paddingTop="24dp"
+            android:paddingEnd="18dp"
+            android:paddingBottom="24dp">
+
+            <TextView
+                android:id="@+id/source_manage_empty_text"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:text="@string/main_msg_no_source"
+                android:textColor="@color/xm_text_primary"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/source_manage_empty_button"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:layout_marginTop="14dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:text="@string/source_manage_import"
+                android:textAllCaps="false"
+                android:textColor="@color/xm_accent_dark"
+                app:backgroundTint="@color/xm_accent"
+                app:cornerRadius="10dp" />
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
 
