@@ -1,4 +1,4 @@
-﻿package com.xiaomao.player;
+package com.xiaomao.player;
 
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
@@ -1022,13 +1022,13 @@ public class NativePlayerActivity extends Activity {
         stopSniffer(fromSniff);
         releaseDkPlayer();
         playUrl = mediaUrl;
-        showLoadingState("\u6b63\u5728\u52a0\u8f7d\u64ad\u653e\u5668\u2026");
+        showLoadingState("正在加载播放器...");
         playbackPosition = 0L;
         playWhenReady = true;
         try {
             prepareDkPlayer(mediaUrl, buildPlayerHeaders());
         } catch (Throwable error) {
-            String message = "\u64ad\u653e\u5668\u521d\u59cb\u5316\u5931\u8d25";
+            String message = "播放器初始化失败";
             if (recoverFromPlaybackFailure(message)) {
                 return;
             }
