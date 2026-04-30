@@ -67,6 +67,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import xyz.doikki.videocontroller.StandardVideoController;
+import xyz.doikki.videoplayer.ijk.IjkPlayerFactory;
 import xyz.doikki.videoplayer.player.BaseVideoView;
 import xyz.doikki.videoplayer.player.VideoView;
 
@@ -108,6 +109,8 @@ public class NativePlayerActivity extends Activity {
     private boolean preparedNotified = false;
     private boolean tempSpeedBoost = false;
     private boolean playWhenReady = true;
+    private boolean dkUseIjkPlayer = false;
+    private boolean dkIjkFallbackTried = false;
     private float selectedSpeed = 1.0f;
     private int resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT;
     private int dkScreenScaleType = VideoView.SCREEN_SCALE_DEFAULT;
@@ -146,6 +149,9 @@ public class NativePlayerActivity extends Activity {
     private final Runnable advanceSniffQueueRunnable = this::processNextSniffTask;
     private final Runnable prepareTimeoutRunnable = () -> {
         if (!preparedNotified) {
+            if (retryDkPlayerWithIjk("\u89c6\u9891\u7f16\u7801\u517c\u5bb9\u6027\u8f83\u5dee\uff0c\u6b63\u5728\u5207\u6362\u517c\u5bb9\u5185\u6838\u2026")) {
+                return;
+            }
             String message = "\u64ad\u653e\u5668\u52a0\u8f7d\u8d85\u65f6\uff0c\u8bf7\u6362\u7ebf\u8def\u518d\u8bd5";
             if (!recoverFromPlaybackFailure(message)) {
                 showError(message);
@@ -1019,6 +1025,8 @@ public class NativePlayerActivity extends Activity {
         sniffing = false;
         currentPlaybackFromSniff = fromSniff;
         currentPlaybackPageUrl = safe(pageUrl);
+        dkUseIjkPlayer = false;
+        dkIjkFallbackTried = false;
         stopSniffer(fromSniff);
         releaseDkPlayer();
         playUrl = mediaUrl;
@@ -1846,7 +1854,7 @@ public class NativePlayerActivity extends Activity {
         if (playerView != null) {
             playerView.setVisibility(View.GONE);
         }
-        dkPlayerView.setPlayerFactory(XiaomaoDkExoPlayerFactory.create());
+        dkPlayerView.setPlayerFactory(dkUseIjkPlayer ? IjkPlayerFactory.create() : XiaomaoDkExoPlayerFactory.create());
         dkPlayerView.setScreenScaleType(dkScreenScaleType);
         dkPlayerView.setSpeed(tempSpeedBoost ? 2.0f : selectedSpeed);
         dkPlayerView.setUrl(mediaUrl, headers);
@@ -1871,6 +1879,9 @@ public class NativePlayerActivity extends Activity {
             return;
         }
         if (playState == VideoView.STATE_ERROR) {
+            if (retryDkPlayerWithIjk("\u89c6\u9891\u7f16\u7801\u517c\u5bb9\u6027\u8f83\u5dee\uff0c\u6b63\u5728\u5207\u6362\u517c\u5bb9\u5185\u6838\u2026")) {
+                return;
+            }
             String message = "DKVideoPlayer \u64ad\u653e\u5f02\u5e38\uff0c\u8bf7\u6362\u7ebf\u8def\u518d\u8bd5";
             if (!recoverFromPlaybackFailure(message)) {
                 showError(message);
@@ -2194,6 +2205,39 @@ public class NativePlayerActivity extends Activity {
             }
             sniffWeb = null;
         }
+    }
+
+    private boolean retryDkPlayerWithIjk(String message) {
+        if (!shouldRetryDkWithIjk()) {
+            return false;
+        }
+        dkIjkFallbackTried = true;
+        dkUseIjkPlayer = true;
+        try {
+            releaseDkPlayer();
+            showLoadingState(message);
+            prepareDkPlayer(playUrl, buildPlayerHeaders());
+            return true;
+        } catch (Throwable ignored) {
+            dkUseIjkPlayer = false;
+            return false;
+        }
+    }
+
+    private boolean shouldRetryDkWithIjk() {
+        if (dkIjkFallbackTried || dkUseIjkPlayer) {
+            return false;
+        }
+        String lower = safe(playUrl).toLowerCase(Locale.ROOT);
+        if (!lower.contains(".m3u8") && !lower.contains("/m3u8/")) {
+            return false;
+        }
+        String marker = (safe(currentPlaybackPageUrl)
+                + " "
+                + (source == null ? "" : safe(source.title) + " " + safe(source.host) + " " + safe(source.raw)))
+                .toLowerCase(Locale.ROOT);
+        return marker.contains("4kvm")
+                || lower.contains("zijieapi.douyinbyte.com/m3u8/");
     }
 
     private boolean recoverFromPlaybackFailure(String message) {
