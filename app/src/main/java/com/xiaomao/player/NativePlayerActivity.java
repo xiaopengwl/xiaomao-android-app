@@ -1,4 +1,4 @@
-package com.xiaomao.player;
+﻿package com.xiaomao.player;
 
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
@@ -113,6 +113,10 @@ public class NativePlayerActivity extends Activity {
     private int dkScreenScaleType = VideoView.SCREEN_SCALE_DEFAULT;
     private long playbackPosition = 0L;
     private final java.util.LinkedHashMap<String, String> activeHeaders = new java.util.LinkedHashMap<>();
+    private final HashSet<String> rejectedSniffUrls = new HashSet<>();
+    private boolean autoSniffRecoveryTried = false;
+    private boolean currentPlaybackFromSniff = false;
+    private String currentPlaybackPageUrl = "";
 
     private final ArrayList<String> episodeNames = new ArrayList<>();
     private final ArrayList<String> episodeInputs = new ArrayList<>();
@@ -139,15 +143,19 @@ public class NativePlayerActivity extends Activity {
 
     private final Handler handler = new Handler();
     private final Runnable playBestSniffCandidate = () -> chooseBestSniffCandidate(false);
+    private final Runnable advanceSniffQueueRunnable = this::processNextSniffTask;
     private final Runnable prepareTimeoutRunnable = () -> {
         if (!preparedNotified) {
-            showError("\u64ad\u653e\u5668\u52a0\u8f7d\u8d85\u65f6\uff0c\u8bf7\u6362\u7ebf\u8def\u518d\u8bd5");
+            String message = "\u64ad\u653e\u5668\u52a0\u8f7d\u8d85\u65f6\uff0c\u8bf7\u6362\u7ebf\u8def\u518d\u8bd5";
+            if (!recoverFromPlaybackFailure(message)) {
+                showError(message);
+            }
         }
     };
     private final Runnable longPressSpeedRunnable = () -> {
         tempSpeedBoost = true;
         applyPlaybackSpeed(2.0f);
-        showState("长按中，临时 2.0x 播放", false, 0.9f);
+        showState("闀挎寜涓紝涓存椂 2.0x 鎾斁", false, 0.9f);
     };
     private final Runnable hideState = () -> {
         if (playerOverlay != null && !sniffing) {
@@ -183,7 +191,9 @@ public class NativePlayerActivity extends Activity {
             if (message.isEmpty()) {
                 message = "\u64ad\u653e\u5668\u521d\u59cb\u5316\u5931\u8d25";
             }
-            showError(message);
+            if (!recoverFromPlaybackFailure(message)) {
+                showError(message);
+            }
         }
     };
     private enum StreamType {
@@ -205,7 +215,7 @@ public class NativePlayerActivity extends Activity {
         if (line.isEmpty()) line = "\u9ed8\u8ba4\u7ebf\u8def";
         seriesTitle = safe(getIntent().getStringExtra("series_title"));
         if (seriesTitle.isEmpty()) {
-            int split = title.indexOf(" · ");
+            int split = title.indexOf(" 路 ");
             seriesTitle = split > 0 ? title.substring(0, split) : title;
         }
         ArrayList<String> names = getIntent().getStringArrayListExtra("episode_names");
@@ -361,8 +371,8 @@ public class NativePlayerActivity extends Activity {
         heroCard.setBackground(cardBgRes(R.color.xm_player_panel, R.color.xm_player_stroke, 12));
         root.addView(heroCard, new LinearLayout.LayoutParams(-1, -2));
 
-        heroCard.addView(makeText("\u5f53\u524d\u64ad\u653e", 18, R.color.xm_player_text_primary, true));
-        TextView tip = makeText("\u81ea\u52a8\u89e3\u6790\u76f4\u94fe\u3001\u5207\u6362\u9009\u96c6\uff0c\u5e76\u7531 DK \u64ad\u653e\u5668\u627f\u63a5\u64ad\u653e\u3002", 13, R.color.xm_player_text_secondary, false);
+        heroCard.addView(makeText("\u5f53\u524d\u64ad\u653e", 17, R.color.xm_player_text_primary, true));
+        TextView tip = makeText("\u81ea\u52a8\u89e3\u6790\u76f4\u94fe\uff0c\u5e76\u7531 DK \u64ad\u653e\u5668\u627f\u63a5\u64ad\u653e\u3002", 12, R.color.xm_player_text_secondary, false);
         tip.setPadding(0, dp(10), 0, 0);
         heroCard.addView(tip);
 
@@ -382,7 +392,7 @@ public class NativePlayerActivity extends Activity {
         chips.addView(lineChip, chip1);
         chips.addView(sourceChip, new LinearLayout.LayoutParams(-2, dp(34)));
 
-        TextView episodeTitle = makeText("\u9009\u96c6\u4e0e\u64ad\u653e", 16, R.color.xm_player_text_primary, true);
+        TextView episodeTitle = makeText("\u9009\u96c6", 16, R.color.xm_player_text_primary, true);
         episodeTitle.setPadding(0, dp(18), 0, dp(8));
         root.addView(episodeTitle);
 
@@ -392,7 +402,7 @@ public class NativePlayerActivity extends Activity {
         playModeRow.setPadding(0, 0, 0, dp(8));
         root.addView(playModeRow, new LinearLayout.LayoutParams(-1, -2));
 
-        TextView modeHint = makeText("\u9700\u8981\u66f4\u6c89\u6d78\u7684\u89c2\u770b\u65b9\u5f0f\u65f6\uff0c\u53ef\u5207\u6362\u5230\u5168\u5c4f\u64ad\u653e\u3002", 12, R.color.xm_player_text_secondary, false);
+        TextView modeHint = makeText("\u89c2\u770b\u7ad6\u5c4f\u5185\u5bb9\u65f6\uff0c\u53ef\u5207\u6362\u5230\u66f4\u5927\u7684\u64ad\u653e\u533a\u57df\u3002", 12, R.color.xm_player_text_secondary, false);
         playModeRow.addView(modeHint, new LinearLayout.LayoutParams(0, -2, 1));
 
         portraitModeButton = makeChip("\u5168\u5c4f\u64ad\u653e", R.color.xm_player_chip_tonal_bg, R.color.xm_player_chip_tonal_stroke, R.color.xm_player_chip_tonal_text);
@@ -550,6 +560,17 @@ public class NativePlayerActivity extends Activity {
         if (artPlayerWebView == null) {
             throw new IllegalStateException("art player webview missing");
         }
+        releaseDkPlayer();
+        releaseMediaPlayer();
+        preparedNotified = false;
+        cancelPrepareTimeout();
+        if (dkPlayerView != null) {
+            dkPlayerView.setVisibility(View.GONE);
+        }
+        if (playerView != null) {
+            playerView.setVisibility(View.GONE);
+        }
+        artPlayerWebView.setVisibility(View.VISIBLE);
         artPlayerReady = false;
         artPlayerFullscreen = false;
         artPlayerWebFullscreen = false;
@@ -636,7 +657,7 @@ public class NativePlayerActivity extends Activity {
                 if (tempSpeedBoost) {
                     tempSpeedBoost = false;
                     applyPlaybackSpeed(selectedSpeed);
-                    showState("恢复为 " + formatSpeed(selectedSpeed), false, 0.9f);
+                    showState("鎭㈠涓?" + formatSpeed(selectedSpeed), false, 0.9f);
                     handler.postDelayed(hideState, 800);
                 }
             }
@@ -658,7 +679,7 @@ public class NativePlayerActivity extends Activity {
             applyPlaybackSpeed(selectedSpeed);
         }
         updateSpeedButton();
-        showState("切换倍速为 " + formatSpeed(selectedSpeed), false, 0.92f);
+        showState("鍒囨崲鍊嶉€熶负 " + formatSpeed(selectedSpeed), false, 0.92f);
         handler.postDelayed(hideState, 800);
     }
 
@@ -724,7 +745,7 @@ public class NativePlayerActivity extends Activity {
         String episodeName = currentIndex >= 0 && currentIndex < episodeNames.size() ? episodeNames.get(currentIndex) : "\u64ad\u653e";
         titleView.setText(seriesTitle + " \u00b7 " + episodeName);
         lineView.setText(buildHeaderMetaText());
-        title = seriesTitle + " · " + episodeName;
+        title = seriesTitle + " 路 " + episodeName;
     }
 
     private void buildEpisodeButtons() {
@@ -764,10 +785,10 @@ public class NativePlayerActivity extends Activity {
     /*
     private void normalizePlaybackDefaults() {
         if (title.isEmpty() || looksBrokenPlaybackText(title)) {
-            title = "闂傚倷娴囧畷鐢稿窗閹扮増鍋￠柕澶堝剻濞戞ǚ鏀介悗锝冨妷閸嬫捇宕掗悙鏌ュ敹闂佸搫娲ㄩ崑鐔碱敊閹烘埈娓婚柕鍫濇鐏忕敻鏌涢悩鍐插鐎?;
+            title = "闂傚倸鍊峰ù鍥х暦閻㈢绐楅柟鎵閸嬶繝鏌曟径鍫濆壔婵炴垶菤閺€浠嬫倵閿濆啫濡烽柛瀣崌瀹曟帡鎮欓弻銉ユ暪闂備礁鎼ú銊╁磻閻旂⒈鏁婇柟鐑樺焾濞撳鏌曢崼婵囶棡閻忓繒鏁婚弻娑㈡偐閸愭彃顫掗悗?;
         }
         if (line.isEmpty() || looksBrokenPlaybackText(line)) {
-            line = "濠电姵顔栭崰妤冩暜濡ゅ啰鐭欓柟鐑樸仜閳ь剨绠撳畷濂稿Ψ椤旇姤娅嶉梻浣哄帶椤洟宕愬Δ鈧灋妞ゆ牜鍋為悡鐘绘煙妫颁胶顦﹂柣蹇ョ秮閺?;
+            line = "婵犵數濮甸鏍窗濡ゅ啯鏆滄俊銈呭暟閻瑩鏌熼悜妯镐粶闁逞屽墾缁犳挸鐣锋總绋课ㄦい鏃囧Г濞呭秹姊绘担鍝勫付妞ゎ偅娲熷畷鎰旈埀顒冪亱濡炪倖鐗滈崑鐐烘偂閻樼粯鐓欏Λ棰佽兌椤︼箓鏌ｈ箛銉хМ闁?;
         }
         if (seriesTitle.isEmpty() || looksBrokenPlaybackText(seriesTitle)) {
             seriesTitle = title;
@@ -793,17 +814,17 @@ public class NativePlayerActivity extends Activity {
     private void refreshHeaderText() {
         String episodeName = currentIndex >= 0 && currentIndex < episodeNames.size()
                 ? safe(episodeNames.get(currentIndex))
-                : "播放";
+                : "鎾斁";
         if (episodeName.isEmpty()) {
-            episodeName = "播放";
+            episodeName = "鎾斁";
         }
         seriesTitle = safe(seriesTitle).isEmpty() ? title : seriesTitle;
-        title = seriesTitle + " · " + episodeName;
+        title = seriesTitle + " 路 " + episodeName;
         if (titleView != null) {
             titleView.setText(title);
         }
         if (lineView != null) {
-            lineView.setText("线路: " + line + " · 源: " + source.title + " · 共 " + episodeInputs.size() + " 集 · 嗅探深度 " + maxSniffDepth);
+            lineView.setText("绾胯矾: " + line + " 路 婧? " + source.title + " 路 鍏?" + episodeInputs.size() + " 闆?路 鍡呮帰娣卞害 " + maxSniffDepth);
         }
     }
 
@@ -812,11 +833,11 @@ public class NativePlayerActivity extends Activity {
         if (text.isEmpty()) {
             return false;
         }
-        return text.contains("��")
-                || text.contains("闂")
-                || text.contains("婵")
-                || text.contains("缂")
-                || text.contains("濠");
+        return text.contains("锟斤拷")
+                || text.contains("闂?)
+                || text.contains("濠?)
+                || text.contains("缂?)
+                || text.contains("婵?);
 
 
 
@@ -873,7 +894,7 @@ public class NativePlayerActivity extends Activity {
 
     private String buildHeaderMetaText() {
         return "\u7ebf\u8def: " + line
-                + " \u00b7 \u7247\u6e90: " + source.title
+                + " \u00b7 \u6e90: " + source.title
                 + " \u00b7 \u5171 " + episodeInputs.size() + " \u96c6";
     }
 
@@ -955,6 +976,10 @@ public class NativePlayerActivity extends Activity {
         releaseMediaPlayer();
         releaseArtPlayer();
         playUrl = null;
+        currentPlaybackPageUrl = "";
+        currentPlaybackFromSniff = false;
+        autoSniffRecoveryTried = false;
+        rejectedSniffUrls.clear();
         activeHeaders.clear();
         showLoadingState("\u6b63\u5728\u89e3\u6790\u64ad\u653e\u5730\u5740\u2026");
         if (source.raw != null && source.raw.contains("var rule")) {
@@ -984,15 +1009,17 @@ public class NativePlayerActivity extends Activity {
             return;
         }
         if (forceSniff || !looksLikeDirectMedia(playUrl)) {
-            startSniff(playUrl, "\u89e3\u6790\u7ed3\u679c\u4e0d\u662f\u76f4\u94fe\uff0c\u6b63\u5728\u6309\u89c4\u5219\u7f51\u9875\u55c5\u63a2\u2026");
+            startSniff(resolveSniffEntryUrl(playUrl), "\u89e3\u6790\u7ed3\u679c\u4e0d\u662f\u76f4\u94fe\uff0c\u6b63\u5728\u6309\u89c4\u5219\u7f51\u9875\u55c5\u63a2\u2026");
             return;
         }
-        playInPlace(playUrl);
+        playInPlace(playUrl, false, "");
     }
 
-    private void playInPlace(String mediaUrl) {
+    private void playInPlace(String mediaUrl, boolean fromSniff, String pageUrl) {
         sniffing = false;
-        releaseSniffer();
+        currentPlaybackFromSniff = fromSniff;
+        currentPlaybackPageUrl = safe(pageUrl);
+        stopSniffer(fromSniff);
         releaseDkPlayer();
         playUrl = mediaUrl;
         showLoadingState("\u6b63\u5728\u52a0\u8f7d\u64ad\u653e\u5668\u2026");
@@ -1001,7 +1028,11 @@ public class NativePlayerActivity extends Activity {
         try {
             prepareDkPlayer(mediaUrl, buildPlayerHeaders());
         } catch (Throwable error) {
-            Toast.makeText(this, "\u64ad\u653e\u5668\u521d\u59cb\u5316\u5931\u8d25\uff0c\u5c1d\u8bd5\u5916\u90e8\u64ad\u653e\u5668", Toast.LENGTH_SHORT).show();
+            String message = "\u64ad\u653e\u5668\u521d\u59cb\u5316\u5931\u8d25";
+            if (recoverFromPlaybackFailure(message)) {
+                return;
+            }
+            Toast.makeText(this, message + "，尝试外部播放器", Toast.LENGTH_SHORT).show();
             openExternalPlayer();
         }
     }
@@ -1012,7 +1043,9 @@ public class NativePlayerActivity extends Activity {
             return;
         }
         sniffing = true;
-        releaseSniffer();
+        currentPlaybackFromSniff = false;
+        currentPlaybackPageUrl = "";
+        stopSniffer(false);
         sniffQueue.clear();
         sniffVisited.clear();
         sniffCandidates.clear();
@@ -1025,7 +1058,9 @@ public class NativePlayerActivity extends Activity {
         loadSniffFrame(pageUrl, 0);
         final long token = sniffSessionId;
         handler.postDelayed(() -> {
-            if (sniffing && token == sniffSessionId) showError("\u55c5\u63a2\u8d85\u65f6\uff0c\u8bf7\u6362\u7ebf\u8def\u518d\u8bd5");
+            if (sniffing && token == sniffSessionId && !chooseBestSniffCandidate(true)) {
+                showError("\u55c5\u63a2\u8d85\u65f6\uff0c\u8bf7\u6362\u7ebf\u8def\u518d\u8bd5");
+            }
         }, 22000);
     }
 
@@ -1036,7 +1071,7 @@ public class NativePlayerActivity extends Activity {
             processNextSniffTask();
             return;
         }
-        String visitKey = depth + "::" + clean;
+        String visitKey = clean;
         if (sniffVisited.contains(visitKey)) {
             processNextSniffTask();
             return;
@@ -1065,19 +1100,34 @@ public class NativePlayerActivity extends Activity {
         }
     }
 
+    private void scheduleNextSniffTask(long delayMs) {
+        handler.removeCallbacks(advanceSniffQueueRunnable);
+        handler.postDelayed(advanceSniffQueueRunnable, Math.max(60L, delayMs));
+    }
+
     private void enqueueSniffFrame(String url, int depth) {
         String clean = safe(url);
         if (clean.isEmpty() || depth > maxSniffDepth) return;
-        String visitKey = depth + "::" + clean;
+        String visitKey = clean;
         if (sniffVisited.contains(visitKey)) return;
         for (SniffTask task : sniffQueue) {
-            if (task.depth == depth && clean.equals(task.url)) return;
+            if (clean.equals(task.url)) return;
         }
         sniffQueue.add(new SniffTask(clean, depth));
     }
 
     private void processNextSniffTask() {
-        if (!sniffing || sniffQueue.isEmpty()) return;
+        handler.removeCallbacks(advanceSniffQueueRunnable);
+        if (!sniffing) {
+            return;
+        }
+        if (sniffQueue.isEmpty()) {
+            if (!sniffCandidates.isEmpty()) {
+                handler.removeCallbacks(playBestSniffCandidate);
+                handler.postDelayed(playBestSniffCandidate, 900);
+            }
+            return;
+        }
         SniffTask task = sniffQueue.remove(0);
         loadSniffFrame(task.url, task.depth);
     }
@@ -1090,8 +1140,8 @@ public class NativePlayerActivity extends Activity {
         }
         String js = "(function(){try{"
                 + "function clickAdControls(){try{var sels=['.skip','.skip-btn','.skipad','.btn-skip','.ad-skip','.video-ad-skip','.close','.close-btn','.close-icon','.layui-layer-close','.icon-close','[class*=skip]','[class*=close]','[id*=skip]','[id*=close]'];"
-                + "for(var i=0;i<sels.length;i++){var nodes=document.querySelectorAll(sels[i]);for(var j=0;j<nodes.length;j++){var el=nodes[j];var text=((el.innerText||el.textContent||'')+' '+(el.value||'')).toLowerCase();if(!text||/skip|close|jump|闂傚倷娴囧畷鍨叏閹绢喖绠规い鎰堕檮閸嬵亪鏌涢妷銏℃珕鐎规洘鐓￠弻娑欐償閳ユ剚浼冮梺鍝勬湰缁嬫牜绮诲☉銏犳閹煎瓨鎸婚悘鍡樼節绾版ɑ顫婇柛瀣閺佸秵鎷呴搹鍦紳闂佺鏈悷褏绮旈鍕厱婵炴垵宕悘锟犳煛閸℃洖宓嗘慨濠冩そ瀹曠兘顢橀埄鍐锯偓妤呮⒑閸涘⊕鑲╁垝濞嗗浚鍤曟い鎺嶈兌椤╂煡鏌涘☉鍗炵仯缁炬儳銈搁弻锟犲磼濞戝崬鍔岄梺绋块缁绘帡鍩€椤掑喚娼愰柟鍝ヮ焾铻炴繝闈涱儑瀹撲焦鎱ㄥ璇蹭壕濡炪們鍨洪敃銏ゅ箖閵忋倕宸濆┑鐘插暟閻ｇ崋闂傚倷绀侀幖顐λ囬锕€鐤炬繝濠傛噽閻瑩鏌熸潏鍓х暠闁活厽顨婇弻娑㈠焺閸愵亖妲堢紓浣哄Х缁垶濡甸崟顖氱閻犺櫣鍎ら悗楣冩⒑閸濆嫷妲洪柣锝庡墴濮婄粯鎷呴悜妯烘畬闂佸鏉垮鐎规洖缍婇幃鐣岀矙鐠侯煈妲遍梻浣芥硶閸犳挻鎱ㄩ悽绋跨？闁硅揪闄勯崐鐢告煥濠靛棛鍑圭紒銊ょ矙閺?.test(text)){try{el.click();}catch(e){}}}}"
-                + "var taps=document.querySelectorAll('button,a,div,span');for(var k=0;k<taps.length;k++){var item=taps[k];var label=((item.innerText||item.textContent||'')+' '+(item.value||'')).trim();if(label&&/闂傚倷娴囧畷鍨叏閹绢喖绠规い鎰堕檮閸嬵亪鏌涢妷銏℃珕鐎规洘鐓￠弻娑欐償閳ユ剚浼冮梺鍝勬湰缁嬫牜绮诲☉銏犳閹煎瓨鎸婚悘鍡樼節绾版ɑ顫婇柛瀣閺佸秵鎷呴搹鍦紳闂佺鏈悷褏绮旈鍕厱婵炴垵宕悘锟犳煛閸℃洖宓嗘慨濠冩そ瀹曠兘顢橀埄鍐锯偓妤呮⒑閸涘⊕鑲╁垝濞嗗浚鍤曟い鎺嶈兌椤╂煡鏌涘☉鍗炵仯缁炬儳銈搁弻锟犲磼濞戝崬鍔岄梺绋块缁绘帡鍩€椤掑喚娼愰柟鍝ヮ焾铻炴繝闈涱儑瀹撲焦鎱ㄥ璇蹭壕濡炪們鍨洪敃銏ゅ箖閵忋倕宸濆┑鐘插暟閻ｇ崋闂傚倷绀侀幖顐λ囬锕€鐤炬繝濠傛噽閻瑩鏌熸潏鍓х暠闁活厽顨婇弻娑㈠焺閸愵亖妲堢紓浣哄Х缁垶濡甸崟顖氱閻犺櫣鍎ら悗楣冩⒑閸濆嫷妲洪柣锝庡墴濮婄粯鎷呴悜妯烘畬闂佸鏉垮鐎规洖缍婇幃鐣岀矙鐠侯煈妲遍梻浣芥硶閸犳挻鎱ㄩ悽绋跨？闁硅揪闄勯崐鐢告煥濠靛棛鍑圭紒銊ょ矙閺岋繝宕卞Ο纰辨殹濡炪們鍔婇崕鐢稿箖濞嗘挻鍤戞い鎴ｅ劵濡炬悂姊绘担鐑樺殌婵☆垰锕銊┧囧寤紁|close/i.test(label)){try{item.click();}catch(e){}}}"
+                + "for(var i=0;i<sels.length;i++){var nodes=document.querySelectorAll(sels[i]);for(var j=0;j<nodes.length;j++){var el=nodes[j];var text=((el.innerText||el.textContent||'')+' '+(el.value||'')).toLowerCase();if(!text||/skip|close|jump|闂傚倸鍊峰ù鍥х暦閸偅鍙忛柟缁㈠枛缁犺銇勯幇鍫曟闁稿浜弻娑㈠Ψ閵忊剝鐝曢悗瑙勬礃閻擄繝寮诲☉娆愬劅闁炽儲鍓氭导鍐⒑閸濆嫭婀扮紒瀣墱缁鈽夐姀鐘愁棟闁圭厧鐡ㄩ幐濠氭倶閸℃绡€缁剧増蓱椤﹪鏌涚€ｎ亝顥㈤柡浣哥У閹峰懘鎼归崷顓ㄧ闯闂備胶顭堥張顒勬偡瑜忕划鏃堫敆閸曨剛鍘卞┑鐐村灥瀹曨剟鎮橀敓鐘崇厸闁糕剝娲栧畵鍡樻叏婵犲啯銇濈€规洜鍏橀、姗€鍩勯崘閿亾濡ゅ懏鈷戦柛娑樷姇閼测晛鍨濇繛鍡楁禋閸ゆ洘銇勯幒宥堝厡妞も晜鐓￠弻娑樷槈閸楃偟浠紒鐐劤閵堟悂寮婚敓鐘茬＜婵炴垵宕崝宀勬⒑缁嬪潡顎楃紒缁樺浮閸┾偓妞ゆ帒鍠氬鎰版煙閸濄儺鐒鹃摶鐐寸節闂堟侗鍎戠€规挷鐒﹂幈銊ヮ渻鐠囪弓澹曟俊鐐€戦崹娲晝閵忋倕绠栭柕蹇嬪€曞婵嗏攽閻樻彃鏆熼柣锝囧磱闂傚倸鍊风粈渚€骞栭位鍥敃閿曗偓閻ょ偓绻濇繝鍌涘櫧闁活厽鐟╅弻鐔告綇閸撗呮殸闂佹椿鍘介〃濠囧蓟濞戙垹鐒洪柛鎰典簴濡插牏绱撴担鍝勑ョ紒顕呭灦婵＄敻宕熼姘鳖啋闁荤姾娅ｉ崕銈夋倵妤ｅ啯鈷戦柛婵嗗濡叉椽鏌ｉ敐搴″⒋婵﹦绮幏鍛存倻濡儤鐣梻浣割吔閺夊灝顫囬悗瑙勬礀缂嶅﹪骞冮悾宀€鐭欓悹渚厛濡查亶姊绘担鑺ョ《闁哥姵鎸婚幈銊╂偨缁嬭法锛熼梺纭呮彧闂勫嫰宕愰悽鍛婄叆婵犻潧妫涢崙鍦磼閵娿倗鐭欓柡?.test(text)){try{el.click();}catch(e){}}}}"
+                + "var taps=document.querySelectorAll('button,a,div,span');for(var k=0;k<taps.length;k++){var item=taps[k];var label=((item.innerText||item.textContent||'')+' '+(item.value||'')).trim();if(label&&/闂傚倸鍊峰ù鍥х暦閸偅鍙忛柟缁㈠枛缁犺銇勯幇鍫曟闁稿浜弻娑㈠Ψ閵忊剝鐝曢悗瑙勬礃閻擄繝寮诲☉娆愬劅闁炽儲鍓氭导鍐⒑閸濆嫭婀扮紒瀣墱缁鈽夐姀鐘愁棟闁圭厧鐡ㄩ幐濠氭倶閸℃绡€缁剧増蓱椤﹪鏌涚€ｎ亝顥㈤柡浣哥У閹峰懘鎼归崷顓ㄧ闯闂備胶顭堥張顒勬偡瑜忕划鏃堫敆閸曨剛鍘卞┑鐐村灥瀹曨剟鎮橀敓鐘崇厸闁糕剝娲栧畵鍡樻叏婵犲啯銇濈€规洜鍏橀、姗€鍩勯崘閿亾濡ゅ懏鈷戦柛娑樷姇閼测晛鍨濇繛鍡楁禋閸ゆ洘銇勯幒宥堝厡妞も晜鐓￠弻娑樷槈閸楃偟浠紒鐐劤閵堟悂寮婚敓鐘茬＜婵炴垵宕崝宀勬⒑缁嬪潡顎楃紒缁樺浮閸┾偓妞ゆ帒鍠氬鎰版煙閸濄儺鐒鹃摶鐐寸節闂堟侗鍎戠€规挷鐒﹂幈銊ヮ渻鐠囪弓澹曟俊鐐€戦崹娲晝閵忋倕绠栭柕蹇嬪€曞婵嗏攽閻樻彃鏆熼柣锝囧磱闂傚倸鍊风粈渚€骞栭位鍥敃閿曗偓閻ょ偓绻濇繝鍌涘櫧闁活厽鐟╅弻鐔告綇閸撗呮殸闂佹椿鍘介〃濠囧蓟濞戙垹鐒洪柛鎰典簴濡插牏绱撴担鍝勑ョ紒顕呭灦婵＄敻宕熼姘鳖啋闁荤姾娅ｉ崕銈夋倵妤ｅ啯鈷戦柛婵嗗濡叉椽鏌ｉ敐搴″⒋婵﹦绮幏鍛存倻濡儤鐣梻浣割吔閺夊灝顫囬悗瑙勬礀缂嶅﹪骞冮悾宀€鐭欓悹渚厛濡查亶姊绘担鑺ョ《闁哥姵鎸婚幈銊╂偨缁嬭法锛熼梺纭呮彧闂勫嫰宕愰悽鍛婄叆婵犻潧妫涢崙鍦磼閵娿倗鐭欓柡宀嬬節瀹曞崬螣绾拌鲸娈规俊鐐€戦崝濠囧磿閻㈢绠栨繛鍡樻尰閸ゆ垶銇勯幋锝呭姷婵＄偓鎮傚缁樻媴閻戞ê娈屽┑鈽嗗灠閿曨亜顕ｉ妸鈹у洤顬婂绱亅close/i.test(label)){try{item.click();}catch(e){}}}"
                 + "}catch(e){}}"
                 + "function report(tag){try{var out=[];var seen={};"
                 + "function add(u,t){u=String(u||'').trim();if(!u||seen[u])return;seen[u]=1;out.push({url:u,type:t||''});try{if(/%[0-9a-f]{2}/i.test(u)){var du=decodeURIComponent(u);if(du&&du!==u&&!seen[du]){seen[du]=1;out.push({url:du,type:(t||'')+'-decoded'});}}}catch(e){}}"
@@ -1260,7 +1310,7 @@ public class NativePlayerActivity extends Activity {
                               try{ el.click(); }catch(e){}
                               continue;
                             }
-                            if(!text || /skip|close|jump|闂傚倸鍊峰ù鍥х暦閸偅鍙忛柟缁㈠枛缁犺銇勯幇鍫曟闁稿浜弻娑㈠Ψ閵忊剝鐝曢悗瑙勬礃閻擄繝寮诲☉娆愬劅闁炽儲鍓氭导鍐⒑閸濆嫭婀扮紒瀣墱缁鈽夐姀鐘愁棟闁圭厧鐡ㄩ幐濠氭倶閸℃绡€缁剧増蓱椤﹪鏌涚€ｎ亝顥㈤柡浣哥У閹峰懘鎼归崷顓ㄧ闯闂備胶顭堥張顒勬偡瑜忕划鏃堫敆閸曨剛鍘卞┑鐐村灥瀹曨剟鎮橀敓鐘崇厸闁糕剝娲栧畵鍡樻叏婵犲啯銇濈€规洜鍏橀、姗€鍩勯崘閿亾濡ゅ懏鈷戦柛娑樷姇閼测晛鍨濇繛鍡楁禋閸ゆ洘銇勯幒宥堝厡妞も晜鐓￠弻娑樷槈閸楃偟浠紒鐐劤閵堟悂寮婚敓鐘茬＜婵炴垵宕崝宀勬⒑缁嬪潡顎楃紒缁樺浮閸┾偓妞ゆ帒鍠氬鎰版煙閸濄儺鐒鹃摶鐐寸節闂堟侗鍎戠€规挷鐒﹂幈銊ヮ渻鐠囪弓澹曟俊鐐€戦崹娲晝閵忋倕绠栭柕蹇嬪€曞婵嗏攽閻樻彃鏆熼柣锝囧磱闂傚倸鍊风粈渚€骞栭位鍥敃閿曗偓閻ょ偓绻濇繝鍌涘櫧闁活厽鐟╅弻鐔告綇閸撗呮殸闂佹椿鍘介〃濠囧蓟濞戙垹鐒洪柛鎰典簴濡插牏绱撴担鍝勑ョ紒顕呭灦婵＄敻宕熼姘鳖啋闁荤姾娅ｉ崕銈夋倵妤ｅ啯鈷戦柛婵嗗濡叉椽鏌ｉ敐搴″⒋婵﹦绮幏鍛存倻濡儤鐣梻浣割吔閺夊灝顫囬悗瑙勬礀缂嶅﹪骞冮悾宀€鐭欓悹渚厛濡查亶姊绘担鑺ョ《闁哥姵鎸婚幈銊╂偨缁嬭法锛熼梺纭呮彧闂勫嫰宕愰悽鍛婄叆婵犻潧妫涢崙鍦磼閵娿倗鐭欓柡?.test(text)){
+                            if(!text || /skip|close|jump|闂傚倸鍊搁崐宄懊归崶褏鏆﹂柛顭戝亝閸欏繘鏌熺紒銏犳灈缂佺姾顫夐妵鍕箛閸洘顎嶉梺绋款儛娴滎亪寮诲☉銏犖ㄩ柕蹇婂墲閻濇洟鎮楃憴鍕闁绘搫绻濆璇测槈濞嗘劕鍔呴梺鐐藉劜閸撴碍瀵奸崘顔解拺闁告繂瀚﹢鎵磼鐎ｎ偆澧辩紒顔款嚙閳藉濮€閻樻剚妫熼梺鍦帶閻°劑骞愭繝姘€堕柛鈩冾焽缁♀偓缂佸墽澧楄摫妞ゎ偄锕弻娑氣偓锝庝簼椤ャ垽鏌℃担鍝バｉ柟宄版嚇閹煎綊宕烽銊ч棷闂傚倷鑳堕…鍫ュ嫉椤掑嫭鍋＄憸蹇曞垝閺冨牜鏁嗛柛鏇ㄥ墰閸樺崬鈹戦悙鏉戠仴鐎规洦鍓熼幃姗€鏁撻悩宕囧幐闂佺硶鍓濆ú鏍х暤閸℃ɑ鍙忓┑鐘插暞閵囨繄鈧娲滈崗姗€銆佸鈧崺鍕礃闁款垰浜炬俊銈呮噺閳锋垿鏌涘☉妯峰闁兼祴鏅涢崹婵囩箾閸℃绂嬮柛銈嗘礃閵囧嫰骞掑鍫濆帯濡炪倐鏅滈悡锟犲蓟濞戞ǚ妲堥柛妤冨仧娴狀垳绱掗悙顒€鍔ら柕鍫熸倐瀵鏁撻悩鑼紲濠电偞鍨靛畷顒勫礉瀹€鍕拺缂佸娼￠妤冪磼缂佹ê娴柛鈹惧亾濡炪倖甯掗崰姘焽閹扮増鐓欓柛婵勫労閻掗箖鎽堕悙瀵哥瘈闂傚牊渚楅崕鎴犫偓瑙勬尫閻掞箓骞堥妸銉富閻犲洩寮撴竟鏇熶繆閻愵亜鈧垿宕瑰ú顏呮櫇闁靛繈鍊曠粻鏍煏韫囧鈧洖顔忓┑鍡忔斀闁绘ɑ褰冮弳鐔兼煟閿濆洤纾遍梻鍌氬€搁崐椋庣矆娓氣偓楠炴牠顢曚綅閸ヮ剦鏁冮柨鏇楀亾闁汇倗鍋撶换婵囩節閸屾稑娅ч梺娲诲幗閻熲晠寮婚悢鍛婄秶闁告挆鍛闂備焦妞块崢浠嬨€冩繝鍥ц摕婵炴垯鍨归悞娲煕閹板吀绨存俊鎻掔墢缁辨挻鎷呴崫鍕戙儳绱掗鍛仸濠碉紕鏁诲畷鐔碱敍濮橀硸鍟嬮梺鑽ゅЬ濞咃綁宕曢妶澶嬪€靛Δ锝呭暞閳锋垿鏌涘┑鍡楊伌婵″弶妞介弻锝夋晲鎼粹€斥拫濠殿喖锕︾划顖炲箯閸涘瓨鍊绘俊顖滃劋閻ｎ剟姊绘担鍓插悢闁哄鐏濋～鍥倵鐟欏嫭绀€缂傚秴锕獮鍐偩瀹€鈧惌娆撴偣娓氼垳鍘涙俊鏌ヤ憾濮婄粯鎷呴懞銉с€婇梺鍝ュУ閹稿骞堥妸鈺傚仺缂佸娉曢敍鐔兼⒑绾懏褰ч梻鍕瀹曟劙鎮介崨濠勫弳濠电娀娼уΛ娑㈠礄閸︻厾纾奸柕濞垮€楅惌娆撴煛?.test(text)){
                               try{ el.click(); }catch(e){}
                             }
                           }
@@ -1273,7 +1323,7 @@ public class NativePlayerActivity extends Activity {
                             try{ item.click(); }catch(e){}
                             continue;
                           }
-                          if(label && /闂傚倸鍊峰ù鍥х暦閸偅鍙忛柟缁㈠枛缁犺銇勯幇鍫曟闁稿浜弻娑㈠Ψ閵忊剝鐝曢悗瑙勬礃閻擄繝寮诲☉娆愬劅闁炽儲鍓氭导鍐⒑閸濆嫭婀扮紒瀣墱缁鈽夐姀鐘愁棟闁圭厧鐡ㄩ幐濠氭倶閸℃绡€缁剧増蓱椤﹪鏌涚€ｎ亝顥㈤柡浣哥У閹峰懘鎼归崷顓ㄧ闯闂備胶顭堥張顒勬偡瑜忕划鏃堫敆閸曨剛鍘卞┑鐐村灥瀹曨剟鎮橀敓鐘崇厸闁糕剝娲栧畵鍡樻叏婵犲啯銇濈€规洜鍏橀、姗€鍩勯崘閿亾濡ゅ懏鈷戦柛娑樷姇閼测晛鍨濇繛鍡楁禋閸ゆ洘銇勯幒宥堝厡妞も晜鐓￠弻娑樷槈閸楃偟浠紒鐐劤閵堟悂寮婚敓鐘茬＜婵炴垵宕崝宀勬⒑缁嬪潡顎楃紒缁樺浮閸┾偓妞ゆ帒鍠氬鎰版煙閸濄儺鐒鹃摶鐐寸節闂堟侗鍎戠€规挷鐒﹂幈銊ヮ渻鐠囪弓澹曟俊鐐€戦崹娲晝閵忋倕绠栭柕蹇嬪€曞婵嗏攽閻樻彃鏆熼柣锝囧磱闂傚倸鍊风粈渚€骞栭位鍥敃閿曗偓閻ょ偓绻濇繝鍌涘櫧闁活厽鐟╅弻鐔告綇閸撗呮殸闂佹椿鍘介〃濠囧蓟濞戙垹鐒洪柛鎰典簴濡插牏绱撴担鍝勑ョ紒顕呭灦婵＄敻宕熼姘鳖啋闁荤姾娅ｉ崕銈夋倵妤ｅ啯鈷戦柛婵嗗濡叉椽鏌ｉ敐搴″⒋婵﹦绮幏鍛存倻濡儤鐣梻浣割吔閺夊灝顫囬悗瑙勬礀缂嶅﹪骞冮悾宀€鐭欓悹渚厛濡查亶姊绘担鑺ョ《闁哥姵鎸婚幈銊╂偨缁嬭法锛熼梺纭呮彧闂勫嫰宕愰悽鍛婄叆婵犻潧妫涢崙鍦磼閵娿倗鐭欓柡宀嬬節瀹曞崬螣绾拌鲸娈规俊鐐€戦崝濠囧磿閻㈢绠栨繛鍡樻尰閸ゆ垶銇勯幋锝呭姷婵＄偓鎮傚缁樻媴閻戞ê娈屽┑鈽嗗灠閿曨亜顕ｉ妸鈹у洤顬婂绱亅close/i.test(label)){
+                          if(label && /闂傚倸鍊搁崐宄懊归崶褏鏆﹂柛顭戝亝閸欏繘鏌熺紒銏犳灈缂佺姾顫夐妵鍕箛閸洘顎嶉梺绋款儛娴滎亪寮诲☉銏犖ㄩ柕蹇婂墲閻濇洟鎮楃憴鍕闁绘搫绻濆璇测槈濞嗘劕鍔呴梺鐐藉劜閸撴碍瀵奸崘顔解拺闁告繂瀚﹢鎵磼鐎ｎ偆澧辩紒顔款嚙閳藉濮€閻樻剚妫熼梺鍦帶閻°劑骞愭繝姘€堕柛鈩冾焽缁♀偓缂佸墽澧楄摫妞ゎ偄锕弻娑氣偓锝庝簼椤ャ垽鏌℃担鍝バｉ柟宄版嚇閹煎綊宕烽銊ч棷闂傚倷鑳堕…鍫ュ嫉椤掑嫭鍋＄憸蹇曞垝閺冨牜鏁嗛柛鏇ㄥ墰閸樺崬鈹戦悙鏉戠仴鐎规洦鍓熼幃姗€鏁撻悩宕囧幐闂佺硶鍓濆ú鏍х暤閸℃ɑ鍙忓┑鐘插暞閵囨繄鈧娲滈崗姗€銆佸鈧崺鍕礃闁款垰浜炬俊銈呮噺閳锋垿鏌涘☉妯峰闁兼祴鏅涢崹婵囩箾閸℃绂嬮柛銈嗘礃閵囧嫰骞掑鍫濆帯濡炪倐鏅滈悡锟犲蓟濞戞ǚ妲堥柛妤冨仧娴狀垳绱掗悙顒€鍔ら柕鍫熸倐瀵鏁撻悩鑼紲濠电偞鍨靛畷顒勫礉瀹€鍕拺缂佸娼￠妤冪磼缂佹ê娴柛鈹惧亾濡炪倖甯掗崰姘焽閹扮増鐓欓柛婵勫労閻掗箖鎽堕悙瀵哥瘈闂傚牊渚楅崕鎴犫偓瑙勬尫閻掞箓骞堥妸銉富閻犲洩寮撴竟鏇熶繆閻愵亜鈧垿宕瑰ú顏呮櫇闁靛繈鍊曠粻鏍煏韫囧鈧洖顔忓┑鍡忔斀闁绘ɑ褰冮弳鐔兼煟閿濆洤纾遍梻鍌氬€搁崐椋庣矆娓氣偓楠炴牠顢曚綅閸ヮ剦鏁冮柨鏇楀亾闁汇倗鍋撶换婵囩節閸屾稑娅ч梺娲诲幗閻熲晠寮婚悢鍛婄秶闁告挆鍛闂備焦妞块崢浠嬨€冩繝鍥ц摕婵炴垯鍨归悞娲煕閹板吀绨存俊鎻掔墢缁辨挻鎷呴崫鍕戙儳绱掗鍛仸濠碉紕鏁诲畷鐔碱敍濮橀硸鍟嬮梺鑽ゅЬ濞咃綁宕曢妶澶嬪€靛Δ锝呭暞閳锋垿鏌涘┑鍡楊伌婵″弶妞介弻锝夋晲鎼粹€斥拫濠殿喖锕︾划顖炲箯閸涘瓨鍊绘俊顖滃劋閻ｎ剟姊绘担鍓插悢闁哄鐏濋～鍥倵鐟欏嫭绀€缂傚秴锕獮鍐偩瀹€鈧惌娆撴偣娓氼垳鍘涙俊鏌ヤ憾濮婄粯鎷呴懞銉с€婇梺鍝ュУ閹稿骞堥妸鈺傚仺缂佸娉曢敍鐔兼⒑绾懏褰ч梻鍕瀹曟劙鎮介崨濠勫弳濠电娀娼уΛ娑㈠礄閸︻厾纾奸柕濞垮€楅惌娆撴煛瀹€瀣瘈鐎规洖宕灒缁炬媽椴稿▓瑙勪繆閻愵亜鈧垿宕濇繝鍥х？闁汇垻顭堢粻鏍ㄧ箾閸℃ɑ灏伴柛銈嗗灦閵囧嫰骞嬮敐鍛Х濠碉紕鍋撻幃鍌氼潖缂佹ɑ濯撮柣鎴灻▓灞解攽閳藉棗鐏犻柨鏇ㄤ簻椤曪綁濡搁埞褍娲ら‖濠傤嚈缁变簠close/i.test(label)){
                             try{ item.click(); }catch(e){}
                           }
                         }
@@ -1412,13 +1462,13 @@ public class NativePlayerActivity extends Activity {
                 rememberSniffCandidate(normalized, depth, sniffOrigin, sniffCurrentUrl);
             } else if (shouldFollowPage(normalized)) {
                 enqueueSniffFrame(normalized, depth + 1);
-                runOnUiThread(this::processNextSniffTask);
+                runOnUiThread(() -> scheduleNextSniffTask(160L));
             }
             return;
         }
         if (!fromDom && !shouldFollowPage(normalized)) return;
         enqueueSniffFrame(normalized, depth + 1);
-        runOnUiThread(this::processNextSniffTask);
+        runOnUiThread(() -> scheduleNextSniffTask(160L));
     }
 
     private void rememberSniffCandidate(String url, int depth, String origin, String pageUrl) {
@@ -1428,6 +1478,7 @@ public class NativePlayerActivity extends Activity {
         final String candidatePage = safe(pageUrl);
         runOnUiThread(() -> {
             if (!sniffing || !looksLikeDirectMedia(candidateUrl) || !shouldSniffUrl(candidateUrl)) return;
+            if (rejectedSniffUrls.contains(candidateUrl)) return;
             int score = scoreSniffCandidate(candidateUrl, depth, candidateOrigin, candidatePage);
             boolean updated = false;
             for (SniffCandidate candidate : sniffCandidates) {
@@ -1444,7 +1495,7 @@ public class NativePlayerActivity extends Activity {
             }
             showState("\u5df2\u627e\u5230\u5a92\u4f53\u5730\u5740\uff0c\u6b63\u5728\u9009\u62e9\u6700\u4f73\u6e05\u6670\u5ea6...", true, 1f);
             handler.removeCallbacks(playBestSniffCandidate);
-            handler.postDelayed(playBestSniffCandidate, score >= 130 ? 450 : 900);
+            handler.postDelayed(playBestSniffCandidate, score >= 130 ? 1100 : 1900);
         });
     }
 
@@ -1453,19 +1504,56 @@ public class NativePlayerActivity extends Activity {
         if (sniffCandidates.isEmpty()) {
             return false;
         }
-        SniffCandidate best = sniffCandidates.get(0);
+        SniffCandidate best = null;
         for (SniffCandidate candidate : sniffCandidates) {
-            if (candidate.score > best.score) {
+            if (rejectedSniffUrls.contains(candidate.url)) {
+                continue;
+            }
+            if (best == null || candidate.score > best.score) {
                 best = candidate;
             }
         }
-        if (!best.pageUrl.isEmpty() && !activeHeaders.containsKey("Referer")) {
-            activeHeaders.put("Referer", best.pageUrl);
+        if (best == null) {
+            return false;
         }
+        applySniffCandidateHeaders(best);
         sniffing = false;
         showState(finalAttempt ? "\u4f7f\u7528\u6700\u4f73\u55c5\u63a2\u5730\u5740\u5f00\u59cb\u64ad\u653e..." : "\u5df2\u627e\u5230\u5a92\u4f53\u5730\u5740\uff0c\u5f00\u59cb\u64ad\u653e...", true, 1f);
-        playInPlace(best.url);
+        playInPlace(best.url, true, best.pageUrl);
         return true;
+    }
+
+    private void applySniffCandidateHeaders(SniffCandidate candidate) {
+        if (candidate == null) {
+            return;
+        }
+        String referer = safe(candidate.pageUrl);
+        if (referer.isEmpty()) {
+            referer = safe(sniffCurrentUrl);
+        }
+        if (referer.isEmpty()) {
+            referer = safe(source == null ? "" : source.host);
+        }
+        if (!referer.isEmpty()) {
+            activeHeaders.put("Referer", referer);
+            String origin = buildOriginFromUrl(referer);
+            if (!origin.isEmpty()) {
+                activeHeaders.put("Origin", origin);
+            }
+        }
+        String cookie = mergeCookieStrings(
+                activeHeaders.get("Cookie"),
+                collectCookieHeader(candidate.url),
+                collectCookieHeader(candidate.pageUrl),
+                collectCookieHeader(sniffCurrentUrl),
+                collectCookieHeader(source == null ? "" : source.host)
+        );
+        if (!cookie.isEmpty()) {
+            activeHeaders.put("Cookie", cookie);
+        }
+        if (!activeHeaders.containsKey("User-Agent")) {
+            activeHeaders.put("User-Agent", DEFAULT_MOBILE_UA);
+        }
     }
 
     private int scoreSniffCandidate(String url, int depth, String origin, String pageUrl) {
@@ -1714,6 +1802,18 @@ public class NativePlayerActivity extends Activity {
         if (!headers.containsKey("Accept-Language")) {
             headers.put("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8");
         }
+        if (!headers.containsKey("Referer") && !safe(currentPlaybackPageUrl).isEmpty()) {
+            headers.put("Referer", currentPlaybackPageUrl);
+        }
+        if (!headers.containsKey("Origin")) {
+            String origin = buildOriginFromUrl(headers.get("Referer"));
+            if (origin.isEmpty()) {
+                origin = buildOriginFromUrl(currentPlaybackPageUrl);
+            }
+            if (!origin.isEmpty()) {
+                headers.put("Origin", origin);
+            }
+        }
         return headers;
     }
 
@@ -1771,7 +1871,10 @@ public class NativePlayerActivity extends Activity {
             return;
         }
         if (playState == VideoView.STATE_ERROR) {
-            showError("DKVideoPlayer \u64ad\u653e\u5f02\u5e38\uff0c\u8bf7\u6362\u7ebf\u8def\u518d\u8bd5");
+            String message = "DKVideoPlayer \u64ad\u653e\u5f02\u5e38\uff0c\u8bf7\u6362\u7ebf\u8def\u518d\u8bd5";
+            if (!recoverFromPlaybackFailure(message)) {
+                showError(message);
+            }
             return;
         }
         if (playState == VideoView.STATE_PLAYBACK_COMPLETED) {
@@ -2069,10 +2172,17 @@ public class NativePlayerActivity extends Activity {
     }
 
     private void releaseSniffer() {
+        stopSniffer(false);
+    }
+
+    private void stopSniffer(boolean keepCandidates) {
         sniffQueue.clear();
         sniffVisited.clear();
-        sniffCandidates.clear();
         handler.removeCallbacks(playBestSniffCandidate);
+        handler.removeCallbacks(advanceSniffQueueRunnable);
+        if (!keepCandidates) {
+            sniffCandidates.clear();
+        }
         if (sniffWeb != null) {
             try {
                 ViewGroup parent = (ViewGroup) sniffWeb.getParent();
@@ -2084,6 +2194,79 @@ public class NativePlayerActivity extends Activity {
             }
             sniffWeb = null;
         }
+    }
+
+    private boolean recoverFromPlaybackFailure(String message) {
+        if (sniffing) {
+            return chooseBestSniffCandidate(true);
+        }
+        String failedUrl = normalizeSniffUrl(playUrl, currentPlaybackPageUrl);
+        if (currentPlaybackFromSniff && !failedUrl.isEmpty()) {
+            rejectedSniffUrls.add(failedUrl);
+            if (chooseBestSniffCandidate(true)) {
+                return true;
+            }
+        }
+        if (!autoSniffRecoveryTried) {
+            String sniffEntry = resolveSniffEntryUrl(currentPlaybackPageUrl);
+            if (!sniffEntry.isEmpty()) {
+                autoSniffRecoveryTried = true;
+                startSniff(sniffEntry, "\u76f4\u94fe\u64ad\u653e\u5931\u8d25\uff0c\u6b63\u5728\u5c1d\u8bd5\u7f51\u9875\u55c5\u63a2\u2026");
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private String resolveSniffEntryUrl(String preferred) {
+        String[] candidates = new String[]{
+                preferred,
+                input,
+                currentPlaybackPageUrl,
+                sniffCurrentUrl
+        };
+        for (String candidate : candidates) {
+            String resolved = sanitizeSniffEntry(candidate);
+            if (!resolved.isEmpty()) {
+                return resolved;
+            }
+        }
+        return "";
+    }
+
+    private boolean shouldUseWebHlsBridge(String mediaUrl) {
+        String lower = safe(mediaUrl).toLowerCase(Locale.ROOT);
+        if (!lower.contains(".m3u8") && !lower.contains("/m3u8/")) {
+            return false;
+        }
+        String marker = (source == null ? "" : safe(source.title) + " " + safe(source.host) + " " + safe(source.raw))
+                .toLowerCase(Locale.ROOT);
+        return marker.contains("4kvm.me")
+                || marker.contains("4kvm")
+                || lower.contains("zijieapi.douyinbyte.com/m3u8/");
+    }
+
+    private String sanitizeSniffEntry(String raw) {
+        String value = safe(raw);
+        if (value.isEmpty()) {
+            return "";
+        }
+        int split = value.indexOf("@@");
+        if (split > 0) {
+            value = value.substring(0, split);
+        }
+        value = normalizeSniffUrl(value, source == null ? "" : source.host);
+        if (value.isEmpty()) {
+            return "";
+        }
+        String lower = value.toLowerCase(Locale.ROOT);
+        if (looksLikeDirectMedia(value) && !isLikelyParserLikeMediaUrl(lower)) {
+            return "";
+        }
+        if (value.equals(playUrl)) {
+            return "";
+        }
+        return value;
     }
     @Override
     public void onBackPressed() {
@@ -2227,6 +2410,7 @@ public class NativePlayerActivity extends Activity {
             String cookies = mergeCookieStrings(
                     object.optString("Cookie", ""),
                     collectCookieHeader(playUrl),
+                    collectCookieHeader(currentPlaybackPageUrl),
                     collectCookieHeader(sniffCurrentUrl),
                     collectCookieHeader(source == null ? "" : source.host)
             );
@@ -2370,7 +2554,12 @@ public class NativePlayerActivity extends Activity {
 
         @JavascriptInterface
         public void onPlayerError(String message) {
-            runOnUiThread(() -> showError(safe(message).isEmpty() ? "Artplayer \u64ad\u653e\u5f02\u5e38" : safe(message)));
+            runOnUiThread(() -> {
+                String error = safe(message).isEmpty() ? "Artplayer \u64ad\u653e\u5f02\u5e38" : safe(message);
+                if (!recoverFromPlaybackFailure(error)) {
+                    showError(error);
+                }
+            });
         }
 
         @JavascriptInterface
@@ -2418,11 +2607,10 @@ public class NativePlayerActivity extends Activity {
                 }
             } catch (Exception ignored) {
             }
-            if (foundMedia) return;
             for (String next : nested) {
                 if (shouldSniffUrl(next)) enqueueSniffFrame(next, depth + 1);
             }
-            runOnUiThread(NativePlayerActivity.this::processNextSniffTask);
+            runOnUiThread(() -> scheduleNextSniffTask(foundMedia ? 1500L : 120L));
         }
     }
 
@@ -2452,3 +2640,5 @@ public class NativePlayerActivity extends Activity {
         }
     }
 }
+
+

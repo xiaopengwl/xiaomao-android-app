@@ -284,7 +284,11 @@ public class XiaomaoDkExoPlayer extends AbstractPlayer {
         if (!requestProps.isEmpty()) {
             httpFactory.setDefaultRequestProperties(requestProps);
         }
-        return new DefaultDataSource.Factory(appContext, httpFactory);
+        DataSource.Factory upstreamFactory = new DefaultDataSource.Factory(appContext, httpFactory);
+        return new WrappedSegmentDataSource.Factory(
+                upstreamFactory,
+                shouldEnableWrappedSegmentFix(dataSource, forcedStreamType, requestHeaders)
+        );
     }
 
     private MediaItem buildMediaItem(String url, StreamType streamType) {
@@ -362,6 +366,18 @@ public class XiaomaoDkExoPlayer extends AbstractPlayer {
             return StreamType.PROGRESSIVE;
         }
         return StreamType.AUTO;
+    }
+
+    private boolean shouldEnableWrappedSegmentFix(String url, String forcedType, Map<String, String> headers) {
+        if (inferStreamType(url, forcedType, headers) != StreamType.HLS) {
+            return false;
+        }
+        String lower = decodeUrl(url).toLowerCase(Locale.ROOT);
+        if (lower.contains("zijieapi.douyinbyte.com/m3u8/")) {
+            return true;
+        }
+        String referer = headers == null ? "" : String.valueOf(headers.getOrDefault("Referer", ""));
+        return referer.toLowerCase(Locale.ROOT).contains("4kvm.me");
     }
 
     private String inferProgressiveMimeType(String url) {

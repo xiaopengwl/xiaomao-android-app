@@ -57,6 +57,120 @@
     return 'normal';
   }
 
+  function toUint8Array(payload) {
+    if (!payload) {
+      return null;
+    }
+    if (payload instanceof Uint8Array) {
+      return payload;
+    }
+    if (payload instanceof ArrayBuffer) {
+      return new Uint8Array(payload);
+    }
+    if (ArrayBuffer.isView(payload)) {
+      return new Uint8Array(payload.buffer, payload.byteOffset, payload.byteLength);
+    }
+    return null;
+  }
+
+  function hasPngSignature(bytes) {
+    return !!bytes
+      && bytes.length > 8
+      && bytes[0] === 0x89
+      && bytes[1] === 0x50
+      && bytes[2] === 0x4e
+      && bytes[3] === 0x47
+      && bytes[4] === 0x0d
+      && bytes[5] === 0x0a
+      && bytes[6] === 0x1a
+      && bytes[7] === 0x0a;
+  }
+
+  function looksLikeTsAt(bytes, offset) {
+    if (!bytes || offset < 0 || offset >= bytes.length || bytes[offset] !== 0x47) {
+      return false;
+    }
+    if (offset + 188 < bytes.length && bytes[offset + 188] === 0x47) {
+      return true;
+    }
+    if (offset + 376 < bytes.length && bytes[offset + 376] === 0x47) {
+      return true;
+    }
+    return offset + 564 >= bytes.length;
+  }
+
+  function unwrapPngWrappedTs(payload) {
+    const bytes = toUint8Array(payload);
+    if (!hasPngSignature(bytes)) {
+      return payload;
+    }
+    let pngEnd = -1;
+    for (let i = 8; i + 7 < bytes.length; i += 1) {
+      if (bytes[i] === 0x49
+        && bytes[i + 1] === 0x45
+        && bytes[i + 2] === 0x4e
+        && bytes[i + 3] === 0x44) {
+        pngEnd = i + 8;
+        break;
+      }
+    }
+    if (pngEnd < 0 || pngEnd >= bytes.length) {
+      return payload;
+    }
+    for (let i = pngEnd; i < bytes.length; i += 1) {
+      if (looksLikeTsAt(bytes, i)) {
+        return bytes.slice(i).buffer;
+      }
+    }
+    return payload;
+  }
+
+  function createWrappedTsAwareLoader() {
+    const BaseLoader = window.Hls && window.Hls.DefaultConfig ? window.Hls.DefaultConfig.loader : null;
+    if (!BaseLoader) {
+      return null;
+    }
+    function WrappedLoader(config) {
+      this.loader = new BaseLoader(config);
+      this.context = null;
+      this.stats = null;
+      this.response = null;
+    }
+    WrappedLoader.prototype.destroy = function destroy() {
+      if (this.loader && typeof this.loader.destroy === 'function') {
+        this.loader.destroy();
+      }
+      this.loader = null;
+    };
+    WrappedLoader.prototype.abort = function abort() {
+      if (this.loader && typeof this.loader.abort === 'function') {
+        this.loader.abort();
+      }
+    };
+    WrappedLoader.prototype.load = function load(context, config, callbacks) {
+      const self = this;
+      const nextCallbacks = Object.assign({}, callbacks, {
+        onSuccess: function onSuccess(response, stats, innerContext, networkDetails) {
+          if (response && response.data) {
+            response.data = unwrapPngWrappedTs(response.data);
+          }
+          self.stats = stats;
+          self.context = innerContext;
+          self.response = response;
+          callbacks.onSuccess(response, stats, innerContext, networkDetails);
+        },
+        onProgress: function onProgress(stats, innerContext, data, networkDetails) {
+          const nextData = data ? unwrapPngWrappedTs(data) : data;
+          if (typeof callbacks.onProgress === 'function') {
+            callbacks.onProgress(stats, innerContext, nextData, networkDetails);
+          }
+        },
+      });
+      this.loader.load(context, config, nextCallbacks);
+    };
+    return WrappedLoader;
+  }
+
   function destroyPlayer() {
     if (art) {
       try {
@@ -118,7 +232,9 @@
       customType: {
         m3u8: function (video, url) {
           if (window.Hls && window.Hls.isSupported()) {
+            const WrappedLoader = createWrappedTsAwareLoader();
             hlsInstance = new window.Hls({
+              loader: WrappedLoader || undefined,
               xhrSetup: function (xhr) {
                 applyHeaders(xhr, headers);
               },
