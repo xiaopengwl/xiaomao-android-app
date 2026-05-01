@@ -12,6 +12,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.text.TextUtils;
+import android.util.Base64;
 import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
@@ -58,6 +59,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -78,6 +80,7 @@ public class NativePlayerActivity extends Activity {
     private static final String DEFAULT_MOBILE_UA = "Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36";
     private static final String PLAYER_MEMORY_PREFS = "xiaomao_player_memory";
     private static final String KEY_PREFER_IJK_PREFIX = "prefer_ijk_";
+    private static final String INTERNAL_BACKUP_HOSTS_HEADER = "X-XM-Backup-Hosts";
 
     private PlayerView playerView;
     private ExoPlayer mediaPlayer;
@@ -128,6 +131,8 @@ public class NativePlayerActivity extends Activity {
     private boolean freshResolveRecoveryTried = false;
     private boolean rememberedIjkPreferred = false;
     private boolean rememberedIjkExoRetryTried = false;
+    private boolean webHlsBridgeFallbackTried = false;
+    private final LinkedHashSet<String> playbackBackupHostsTried = new LinkedHashSet<>();
 
     private final ArrayList<String> episodeNames = new ArrayList<>();
     private final ArrayList<String> episodeInputs = new ArrayList<>();
@@ -159,7 +164,13 @@ public class NativePlayerActivity extends Activity {
     private final Runnable advanceSniffQueueRunnable = this::processNextSniffTask;
     private final Runnable prepareTimeoutRunnable = () -> {
         if (!preparedNotified) {
+            if (retryDkPlayerWithBackupHost("\u7ebf\u8def\u8fde\u63a5\u8d85\u65f6\uff0c\u6b63\u5728\u5207\u6362\u5907\u7528\u57df\u540d\u2026")) {
+                return;
+            }
             if (retryDkPlayerWithIjk("\u89c6\u9891\u7f16\u7801\u517c\u5bb9\u6027\u8f83\u5dee\uff0c\u6b63\u5728\u5207\u6362\u517c\u5bb9\u5185\u6838\u2026")) {
+                return;
+            }
+            if (tryWebHlsBridgeFallback("\u539f\u751f DK \u52a0\u8f7d\u8d85\u65f6\uff0c\u6b63\u5728\u542f\u7528 HLS \u5907\u7528\u6865\u63a5\u2026")) {
                 return;
             }
             String message = "\u64ad\u653e\u5668\u52a0\u8f7d\u8d85\u65f6\uff0c\u8bf7\u6362\u7ebf\u8def\u518d\u8bd5";
@@ -1070,6 +1081,8 @@ public class NativePlayerActivity extends Activity {
         currentPlaybackFromSniff = false;
         autoSniffRecoveryTried = false;
         freshResolveRecoveryTried = false;
+        webHlsBridgeFallbackTried = false;
+        playbackBackupHostsTried.clear();
         rejectedSniffUrls.clear();
         activeHeaders.clear();
         showLoadingState("\u6b63\u5728\u89e3\u6790\u64ad\u653e\u5730\u5740\u2026");
@@ -1127,6 +1140,9 @@ public class NativePlayerActivity extends Activity {
                 return;
             }
             if (retryDkPlayerWithIjk("\u89c6\u9891\u7f16\u7801\u517c\u5bb9\u6027\u8f83\u5dee\uff0c\u6b63\u5728\u5207\u6362\u517c\u5bb9\u5185\u6838\u2026")) {
+                return;
+            }
+            if (tryWebHlsBridgeFallback("DK \u521d\u59cb\u5316\u5931\u8d25\uff0c\u6b63\u5728\u542f\u7528 HLS \u5907\u7528\u6865\u63a5\u2026")) {
                 return;
             }
             String message = "鎾斁鍣ㄥ垵濮嬪寲澶辫触";
@@ -1975,10 +1991,16 @@ public class NativePlayerActivity extends Activity {
             return;
         }
         if (playState == VideoView.STATE_ERROR) {
+            if (retryDkPlayerWithBackupHost("\u5f53\u524d\u57df\u540d\u64ad\u653e\u5931\u8d25\uff0c\u6b63\u5728\u5207\u6362\u5907\u7528\u57df\u540d\u2026")) {
+                return;
+            }
             if (retryRememberedIjkWithExo("\u517c\u5bb9\u5185\u6838\u64ad\u653e\u5931\u8d25\uff0c\u6b63\u5728\u5207\u56de\u9ed8\u8ba4\u5185\u6838\u2026")) {
                 return;
             }
             if (retryDkPlayerWithIjk("\u89c6\u9891\u7f16\u7801\u517c\u5bb9\u6027\u8f83\u5dee\uff0c\u6b63\u5728\u5207\u6362\u517c\u5bb9\u5185\u6838\u2026")) {
+                return;
+            }
+            if (tryWebHlsBridgeFallback("DK \u5185\u6838\u65e0\u6cd5\u627f\u63a5\u5f53\u524d HLS\uff0c\u6b63\u5728\u542f\u7528\u5907\u7528\u64ad\u653e\u6865\u63a5\u2026")) {
                 return;
             }
             String message = "DKVideoPlayer \u64ad\u653e\u5f02\u5e38\uff0c\u8bf7\u6362\u7ebf\u8def\u518d\u8bd5";
@@ -2014,7 +2036,17 @@ public class NativePlayerActivity extends Activity {
         String userAgent = headers.get("User-Agent");
         httpFactory.setUserAgent(TextUtils.isEmpty(userAgent) ? DEFAULT_MOBILE_UA : userAgent);
         if (!headers.isEmpty()) {
-            httpFactory.setDefaultRequestProperties(headers);
+            HashMap<String, String> requestHeaders = new HashMap<>();
+            for (Map.Entry<String, String> entry : headers.entrySet()) {
+                String key = safe(entry.getKey());
+                String value = safe(entry.getValue());
+                if (!key.isEmpty() && !value.isEmpty() && !key.toLowerCase(Locale.ROOT).startsWith("x-xm-")) {
+                    requestHeaders.put(key, value);
+                }
+            }
+            if (!requestHeaders.isEmpty()) {
+                httpFactory.setDefaultRequestProperties(requestHeaders);
+            }
         }
         DataSource.Factory dataSourceFactory = new DefaultDataSource.Factory(this, httpFactory);
         DefaultRenderersFactory renderersFactory = new DefaultRenderersFactory(this)
@@ -2458,6 +2490,143 @@ public class NativePlayerActivity extends Activity {
             return true;
         } catch (Throwable ignored) {
             return false;
+        }
+    }
+
+    private boolean retryDkPlayerWithBackupHost(String message) {
+        String backupUrl = buildNextBackupHostUrl(playUrl);
+        if (backupUrl.isEmpty()) {
+            return false;
+        }
+        try {
+            releaseDkPlayer();
+            dkUseIjkPlayer = false;
+            dkIjkFallbackTried = false;
+            rememberedIjkPreferred = false;
+            playUrl = backupUrl;
+            showLoadingState(message);
+            prepareDkPlayer(playUrl, buildPlayerHeaders());
+            return true;
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+    private boolean tryWebHlsBridgeFallback(String message) {
+        if (webHlsBridgeFallbackTried || !shouldUseWebHlsBridge(playUrl) || artPlayerWebView == null) {
+            return false;
+        }
+        webHlsBridgeFallbackTried = true;
+        try {
+            showLoadingState(message);
+            loadArtPlayer(playUrl, buildPlayerHeaders());
+            return true;
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+    private String buildNextBackupHostUrl(String url) {
+        String cleanUrl = safe(url);
+        if (cleanUrl.isEmpty() || (!cleanUrl.toLowerCase(Locale.ROOT).contains(".m3u8")
+                && !cleanUrl.toLowerCase(Locale.ROOT).contains("/m3u8/"))) {
+            return "";
+        }
+        ArrayList<String> hosts = parseBackupHosts(activeHeaders.get(INTERNAL_BACKUP_HOSTS_HEADER));
+        if (hosts.isEmpty()) {
+            return "";
+        }
+        String currentHost = hostOf(cleanUrl);
+        if (!currentHost.isEmpty()) {
+            playbackBackupHostsTried.add(currentHost.toLowerCase(Locale.ROOT));
+        }
+        for (String host : hosts) {
+            String normalizedHost = safe(host).trim();
+            if (normalizedHost.isEmpty()) {
+                continue;
+            }
+            String key = normalizedHost.toLowerCase(Locale.ROOT);
+            if (key.equals(currentHost.toLowerCase(Locale.ROOT)) || playbackBackupHostsTried.contains(key)) {
+                continue;
+            }
+            String replaced = replaceUrlHost(cleanUrl, normalizedHost);
+            if (!replaced.isEmpty() && !replaced.equals(cleanUrl)) {
+                playbackBackupHostsTried.add(key);
+                return replaced;
+            }
+        }
+        return "";
+    }
+
+    private ArrayList<String> parseBackupHosts(String raw) {
+        ArrayList<String> hosts = new ArrayList<>();
+        String text = safe(raw).trim();
+        if (text.isEmpty()) {
+            return hosts;
+        }
+        appendBackupHostsFromText(hosts, text);
+        if (hosts.isEmpty()) {
+            try {
+                byte[] decoded = Base64.decode(text, Base64.DEFAULT);
+                appendBackupHostsFromText(hosts, new String(decoded, StandardCharsets.UTF_8));
+            } catch (Exception ignored) {
+            }
+        }
+        return hosts;
+    }
+
+    private void appendBackupHostsFromText(ArrayList<String> hosts, String text) {
+        String value = safe(text).trim();
+        if (value.isEmpty()) {
+            return;
+        }
+        try {
+            JSONArray array = new JSONArray(value);
+            for (int i = 0; i < array.length(); i++) {
+                addBackupHost(hosts, array.optString(i, ""));
+            }
+            return;
+        } catch (Exception ignored) {
+        }
+        String[] parts = value.split("[,\\s]+");
+        for (String part : parts) {
+            addBackupHost(hosts, part);
+        }
+    }
+
+    private void addBackupHost(ArrayList<String> hosts, String host) {
+        String clean = safe(host).trim();
+        if (clean.isEmpty()) {
+            return;
+        }
+        clean = clean.replace("https://", "").replace("http://", "");
+        int slash = clean.indexOf('/');
+        if (slash >= 0) {
+            clean = clean.substring(0, slash);
+        }
+        if (!clean.isEmpty() && !hosts.contains(clean)) {
+            hosts.add(clean);
+        }
+    }
+
+    private String hostOf(String url) {
+        try {
+            URL parsed = new URL(url);
+            return safe(parsed.getHost());
+        } catch (Exception ignored) {
+            return "";
+        }
+    }
+
+    private String replaceUrlHost(String url, String nextHost) {
+        try {
+            URL parsed = new URL(url);
+            int port = parsed.getPort();
+            String authority = nextHost + (port >= 0 ? (":" + port) : "");
+            String file = parsed.getFile();
+            return parsed.getProtocol() + "://" + authority + (file == null ? "" : file);
+        } catch (Exception ignored) {
+            return "";
         }
     }
 

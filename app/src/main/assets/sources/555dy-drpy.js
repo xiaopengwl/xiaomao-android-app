@@ -21,7 +21,22 @@ var rule = {
     'User-Agent': 'Mozilla/5.0'
   },
 
-  lazy: 'js:let html=request(input);let m=html.match(/<iframe[^>]+src=["\\\']([^"\\\']*player\\\\.html\\\\?v=[^"\\\']+)["\\\']/i);if(m){let u=m[1];if(!/^https?:\\\\/\\\\//.test(u)){if(u.startsWith(\"/\"))u=rule.host+u;else u=rule.host+\"/\"+u;}input={parse:0,jx:0,url:u,header:rule.play_headers||rule.headers};}',
+  lazy: `js:
+let html=request(input,{headers:rule.headers||{}})||'';
+let m=html.match(/<iframe[^>]+src=["']([^"']*player\.html\?v=[^"']+)["']/i);
+let h=rule.play_headers||rule.headers||{};
+if(m){
+  let u=m[1];
+  if(!/^https?:\/\//.test(u)){
+    if(u.startsWith('/'))u=rule.host+u;
+    else u=rule.host+'/'+u;
+  }
+  h.Referer=input;
+  input={parse:1,jx:0,url:u,header:h};
+}else{
+  input={parse:1,jx:0,url:input,header:h};
+}
+`,
 
   "推荐": 'a.module-poster-item.module-item;.module-poster-item-title&&Text;img&&data-original;.module-item-note&&Text;a&&href',
   "一级": 'a.module-poster-item.module-item;.module-poster-item-title&&Text;img&&data-original;.module-item-note&&Text;a&&href',

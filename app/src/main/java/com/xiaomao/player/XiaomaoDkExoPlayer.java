@@ -34,6 +34,7 @@ import xyz.doikki.videoplayer.player.AbstractPlayer;
 public class XiaomaoDkExoPlayer extends AbstractPlayer {
     private static final String DEFAULT_MOBILE_UA = "Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36";
     private static final String INTERNAL_STREAM_TYPE_HEADER = "X-XM-Stream-Type";
+    private static final String INTERNAL_HEADER_PREFIX = "X-XM-";
 
     private final Context appContext;
     private ExoPlayer player;
@@ -87,6 +88,9 @@ public class XiaomaoDkExoPlayer extends AbstractPlayer {
             }
             if (INTERNAL_STREAM_TYPE_HEADER.equalsIgnoreCase(key)) {
                 forcedStreamType = value.toLowerCase(Locale.ROOT);
+                continue;
+            }
+            if (key.regionMatches(true, 0, INTERNAL_HEADER_PREFIX, 0, INTERNAL_HEADER_PREFIX.length())) {
                 continue;
             }
             requestHeaders.put(key, value);
@@ -275,7 +279,10 @@ public class XiaomaoDkExoPlayer extends AbstractPlayer {
             for (Map.Entry<String, String> entry : headers.entrySet()) {
                 String key = entry.getKey() == null ? "" : entry.getKey().trim();
                 String value = entry.getValue() == null ? "" : entry.getValue().trim();
-                if (key.isEmpty() || value.isEmpty() || INTERNAL_STREAM_TYPE_HEADER.equalsIgnoreCase(key)) {
+                if (key.isEmpty()
+                        || value.isEmpty()
+                        || INTERNAL_STREAM_TYPE_HEADER.equalsIgnoreCase(key)
+                        || key.regionMatches(true, 0, INTERNAL_HEADER_PREFIX, 0, INTERNAL_HEADER_PREFIX.length())) {
                     continue;
                 }
                 requestProps.put(key, value);

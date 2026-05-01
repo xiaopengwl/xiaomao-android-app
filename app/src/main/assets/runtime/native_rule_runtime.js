@@ -39,6 +39,9 @@ function __xmAbsoluteUrl(url, host) {
   if (/^data:image\//i.test(nextUrl)) {
     return nextUrl;
   }
+  if (/^(?:javascript:|blob:|about:)/i.test(nextUrl)) {
+    return "";
+  }
   if (/^https?:\/\//i.test(nextUrl)) {
     return nextUrl;
   }
@@ -549,7 +552,7 @@ function __xmExtractNodeAttribute(node, attr) {
     return "";
   }
   var direct = node.getAttribute(attr);
-  if (direct) {
+  if (direct && !(attr === "href" && /^(?:javascript:|about:|blob:)/i.test(String(direct).trim()))) {
     return direct;
   }
   if (attr === "src") {
@@ -566,6 +569,20 @@ function __xmExtractNodeAttribute(node, attr) {
     }
   }
   if (attr === "href") {
+    var html = node.outerHTML || "";
+    var hrefMatch;
+    var hrefPattern = /\bhref\s*=\s*["']([^"']+)["']/ig;
+    while ((hrefMatch = hrefPattern.exec(html))) {
+      var hrefValue = String(hrefMatch[1] || "").trim();
+      if (hrefValue && !/^(?:javascript:|about:|blob:)/i.test(hrefValue)) {
+        return hrefValue;
+      }
+    }
+    var onclick = node.getAttribute("onclick") || "";
+    var changeMatch = String(onclick).match(/change\s*\(\s*['"]([^'"]+)['"]\s*,\s*['"]([^'"]+)['"]\s*,\s*['"]?([^'")]+)['"]?\s*\)/i);
+    if (changeMatch) {
+      return "/vodplay/" + changeMatch[1] + "-" + changeMatch[2] + "-" + changeMatch[3] + ".html";
+    }
     return node.getAttribute("data-href") || node.getAttribute("data-url") || "";
   }
   return "";

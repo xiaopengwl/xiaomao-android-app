@@ -134,6 +134,16 @@ public class NativeDrpyEngine {
         }
     }
 
+    private static final class Resolved4kvmPayload {
+        final String url;
+        final String backupHosts;
+
+        Resolved4kvmPayload(String url, String backupHosts) {
+            this.url = url == null ? "" : url;
+            this.backupHosts = backupHosts == null ? "" : backupHosts;
+        }
+    }
+
     public NativeDrpyEngine(Activity activity, NativeSource source) {
         this.activity = activity;
         this.source = source;
@@ -516,11 +526,14 @@ public class NativeDrpyEngine {
     private LazyResult resolve4kvmLazy(String input) throws Exception {
         LazyResult result = new LazyResult(input);
         String pageUrl = abs(input);
-        String resolved = resolve4kvmPlayUrl(input);
-        result.url = TextUtils.isEmpty(resolved) ? input : resolved;
+        Resolved4kvmPayload resolved = resolve4kvmPlayUrl(input);
+        result.url = TextUtils.isEmpty(resolved.url) ? input : resolved.url;
         result.parse = 0;
         result.jx = 0;
         result.headers.put("X-XM-Stream-Type", "hls");
+        if (!TextUtils.isEmpty(resolved.backupHosts)) {
+            result.headers.put("X-XM-Backup-Hosts", resolved.backupHosts);
+        }
         String pageOrigin = originOf(pageUrl);
         result.headers.put("Referer", pageUrl);
         if (!TextUtils.isEmpty(pageOrigin)) {
@@ -540,7 +553,7 @@ public class NativeDrpyEngine {
         return result;
     }
 
-    private String resolve4kvmPlayUrl(String input) throws Exception {
+    private Resolved4kvmPayload resolve4kvmPlayUrl(String input) throws Exception {
         final String pageUrl = abs(input);
         final CountDownLatch latch = new CountDownLatch(1);
         final AtomicReference<String> payloadRef = new AtomicReference<>("");
@@ -596,20 +609,22 @@ public class NativeDrpyEngine {
             } catch (Exception ignored) {
             }
         });
-        String direct = extract4kvmUrlFromPayload(payloadRef.get());
+        String payload = payloadRef.get();
+        String direct = extract4kvmUrlFromPayload(payload);
+        String backupHosts = extract4kvmBackupHostsFromPayload(payload);
         if (!TextUtils.isEmpty(direct)) {
-            return direct;
+            return new Resolved4kvmPayload(direct, backupHosts);
         }
         if (!TextUtils.isEmpty(errorRef.get())) {
             throw new IllegalStateException(errorRef.get());
         }
-        return input;
+        return new Resolved4kvmPayload(input, backupHosts);
     }
 
     private String build4kvmResolverScript() {
         return "(function(){try{" +
                 "if(window.__xm4kvmResolverInstalled){return;}window.__xm4kvmResolverInstalled=1;" +
-                "function emit(detail){try{AndroidCapture.onPayload(JSON.stringify(detail||{}));}catch(e){}}" +
+                "function emit(detail){try{detail=detail||{};if(window._pdf&&!detail.__xm_backup_hosts){detail.__xm_backup_hosts=window._pdf;}AndroidCapture.onPayload(JSON.stringify(detail||{}));}catch(e){}}" +
                 "window.addEventListener('player:update',function(event){try{var detail=event&&event.detail?event.detail:{};if(detail&&detail.quality_urls&&detail.quality_urls.length){emit(detail);}}catch(e){}},true);" +
                 "function trigger(){try{var manager=window.episodeManagerInstance;var target=null;if(manager){var selector='a[data-line=\"'+(manager.currentLine||1)+'\"][data-episode=\"'+(manager.currentEpisode||1)+'\"][dataid]';target=document.querySelector(selector);}if(!target){target=document.querySelector('a.episode-link[dataid][data-line][data-episode]');}if(!target){setTimeout(trigger,500);return;}var dataid=(target.getAttribute('dataid')||'').trim();if(!dataid){setTimeout(trigger,500);return;}var href=target.getAttribute('href')||location.href;var secret='';if(href.indexOf('/play/')>=0){secret=href.split('/play/')[1]||'';}if(manager&&typeof manager.loadPlayUrl==='function'){manager.loadPlayUrl(dataid,secret,'1080',false,true).catch(function(){});return;}AndroidCapture.onError('episodeManager.loadPlayUrl unavailable');}catch(err){try{AndroidCapture.onError(String(err));}catch(e){}}}" +
                 "trigger();setTimeout(trigger,1200);setTimeout(trigger,2800);setTimeout(trigger,5200);" +
@@ -641,6 +656,22 @@ public class NativeDrpyEngine {
                     return url;
                 }
             }
+        } catch (Exception ignored) {
+        }
+        return "";
+    }
+
+    private String extract4kvmBackupHostsFromPayload(String payload) {
+        if (TextUtils.isEmpty(payload)) {
+            return "";
+        }
+        try {
+            JSONObject object = new JSONObject(payload);
+            String backupHosts = object.optString("__xm_backup_hosts", "");
+            if (TextUtils.isEmpty(backupHosts)) {
+                backupHosts = object.optString("_pdf", "");
+            }
+            return backupHosts == null ? "" : backupHosts.trim();
         } catch (Exception ignored) {
         }
         return "";

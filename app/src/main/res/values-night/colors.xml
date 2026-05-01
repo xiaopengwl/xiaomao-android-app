@@ -1,20 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="xm_bg">#0E1116</color>
-    <color name="xm_surface">#141922</color>
-    <color name="xm_surface_alt">#1C232D</color>
-    <color name="xm_surface_soft">#25303B</color>
-    <color name="xm_stroke">#273140</color>
-    <color name="xm_stroke_soft">#33404E</color>
+    <color name="xm_bg">#111722</color>
+    <color name="xm_surface">#182130</color>
+    <color name="xm_surface_alt">#202B3A</color>
+    <color name="xm_surface_soft">#2A3647</color>
+    <color name="xm_stroke">#2F3D50</color>
+    <color name="xm_stroke_soft">#3D4D63</color>
     <color name="xm_text_primary">#F2F5F7</color>
     <color name="xm_text_secondary">#B8C1CB</color>
     <color name="xm_text_muted">#8B97A6</color>
-    <color name="xm_accent">#D4A24B</color>
-    <color name="xm_accent_dark">#181105</color>
-    <color name="xm_badge">#4A3720</color>
-    <color name="xm_badge_text">#F2DFC0</color>
-    <color name="xm_info_bg">#1B2632</color>
-    <color name="xm_info_text">#D1DCEC</color>
+    <color name="xm_accent">#78A6FF</color>
+    <color name="xm_accent_dark">#071326</color>
+    <color name="xm_badge">#203A69</color>
+    <color name="xm_badge_text">#DDE8FF</color>
+    <color name="xm_info_bg">#20314A</color>
+    <color name="xm_info_text">#DCE7FA</color>
     <color name="xm_danger">#DF7878</color>
     <color name="xm_danger_soft">#583232</color>
     <color name="xm_bar_surface">#10151C</color>
@@ -27,9 +27,9 @@
     <color name="xm_player_stroke">#2A3745</color>
     <color name="xm_player_text_primary">#F4F7FA</color>
     <color name="xm_player_text_secondary">#A8B3C0</color>
-    <color name="xm_player_chip_primary_bg">#3C2C0C</color>
-    <color name="xm_player_chip_primary_stroke">#8A6B29</color>
-    <color name="xm_player_chip_primary_text">#F6E7C7</color>
+    <color name="xm_player_chip_primary_bg">#102C66</color>
+    <color name="xm_player_chip_primary_stroke">#4F83EF</color>
+    <color name="xm_player_chip_primary_text">#EAF1FF</color>
     <color name="xm_player_chip_tonal_bg">#1A2430</color>
     <color name="xm_player_chip_tonal_stroke">#334250</color>
     <color name="xm_player_chip_tonal_text">#DAE2EA</color>
