@@ -16,6 +16,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -28,9 +29,15 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import javax.crypto.Cipher;
+import javax.crypto.spec.IvParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
+
 public class NativeDrpyEngine {
     private static final String PC_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36";
     private static final String DEFAULT_CHIGUA_IMAGE_PROXY = "http://tpjx.yuexiboke.com/?url=";
+    private static final String DEFAULT_555_AES_KEY = "81f834a7f68d4c52";
+    private static final String DEFAULT_555_AES_IV = "zkz8scsGXttFVZBb";
     private final Activity activity;
     private final WebView webView;
     private final NativeSource source;
@@ -435,6 +442,10 @@ public class NativeDrpyEngine {
             runBackground(() -> resolve4kvmLazy(fallbackInput), new LazyResult(fallbackInput), callback);
             return;
         }
+        if (is555Source()) {
+            runBackground(() -> resolve555Lazy(fallbackInput), new LazyResult(fallbackInput), callback);
+            return;
+        }
         String body = ""
                 + "__xmRunPreprocess();"
                 + "document.html='';"
@@ -496,6 +507,13 @@ public class NativeDrpyEngine {
         String marker = (source == null ? "" : source.title + " " + source.host + " " + source.raw).toLowerCase();
         return marker.contains("4kvm.me") || marker.contains("4k影视");
     }
+    private boolean is555Source() {
+        String marker = (source == null ? "" : source.title + " " + source.host + " " + source.raw).toLowerCase();
+        return marker.contains("555k7.com")
+                || marker.contains("555dy.net")
+                || marker.contains("55kp5.com");
+    }
+
     private boolean shouldUseChiguaListFallback(ArrayList<MediaItem> items, String error) {
         return isChiguaSource() && (!TextUtils.isEmpty(error) || items == null || items.isEmpty());
     }
@@ -520,6 +538,138 @@ public class NativeDrpyEngine {
         return resolved.isEmpty()
                 || TextUtils.equals(resolved, original)
                 || result.parse != 0;
+    }
+
+    private LazyResult resolve555Lazy(String input) throws Exception {
+        String pageUrl = abs(input);
+        LazyResult result = new LazyResult(pageUrl);
+        HttpOptions options = new HttpOptions();
+        String refererHost = resolveSourceHost();
+        options.referer = TextUtils.isEmpty(refererHost) ? "https://www.555k7.com/" : refererHost + "/";
+        options.userAgent = PC_USER_AGENT;
+        HttpResult page = requestRaw(pageUrl, options);
+        String finalPageUrl = TextUtils.isEmpty(page.finalUrl) ? pageUrl : page.finalUrl;
+        updateCurrentHost(finalPageUrl);
+        String html = page.body;
+        String iframeUrl = extract555PlayerIframe(html);
+        String mediaReferer = TextUtils.isEmpty(iframeUrl) ? finalPageUrl : abs(iframeUrl);
+        String directUrl = extract555DirectUrl(html);
+        if (!TextUtils.isEmpty(directUrl)) {
+            result.url = directUrl;
+            result.parse = 0;
+            result.jx = 0;
+            String lowerDirect = directUrl.toLowerCase();
+            if (lowerDirect.contains(".m3u8") || lowerDirect.contains("/m3u8/")) {
+                result.headers.put("X-XM-Stream-Type", "hls");
+            }
+            result.headers.put("Referer", mediaReferer);
+            String origin = originOf(mediaReferer);
+            if (!TextUtils.isEmpty(origin)) {
+                result.headers.put("Origin", origin);
+            }
+            result.headers.put("User-Agent", PC_USER_AGENT);
+            result.headers.put("Accept", "*/*");
+            result.headers.put("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8");
+            return result;
+        }
+        result.url = TextUtils.isEmpty(iframeUrl) ? finalPageUrl : abs(iframeUrl);
+        result.parse = 1;
+        result.jx = 0;
+        result.headers.put("Referer", finalPageUrl);
+        String origin = originOf(finalPageUrl);
+        if (!TextUtils.isEmpty(origin)) {
+            result.headers.put("Origin", origin);
+        }
+        result.headers.put("User-Agent", PC_USER_AGENT);
+        result.headers.put("Accept", "*/*");
+        result.headers.put("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8");
+        return result;
+    }
+
+    private String extract555PlayerIframe(String html) {
+        String iframeUrl = firstMatch(html, "<iframe[^>]+src=[\"']([^\"']*player\\.html\\?v=[^\"']+)[\"']");
+        return TextUtils.isEmpty(iframeUrl) ? "" : abs(iframeUrl.trim());
+    }
+
+    private String extract555DirectUrl(String html) {
+        if (TextUtils.isEmpty(html)) {
+            return "";
+        }
+        String playerJson = firstMatch(html, "var\\s+player_aaaa\\s*=\\s*(\\{[\\s\\S]*?\\})\\s*<\\/script>");
+        if (TextUtils.isEmpty(playerJson)) {
+            return "";
+        }
+        try {
+            JSONObject player = new JSONObject(playerJson);
+            String encodedUrl = player.optString("url", "").trim();
+            int encrypt = player.optInt("encrypt", 0);
+            String directUrl = decode555PlayUrl(encodedUrl, encrypt);
+            if (TextUtils.isEmpty(directUrl)) {
+                directUrl = decodeHtml(encodedUrl);
+            }
+            if (TextUtils.isEmpty(directUrl)) {
+                return "";
+            }
+            directUrl = absoluteUrl(directUrl.trim());
+            return looksLikeMediaUrl(directUrl) ? directUrl : "";
+        } catch (Exception ignored) {
+            return "";
+        }
+    }
+
+    private String decode555PlayUrl(String encodedUrl, int encrypt) {
+        if (TextUtils.isEmpty(encodedUrl)) {
+            return "";
+        }
+        String value = encodedUrl.trim();
+        String decrypted = decrypt555Aes(value);
+        if (!TextUtils.isEmpty(decrypted)) {
+            return decrypted;
+        }
+        String replaced = value
+                .replace("O0O0O", "=")
+                .replace("o000o", "+")
+                .replace("oo00o", "/");
+        if (encrypt >= 2) {
+            try {
+                String base64Decoded = new String(Base64.decode(replaced, Base64.DEFAULT), StandardCharsets.UTF_8).trim();
+                if (!TextUtils.isEmpty(base64Decoded)) {
+                    return base64Decoded;
+                }
+            } catch (Exception ignored) {
+            }
+        }
+        if (encrypt >= 1) {
+            try {
+                String urlDecoded = URLDecoder.decode(replaced, StandardCharsets.UTF_8.name()).trim();
+                if (!TextUtils.isEmpty(urlDecoded)) {
+                    return urlDecoded;
+                }
+            } catch (Exception ignored) {
+            }
+        }
+        return replaced;
+    }
+
+    private String decrypt555Aes(String encodedUrl) {
+        if (TextUtils.isEmpty(encodedUrl)) {
+            return "";
+        }
+        String normalized = encodedUrl
+                .replace("O0O0O", "=")
+                .replace("o000o", "+")
+                .replace("oo00o", "/")
+                .trim();
+        try {
+            byte[] encrypted = Base64.decode(normalized, Base64.DEFAULT);
+            Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
+            SecretKeySpec keySpec = new SecretKeySpec(DEFAULT_555_AES_KEY.getBytes(StandardCharsets.UTF_8), "AES");
+            IvParameterSpec ivSpec = new IvParameterSpec(DEFAULT_555_AES_IV.getBytes(StandardCharsets.UTF_8));
+            cipher.init(Cipher.DECRYPT_MODE, keySpec, ivSpec);
+            return new String(cipher.doFinal(encrypted), StandardCharsets.UTF_8).trim();
+        } catch (Exception ignored) {
+            return "";
+        }
     }
 
     private LazyResult resolve4kvmLazy(String input) throws Exception {
