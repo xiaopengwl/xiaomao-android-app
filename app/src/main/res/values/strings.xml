@@ -97,6 +97,8 @@
     <string name="settings_title">设置</string>
     <string name="settings_done">完成</string>
     <string name="settings_summary">外观、浏览习惯和版本信息统一在这里管理。</string>
+    <string name="settings_auto_play">自动播放</string>
+    <string name="settings_auto_play_desc">开启后进入播放页会自动开始播放，关闭后需要手动点击播放。</string>
     <string name="settings_night_mode">夜间模式</string>
     <string name="settings_night_mode_desc">开启后切换为深色界面，适合夜间使用。</string>
     <string name="settings_remember_source">记住上次选择的片源</string>

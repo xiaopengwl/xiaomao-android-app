@@ -295,6 +295,7 @@
     const backupHosts = parseBackupHosts(headerValue(headers, 'X-XM-Backup-Hosts') || options.backupHosts || window._pdf);
     const attemptedHosts = [];
     const type = detectType(options.url, options.type);
+    const autoplay = options.autoplay !== false;
     const mount = document.getElementById('artplayer-app');
     if (!mount) {
       notify('onPlayerError', '播放器容器不存在');
@@ -306,7 +307,7 @@
       url: options.url || '',
       title: options.title || '',
       poster: options.poster || '',
-      autoplay: true,
+      autoplay: autoplay,
       lang: 'zh-cn',
       theme: '#e13f5a',
       autoSize: true,
@@ -388,13 +389,15 @@
             try {
               hlsInstance.on(window.Hls.Events.MANIFEST_PARSED, function onManifestParsed() {
                 notify('onPlayerReady');
-                try {
-                  const promise = video.play && video.play();
-                  if (promise && promise.catch) {
-                    promise.catch(function () {});
+                if (autoplay) {
+                  try {
+                    const promise = video.play && video.play();
+                    if (promise && promise.catch) {
+                      promise.catch(function () {});
+                    }
+                  } catch (error) {
+                    console.warn(error);
                   }
-                } catch (error) {
-                  console.warn(error);
                 }
               });
             } catch (error) {

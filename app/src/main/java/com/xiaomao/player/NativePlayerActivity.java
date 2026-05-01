@@ -289,6 +289,7 @@ public class NativePlayerActivity extends Activity {
                 getIntent().getStringExtra("source_raw")
         );
         engine = new NativeDrpyEngine(this, source);
+        playWhenReady = SettingsStore.autoPlayEnabled(this);
         loadSnifferRules();
         normalizePlaybackDefaultsSafe();
         buildUi();
@@ -697,6 +698,7 @@ public class NativePlayerActivity extends Activity {
             config.put("url", mediaUrl);
             config.put("title", title);
             config.put("poster", "");
+            config.put("autoplay", playWhenReady);
             config.put("type", inferPrimaryStreamType(mediaUrl, headers) == StreamType.HLS ? "m3u8" : "normal");
             JSONObject headerJson = new JSONObject();
             for (Map.Entry<String, String> entry : headers.entrySet()) {
@@ -1370,7 +1372,7 @@ public class NativePlayerActivity extends Activity {
         playUrl = mediaUrl;
         showLoadingState("姝ｅ湪鍔犺浇鎾斁鍣?..");
         playbackPosition = 0L;
-        playWhenReady = true;
+        playWhenReady = SettingsStore.autoPlayEnabled(this);
         try {
             prepareDkPlayer(mediaUrl, buildPlayerHeaders());
         } catch (Throwable error) {
@@ -2238,6 +2240,7 @@ public class NativePlayerActivity extends Activity {
                 || playState == VideoView.STATE_BUFFERED) {
             if (dkPlayerView != null) {
                 dkPlayerView.setSpeed(tempSpeedBoost ? 2.0f : selectedSpeed);
+                syncDkPlayWhenReady();
             }
             if (dkUseIjkPlayer) {
                 rememberIjkBackend(playUrl, true);
@@ -2269,6 +2272,29 @@ public class NativePlayerActivity extends Activity {
         if (playState == VideoView.STATE_PLAYBACK_COMPLETED) {
             playbackPosition = 0L;
             showState("\u64ad\u653e\u5b8c\u6210", false, 0.95f);
+        }
+    }
+
+    private void syncDkPlayWhenReady() {
+        if (dkPlayerView == null) {
+            return;
+        }
+        if (!playWhenReady) {
+            if (dkPlayerView.isPlaying()) {
+                dkPlayerView.pause();
+            }
+            return;
+        }
+        if (dkPlayerView.isPlaying()) {
+            return;
+        }
+        try {
+            dkPlayerView.resume();
+        } catch (Throwable ignored) {
+            try {
+                dkPlayerView.start();
+            } catch (Throwable ignoredAgain) {
+            }
         }
     }
     private boolean prepareCurrentStreamType(Map<String, String> headers, boolean firstAttempt) {

@@ -12,6 +12,7 @@ public final class SettingsStore {
     private static final String KEY_LAST_SEARCH = "last_search";
     private static final String KEY_PLAYER_KERNEL = "player_kernel";
     private static final String KEY_NIGHT_MODE = "night_mode";
+    private static final String KEY_AUTO_PLAY = "auto_play";
 
     public static final String PLAYER_KERNEL_SYSTEM = "system";
     public static final String PLAYER_KERNEL_EXO = "exo";
@@ -82,6 +83,14 @@ public final class SettingsStore {
 
     public static void setNightModeEnabled(Context context, boolean enabled) {
         prefs(context).edit().putBoolean(KEY_NIGHT_MODE, enabled).apply();
+    }
+
+    public static boolean autoPlayEnabled(Context context) {
+        return prefs(context).getBoolean(KEY_AUTO_PLAY, true);
+    }
+
+    public static void setAutoPlayEnabled(Context context, boolean enabled) {
+        prefs(context).edit().putBoolean(KEY_AUTO_PLAY, enabled).apply();
     }
 
     public static int playerCompatMemoryCount(Context context) {

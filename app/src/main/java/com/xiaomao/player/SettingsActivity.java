@@ -13,6 +13,7 @@ import com.google.android.material.button.MaterialButton;
 import com.google.android.material.switchmaterial.SwitchMaterial;
 
 public class SettingsActivity extends AppCompatActivity {
+    private SwitchMaterial autoPlaySwitch;
     private SwitchMaterial rememberSourceSwitch;
     private SwitchMaterial defaultLibrarySwitch;
     private SwitchMaterial keepSearchSwitch;
@@ -35,6 +36,7 @@ public class SettingsActivity extends AppCompatActivity {
     private void bindViews() {
         ImageButton backButton = findViewById(R.id.settings_back_button);
         MaterialButton doneButton = findViewById(R.id.settings_done_button);
+        autoPlaySwitch = findViewById(R.id.settings_auto_play_switch);
         rememberSourceSwitch = findViewById(R.id.settings_remember_source_switch);
         defaultLibrarySwitch = findViewById(R.id.settings_default_library_switch);
         keepSearchSwitch = findViewById(R.id.settings_keep_search_switch);
@@ -59,6 +61,7 @@ public class SettingsActivity extends AppCompatActivity {
     }
 
     private void bindData() {
+        autoPlaySwitch.setChecked(SettingsStore.autoPlayEnabled(this));
         rememberSourceSwitch.setChecked(SettingsStore.rememberSource(this));
         defaultLibrarySwitch.setChecked(SettingsStore.defaultLibrary(this));
         keepSearchSwitch.setChecked(SettingsStore.keepLastSearch(this));
@@ -70,6 +73,7 @@ public class SettingsActivity extends AppCompatActivity {
     }
 
     private void saveSettings() {
+        SettingsStore.setAutoPlayEnabled(this, autoPlaySwitch.isChecked());
         SettingsStore.setRememberSource(this, rememberSourceSwitch.isChecked());
         SettingsStore.setDefaultLibrary(this, defaultLibrarySwitch.isChecked());
         SettingsStore.setKeepLastSearch(this, keepSearchSwitch.isChecked());
