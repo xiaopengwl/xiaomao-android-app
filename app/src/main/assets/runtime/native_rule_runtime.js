@@ -200,6 +200,104 @@ function __xmBuildSearchUrl(ruleObject, keyword, page) {
   return __xmAbsoluteUrl(url, ruleObject.host || "");
 }
 
+function __xmFindPaginationLink(html, targetPage, host, baseUrl) {
+  var page = parseInt(targetPage || 1, 10);
+  if (!(page > 1)) {
+    return __xmAbsoluteUrl(baseUrl || "", host || "");
+  }
+  var doc = __xmParseHtml(html || "");
+  var links = doc.querySelectorAll("a[href]");
+  var bestUrl = "";
+  var bestScore = -1;
+  var targetText = String(page);
+  var pageRegex = new RegExp("([?&](?:page|p)=|/page/|[-_/])" + targetText + "([&#/?_.-]|$)");
+  for (var i = 0; i < links.length; i += 1) {
+    var node = links[i];
+    var href = __xmAbsoluteUrl(node.getAttribute("href") || "", host || baseUrl || "");
+    if (!href) {
+      continue;
+    }
+    if (href === baseUrl) {
+      continue;
+    }
+    var text = __xmNormalizeText(node.textContent || node.innerText || "");
+    var lowerHref = href.toLowerCase();
+    var parentMarker = "";
+    var parent = node;
+    for (var depth = 0; parent && depth < 4; depth += 1) {
+      parentMarker += " " + String(parent.className || "") + " " + String(parent.id || "");
+      parent = parent.parentElement;
+    }
+    var inPager = /page|pager|pagination|module-page|stui-page|mac-page|page-link|nav-links/i.test(parentMarker);
+    var score = 0;
+    if (text === targetText) {
+      score += inPager ? 120 : 36;
+    } else if (text === ("第 " + targetText + " 页") || text === ("第" + targetText + "页")) {
+      score += 110;
+    } else if (text.indexOf(targetText) >= 0 && text.length <= 6) {
+      score += inPager ? 50 : 14;
+    }
+    if (pageRegex.test(lowerHref)) {
+      score += 90;
+    }
+    if (page === 2 && /^(下一页|next|next page)$/i.test(text)) {
+      score += 60;
+    }
+    if (inPager) {
+      score += 35;
+    }
+    if (host && href.indexOf(host) === 0) {
+      score += 8;
+    }
+    if (score > bestScore) {
+      bestScore = score;
+      bestUrl = href;
+    }
+  }
+  return bestScore >= 60 ? bestUrl : "";
+}
+
+function __xmAppendPageParam(url, targetPage) {
+  var page = parseInt(targetPage || 1, 10);
+  if (!(page > 1)) {
+    return String(url || "");
+  }
+  var nextUrl = String(url || "");
+  if (!nextUrl) {
+    return "";
+  }
+  if (/[?&](?:page|p)=\d+/i.test(nextUrl)) {
+    return nextUrl.replace(/([?&](?:page|p)=)\d+/i, "$1" + page);
+  }
+  if (nextUrl.indexOf("?") >= 0) {
+    return nextUrl + "&page=" + page;
+  }
+  return nextUrl + "?page=" + page;
+}
+
+function __xmResolvePaginationUrl(firstPageUrl, targetPage, host, headers) {
+  var page = parseInt(targetPage || 1, 10);
+  var currentUrl = __xmAbsoluteUrl(firstPageUrl || "", host || "");
+  if (!(page > 1) || !currentUrl) {
+    return currentUrl;
+  }
+  var opts = { headers: headers || {} };
+  for (var currentPage = 1; currentPage < page; currentPage += 1) {
+    var html = request(currentUrl, opts) || "";
+    var nextPage = currentPage + 1;
+    var nextUrl = __xmFindPaginationLink(html, nextPage, host || "", currentUrl);
+    if (!nextUrl) {
+      nextUrl = __xmAppendPageParam(currentUrl, nextPage);
+    }
+    nextUrl = __xmAbsoluteUrl(nextUrl, host || currentUrl || "");
+    if (!nextUrl || nextUrl === currentUrl) {
+      break;
+    }
+    currentUrl = nextUrl;
+  }
+  return currentUrl;
+}
+
 function __xmParseHtml(html) {
   return new DOMParser().parseFromString(html || "", "text/html");
 }

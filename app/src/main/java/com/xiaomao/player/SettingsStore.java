@@ -5,6 +5,7 @@ import android.content.SharedPreferences;
 
 public final class SettingsStore {
     private static final String PREFS = "xiaomao_settings";
+    private static final String PLAYER_MEMORY_PREFS = "xiaomao_player_memory";
     private static final String KEY_REMEMBER_SOURCE = "remember_source";
     private static final String KEY_DEFAULT_LIBRARY = "default_library";
     private static final String KEY_KEEP_LAST_SEARCH = "keep_last_search";
@@ -20,6 +21,10 @@ public final class SettingsStore {
 
     private static SharedPreferences prefs(Context context) {
         return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+    }
+
+    private static SharedPreferences playerMemoryPrefs(Context context) {
+        return context.getSharedPreferences(PLAYER_MEMORY_PREFS, Context.MODE_PRIVATE);
     }
 
     public static boolean rememberSource(Context context) {
@@ -77,5 +82,13 @@ public final class SettingsStore {
 
     public static void setNightModeEnabled(Context context, boolean enabled) {
         prefs(context).edit().putBoolean(KEY_NIGHT_MODE, enabled).apply();
+    }
+
+    public static int playerCompatMemoryCount(Context context) {
+        return playerMemoryPrefs(context).getAll().size();
+    }
+
+    public static void clearPlayerCompatMemory(Context context) {
+        playerMemoryPrefs(context).edit().clear().apply();
     }
 }

@@ -1,4 +1,4 @@
-package com.xiaomao.player;
+﻿package com.xiaomao.player;
 
 import android.content.Intent;
 import android.content.res.ColorStateList;
@@ -22,6 +22,7 @@ import java.util.ArrayList;
 
 public class DetailActivity extends AppCompatActivity {
     private TextView toolbarTitleView;
+    private ImageView backdropView;
     private ImageView posterView;
     private TextView titleView;
     private TextView metaView;
@@ -71,6 +72,7 @@ public class DetailActivity extends AppCompatActivity {
 
     private void bindViews() {
         toolbarTitleView = findViewById(R.id.detail_toolbar_title);
+        backdropView = findViewById(R.id.detail_backdrop);
         posterView = findViewById(R.id.detail_poster);
         titleView = findViewById(R.id.detail_title);
         metaView = findViewById(R.id.detail_meta);
@@ -105,6 +107,7 @@ public class DetailActivity extends AppCompatActivity {
         metaView.setText(itemRemark.isEmpty() ? getString(R.string.detail_meta_loading) : itemRemark);
         contentView.setText(getString(R.string.detail_content_loading));
         PosterLoader.load(posterView, itemPoster, itemTitle);
+        PosterLoader.load(backdropView, itemPoster, itemTitle);
     }
 
     private void loadDetail() {
@@ -126,6 +129,7 @@ public class DetailActivity extends AppCompatActivity {
         metaView.setText(detail.remark.isEmpty() ? getString(R.string.detail_line_ready) : detail.remark);
         contentView.setText(detail.content.isEmpty() ? getString(R.string.detail_no_content) : detail.content);
         PosterLoader.load(posterView, detail.poster, detail.title);
+        PosterLoader.load(backdropView, detail.poster, detail.title);
         renderEpisodeGroups(detail.playGroups);
         playFirstButton.setEnabled(findFirstPlayable(detail) != null);
     }

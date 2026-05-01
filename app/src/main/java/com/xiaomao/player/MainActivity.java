@@ -11,6 +11,7 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.inputmethod.EditorInfo;
 import android.widget.HorizontalScrollView;
+import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -75,6 +76,12 @@ public class MainActivity extends AppCompatActivity {
     private RecyclerView rankRecyclerView;
     private View mineScrollView;
     private BottomNavigationView bottomNavigationView;
+    private View heroContainer;
+    private ImageView featuredBackdropView;
+    private TextView featuredSourceView;
+    private TextView featuredTitleView;
+    private TextView featuredRemarkView;
+    private MaterialButton featuredActionButton;
 
     private final ArrayList<SourceStore.SourceItem> sources = new ArrayList<>();
     private final ArrayList<NativeDrpyEngine.Category> categories = new ArrayList<>();
@@ -161,6 +168,12 @@ public class MainActivity extends AppCompatActivity {
         rankRecyclerView = findViewById(R.id.rank_recycler);
         mineScrollView = findViewById(R.id.mine_scroll);
         bottomNavigationView = findViewById(R.id.bottom_nav);
+        heroContainer = findViewById(R.id.hero_container);
+        featuredBackdropView = findViewById(R.id.featured_backdrop);
+        featuredSourceView = findViewById(R.id.featured_source_text);
+        featuredTitleView = findViewById(R.id.featured_title);
+        featuredRemarkView = findViewById(R.id.featured_remark);
+        featuredActionButton = findViewById(R.id.featured_action_button);
     }
 
     private void setupRecycler() {
@@ -185,6 +198,12 @@ public class MainActivity extends AppCompatActivity {
         mineImportButton.setOnClickListener(v -> openNativePage(ImportSourceActivity.class));
         mineSourceManageButton.setOnClickListener(v -> openNativePage(SourceManagementActivity.class));
         mineKernelSwitchButton.setOnClickListener(v -> openNativePage(SettingsActivity.class));
+        featuredActionButton.setOnClickListener(v -> {
+            NativeDrpyEngine.MediaItem item = resolveFeaturedItem();
+            if (item != null) {
+                openDetail(item);
+            }
+        });
         swipeRefreshLayout.setOnRefreshListener(() -> reloadCurrentPage(true));
         searchInput.setOnEditorActionListener((v, actionId, event) -> {
             boolean enterPressed = event != null
@@ -319,6 +338,7 @@ public class MainActivity extends AppCompatActivity {
         categories.clear();
         adapter.submitList(new ArrayList<>());
         rankAdapter.submitList(new ArrayList<>());
+        syncFeaturedContent();
         if (!SettingsStore.keepLastSearch(this)) {
             searchInput.setText("");
         } else {
@@ -375,6 +395,7 @@ public class MainActivity extends AppCompatActivity {
             setSectionTitle(getString(R.string.main_section_home));
             setStatus(getString(R.string.main_msg_home_cached));
             showLoading(false, "");
+            syncFeaturedContent();
         }
     }
 
@@ -401,6 +422,7 @@ public class MainActivity extends AppCompatActivity {
             setSectionTitle(activeCategory.name);
             setStatus(getString(R.string.main_msg_library_cached));
             showLoading(false, "");
+            syncFeaturedContent();
         }
     }
 
@@ -416,6 +438,7 @@ public class MainActivity extends AppCompatActivity {
             setSectionTitle(getString(R.string.main_msg_rank_title));
             setStatus(getString(R.string.main_msg_rank_cached));
             showLoading(false, "");
+            syncFeaturedContent();
         }
     }
 
@@ -427,6 +450,7 @@ public class MainActivity extends AppCompatActivity {
         setStatus(getString(R.string.main_msg_mine_status));
         updateMinePanel();
         showLoading(false, "");
+        syncFeaturedContent();
     }
 
     private void loadHomePage(int page) {
@@ -463,6 +487,7 @@ public class MainActivity extends AppCompatActivity {
             showLoading(false, items == null || items.isEmpty() ? getString(R.string.main_msg_home_empty) : "");
             setStatus(getString(R.string.main_msg_home_status, currentPage));
             updatePager();
+            syncFeaturedContent();
             mediaRecyclerView.scrollToPosition(0);
         });
     }
@@ -502,6 +527,7 @@ public class MainActivity extends AppCompatActivity {
             showLoading(false, items == null || items.isEmpty() ? getString(R.string.main_msg_category_empty) : "");
             setStatus(getString(R.string.main_msg_category_status, category.name, currentPage));
             updatePager();
+            syncFeaturedContent();
             mediaRecyclerView.scrollToPosition(0);
         });
     }
@@ -539,6 +565,7 @@ public class MainActivity extends AppCompatActivity {
             showLoading(false, items == null || items.isEmpty() ? getString(R.string.main_msg_rank_empty) : "");
             setStatus(getString(R.string.main_msg_rank_status, currentPage));
             updatePager();
+            syncFeaturedContent();
             rankRecyclerView.scrollToPosition(0);
         });
     }
@@ -585,6 +612,7 @@ public class MainActivity extends AppCompatActivity {
             showLoading(false, items == null || items.isEmpty() ? getString(R.string.main_msg_search_empty) : "");
             setStatus(getString(R.string.main_msg_search_status, currentPage));
             updatePager();
+            syncFeaturedContent();
             mediaRecyclerView.scrollToPosition(0);
         });
     }
@@ -681,6 +709,7 @@ public class MainActivity extends AppCompatActivity {
         swipeRefreshLayout.setVisibility(showMedia ? View.VISIBLE : View.GONE);
         rankRecyclerView.setVisibility(showRank ? View.VISIBLE : View.GONE);
         mineScrollView.setVisibility(showMine ? View.VISIBLE : View.GONE);
+        heroContainer.setVisibility(showMine ? View.GONE : View.VISIBLE);
         pageControlsView.setVisibility(showMine ? View.GONE : View.VISIBLE);
         pageTextView.setVisibility(showMine ? View.GONE : View.VISIBLE);
 
@@ -691,6 +720,7 @@ public class MainActivity extends AppCompatActivity {
         updateMinePanel();
         updateKernelPanel();
         syncKernelPanelLabels();
+        syncFeaturedContent();
     }
 
     private void syncBottomSelection(int itemId) {
@@ -755,6 +785,7 @@ public class MainActivity extends AppCompatActivity {
             emptyContainer.setVisibility(View.GONE);
             loadingIndicator.setVisibility(View.GONE);
             updatePager();
+            syncFeaturedContent();
             return;
         }
         if (loading) {
@@ -773,6 +804,7 @@ public class MainActivity extends AppCompatActivity {
             }
         }
         updatePager();
+        syncFeaturedContent();
     }
 
     private int currentContentCount() {
@@ -792,6 +824,55 @@ public class MainActivity extends AppCompatActivity {
         prevButton.setEnabled(enabled && currentPage > 1);
         nextButton.setEnabled(enabled);
         homeButton.setEnabled(enabled);
+    }
+
+    private void syncFeaturedContent() {
+        if (featuredBackdropView == null || featuredSourceView == null || featuredTitleView == null || featuredRemarkView == null || featuredActionButton == null) {
+            return;
+        }
+        if (currentTab == MainTab.MINE) {
+            return;
+        }
+        NativeDrpyEngine.MediaItem item = resolveFeaturedItem();
+        String sectionText = sectionTitleView == null || sectionTitleView.getText() == null
+                ? getString(R.string.app_name)
+                : sectionTitleView.getText().toString();
+        String statusText = statusTextView == null || statusTextView.getText() == null
+                ? ""
+                : statusTextView.getText().toString();
+        String sourceText = currentSource == null || TextUtils.isEmpty(currentSource.title)
+                ? getString(R.string.app_name)
+                : currentSource.title;
+
+        String title = sectionText;
+        String remark = statusText;
+        String poster = "";
+        if (item != null) {
+            if (!TextUtils.isEmpty(item.title)) {
+                title = item.title;
+            }
+            if (!TextUtils.isEmpty(item.remark)) {
+                remark = item.remark;
+            }
+            poster = item.poster;
+        }
+
+        featuredSourceView.setText(sourceText);
+        featuredTitleView.setText(title);
+        featuredRemarkView.setText(remark);
+        featuredRemarkView.setVisibility(TextUtils.isEmpty(remark) ? View.GONE : View.VISIBLE);
+        featuredActionButton.setEnabled(item != null);
+        featuredActionButton.setAlpha(item != null ? 1f : 0.72f);
+        PosterLoader.load(featuredBackdropView, poster, title);
+    }
+
+    private NativeDrpyEngine.MediaItem resolveFeaturedItem() {
+        if (currentTab == MainTab.RANK) {
+            ArrayList<NativeDrpyEngine.MediaItem> items = rankAdapter.getItems();
+            return items.isEmpty() ? null : items.get(0);
+        }
+        ArrayList<NativeDrpyEngine.MediaItem> items = new ArrayList<>(adapter.getItems());
+        return items.isEmpty() ? null : items.get(0);
     }
 
     private void toast(String message) {

@@ -248,17 +248,19 @@ public class NativeDrpyEngine {
                 + "MY_PAGE=page;"
                 + "__xmRunPreprocess();"
                 + "var cfg=__xmGetRuleValue(rule,__xmRuleKeys.recommend);"
+                + "var page1=__xmBuildRecommendUrl(rule,1);"
+                + "var target=__xmBuildRecommendUrl(rule,page);"
+                + "if(page>1&&target===page1){target=__xmResolvePaginationUrl(page1,page,rule.host||HOST,(rule.headers||{}));}"
                 + "if(!cfg){Android.setResult(JSON.stringify({items:[]}));}"
                 + "else if(typeof cfg==='string' && cfg.indexOf('js:')===0){"
-                + "input=__xmBuildRecommendUrl(rule,page);"
+                + "input=target;"
                 + "document.html=request(input,{headers:(rule.headers||{})});"
                 + "var code=String(cfg).substring(3);"
                 + "var VODS=[];var d=[];var result=[];"
                 + "eval(code);"
                 + "Android.setResult(JSON.stringify({items:__xmNormalizeItems(__xmPickListResult(VODS,d,result,input), rule.host||HOST)}));"
                 + "}else{"
-                + "var url=__xmBuildRecommendUrl(rule,page);"
-                + "var html=request(url,{headers:(rule.headers||{})});"
+                + "var html=request(target,{headers:(rule.headers||{})});"
                 + "Android.setResult(JSON.stringify({items:__xmParseListBySelector(cfg, html, rule.host||HOST)}));"
                 + "}";
         runJsonRule("", body, (json, err) -> {
@@ -292,7 +294,9 @@ public class NativeDrpyEngine {
                 + "MY_PAGE=page;"
                 + "__xmRunPreprocess();"
                 + "var cfg=__xmGetRuleValue(rule,__xmRuleKeys.first);"
+                + "var page1=__xmBuildCategoryUrl(rule," + quote(safeCategory) + ",1);"
                 + "var target=__xmBuildCategoryUrl(rule," + quote(safeCategory) + ",page);"
+                + "if(page>1&&target===page1){target=__xmResolvePaginationUrl(page1,page,rule.host||HOST,(rule.headers||{}));}"
                 + "if(!cfg){Android.setResult(JSON.stringify({items:[]}));}"
                 + "else if(typeof cfg==='string' && cfg.indexOf('js:')===0){"
                 + "input=target;"
@@ -336,7 +340,9 @@ public class NativeDrpyEngine {
                 + "MY_PAGE=page;"
                 + "__xmRunPreprocess();"
                 + "var cfg=__xmGetRuleValue(rule,__xmRuleKeys.search);"
+                + "var page1=__xmBuildSearchUrl(rule," + quote(safeKeyword) + ",1);"
                 + "var target=__xmBuildSearchUrl(rule," + quote(safeKeyword) + ",page);"
+                + "if(page>1&&target===page1){target=__xmResolvePaginationUrl(page1,page,rule.host||HOST,(rule.headers||{}));}"
                 + "if(!cfg){Android.setResult(JSON.stringify({items:[]}));}"
                 + "else if(typeof cfg==='string' && cfg.indexOf('js:')===0){"
                 + "input=target;"
@@ -451,7 +457,7 @@ public class NativeDrpyEngine {
             }
             try {
                 JSONObject object = new JSONObject(json);
-                LazyResult result = parseLazyResult(object, fallbackInput);
+                LazyResult result = normalizeLazyResult(parseLazyResult(object, fallbackInput), fallbackInput);
                 String ruleError = object.optString("error", "");
                 if (shouldUseChiguaLazyFallback(result, ruleError, fallbackInput)) {
                     runBackground(() -> resolveChiguaLazy(fallbackInput), new LazyResult(fallbackInput), callback);
@@ -470,7 +476,7 @@ public class NativeDrpyEngine {
 
     private boolean isChiguaSource() {
         String marker = (source == null ? "" : source.title + " " + source.host + " " + source.raw).toLowerCase();
-        return marker.contains("??")
+        return marker.contains("吃瓜")
                 || marker.contains("chigua")
                 || marker.contains("51cg")
                 || marker.contains("nnfndyhn.cc")
@@ -479,7 +485,7 @@ public class NativeDrpyEngine {
 
     private boolean is4kvmSource() {
         String marker = (source == null ? "" : source.title + " " + source.host + " " + source.raw).toLowerCase();
-        return marker.contains("4kvm.me") || marker.contains("4k??");
+        return marker.contains("4kvm.me") || marker.contains("4k影视");
     }
     private boolean shouldUseChiguaListFallback(ArrayList<MediaItem> items, String error) {
         return isChiguaSource() && (!TextUtils.isEmpty(error) || items == null || items.isEmpty());
@@ -692,7 +698,7 @@ public class NativeDrpyEngine {
             title = fallbackTitle;
         }
         if (TextUtils.isEmpty(title)) {
-            title = "??";
+            title = "详情";
         }
         String desc = parseMetaDescription(html);
         String image = firstMatch(html, "data-xkrkllgl=['\"]([^'\"]+)['\"]");
@@ -709,17 +715,17 @@ public class NativeDrpyEngine {
             String block = blocks[i];
             String name = stripHtml(firstMatch(block, "data-video_title=['\"]([^'\"]+)['\"]"));
             if (TextUtils.isEmpty(name)) {
-                name = "??" + i;
+                name = "播放" + i;
             }
             if (block.contains("data-config=")) {
                 episodes.add(new EpisodeItem(name, detailUrl + "@@" + (i - 1)));
             }
         }
         if (episodes.isEmpty()) {
-            episodes.add(new EpisodeItem("????", detailUrl));
+            episodes.add(new EpisodeItem("嗅探播放", detailUrl));
         }
         ArrayList<EpisodeGroup> groups = new ArrayList<>();
-        groups.add(new EpisodeGroup("????", episodes));
+        groups.add(new EpisodeGroup("道长在线", episodes));
         return new MediaDetail(detailUrl, title, image, desc, desc, groups);
     }
 
@@ -793,7 +799,7 @@ public class NativeDrpyEngine {
             if (TextUtils.isEmpty(url) || seen.containsKey(url)) {
                 continue;
             }
-            String title = stripHtml(firstMatch(segment, "<h2[^>]*>([\\s\\S]*?)</h2>")).replace("?? HOT", "").trim();
+            String title = stripHtml(firstMatch(segment, "<h2[^>]*>([\\s\\S]*?)</h2>")).replace("热搜 HOT", "").trim();
             String desc = stripHtml(firstMatch(segment, "post-card-info[\\s\\S]*?<div[^>]*>([\\s\\S]*?)</div>"));
             String image = firstMatch(segment, "loadBannerDirect\\s*\\(\\s*(['\"])(.*?)\\1\\s*,");
             if (TextUtils.isEmpty(image)) {
@@ -888,7 +894,7 @@ public class NativeDrpyEngine {
     private String extractChiguaImageProxy() {
         String raw = resolveRuleRaw();
         String proxy = firstMatch(raw, "IMG_PROXY\\s*=\\s*['\"]([^'\"]+)['\"]");
-        if (TextUtils.isEmpty(proxy) || proxy.contains("??-worker??")) {
+        if (TextUtils.isEmpty(proxy) || proxy.contains("你的-worker域名")) {
             return DEFAULT_CHIGUA_IMAGE_PROXY;
         }
         proxy = proxy.trim();
@@ -1076,6 +1082,41 @@ public class NativeDrpyEngine {
         return result;
     }
 
+    private LazyResult normalizeLazyResult(LazyResult result, String fallbackInput) {
+        LazyResult out = result == null ? new LazyResult(fallbackInput) : result;
+        if (!TextUtils.isEmpty(out.url)) {
+            out.url = abs(out.url.trim());
+        }
+        String referer = firstHeader(out.headers, "Referer");
+        String fallbackUrl = fallbackInput == null ? "" : fallbackInput.trim();
+        int split = fallbackUrl.indexOf("@@");
+        if (split > 0) {
+            fallbackUrl = fallbackUrl.substring(0, split);
+        }
+        if (!fallbackUrl.isEmpty()) {
+            fallbackUrl = abs(fallbackUrl);
+        } else {
+            fallbackUrl = resolveSourceHost();
+        }
+        if (referer.isEmpty() && !fallbackUrl.isEmpty()) {
+            out.headers.put("Referer", fallbackUrl);
+            referer = fallbackUrl;
+        }
+        if (firstHeader(out.headers, "Origin").isEmpty() && !referer.isEmpty()) {
+            String origin = originOf(referer);
+            if (!origin.isEmpty()) {
+                out.headers.put("Origin", origin);
+            }
+        }
+        if (firstHeader(out.headers, "User-Agent").isEmpty()) {
+            out.headers.put("User-Agent", PC_USER_AGENT);
+        }
+        if (out.parse == 0 && out.jx == 0 && !looksLikeMediaUrl(out.url)) {
+            out.parse = 1;
+        }
+        return out;
+    }
+
     private ArrayList<Category> parseCategories(String json) {
         ArrayList<Category> list = new ArrayList<>();
         try {
@@ -1151,12 +1192,12 @@ public class NativeDrpyEngine {
                                 continue;
                             }
                             items.add(new EpisodeItem(
-                                    entry.optString("name", "?? " + (j + 1)),
+                                    entry.optString("name", "播放 " + (j + 1)),
                                     entry.optString("url", "")
                             ));
                         }
                     }
-                    groups.add(new EpisodeGroup(group.optString("name", "?? " + (i + 1)), items));
+                    groups.add(new EpisodeGroup(group.optString("name", "线路 " + (i + 1)), items));
                 }
             }
             return new MediaDetail(
@@ -1207,7 +1248,7 @@ public class NativeDrpyEngine {
                 + "function __xmOrigin(u){try{var parsed=new URL(String(u||''), String(HOST||''));return parsed.protocol+'//'+parsed.host;}catch(e){return '';}}"
                 + "function __xmSyncReferer(headers,oldOrigin,newOrigin){if(!headers||typeof headers!=='object'||!newOrigin)return;var key='';if(Object.prototype.hasOwnProperty.call(headers,'Referer'))key='Referer';else if(Object.prototype.hasOwnProperty.call(headers,'referer'))key='referer';var value=key?String(headers[key]||''):'';if(!value||__xmOrigin(value)===oldOrigin){headers[key||'Referer']=String(newOrigin).replace(/\\/$/,'')+'/';}}"
                 + "function __xmSyncHost(meta,reqUrl){var finalOrigin=__xmOrigin(meta&&meta.finalUrl||'');if(!finalOrigin)return;var oldOrigin=__xmOrigin(rule&&rule.host||HOST)||__xmOrigin(HOST||'');HOST=finalOrigin;if(typeof rule==='object'&&rule){var reqOrigin=__xmOrigin(reqUrl||'');if(!rule.host||!oldOrigin||__xmOrigin(rule.host)===oldOrigin||(reqOrigin&&reqOrigin===oldOrigin))rule.host=finalOrigin;__xmSyncReferer(rule.headers,oldOrigin,finalOrigin);__xmSyncReferer(rule.play_headers,oldOrigin,finalOrigin);}}"
-                + "function __xmPatchKnownRule(){if(!rule||typeof rule!=='object')return;var marker=String(rule.title||'')+' '+String(rule.host||'');if(marker.indexOf('band.nnfndyhn.cc')<0&&marker.indexOf('??')<0)return;var primary='https://band.wyrrqof.com';var hosts=\"['https://band.wyrrqof.com','https://band.nnfndyhn.cc','https://51cg1.com','https://chigua.com','https://51cgm25.com','https://cg51.com']\";rule.host=primary;rule.headers=rule.headers||{};rule.headers.Referer=primary+'/';rule.play_headers=rule.play_headers||{};for(var hk in rule.headers){if(Object.prototype.hasOwnProperty.call(rule.headers,hk))rule.play_headers[hk]=rule.headers[hk];}rule.play_headers.Referer=primary+'/';var keys=['??','??','??'];for(var i=0;i<keys.length;i++){var k=keys[i];if(typeof rule[k]!=='string')continue;rule[k]=String(rule[k]).replace(/var H='https:\\/\\/band\\.nnfndyhn\\.cc';/g,\"var H=rule.host||'\"+primary+\"';\").replace(/var HS=\\[[^\\]]*band\\.nnfndyhn\\.cc[^\\]]*\\]/g,'var HS='+hosts);}}"
+                + "function __xmPatchKnownRule(){if(!rule||typeof rule!=='object')return;var marker=String(rule.title||'')+' '+String(rule.host||'');if(marker.indexOf('band.nnfndyhn.cc')<0&&marker.indexOf('吃瓜')<0)return;var primary='https://band.wyrrqof.com';var hosts=\"['https://band.wyrrqof.com','https://band.nnfndyhn.cc','https://51cg1.com','https://chigua.com','https://51cgm25.com','https://cg51.com']\";rule.host=primary;rule.headers=rule.headers||{};rule.headers.Referer=primary+'/';rule.play_headers=rule.play_headers||{};for(var hk in rule.headers){if(Object.prototype.hasOwnProperty.call(rule.headers,hk))rule.play_headers[hk]=rule.headers[hk];}rule.play_headers.Referer=primary+'/';var keys=['推荐','一级','搜索'];for(var i=0;i<keys.length;i++){var k=keys[i];if(typeof rule[k]!=='string')continue;rule[k]=String(rule[k]).replace(/var H='https:\\/\\/band\\.nnfndyhn\\.cc';/g,\"var H=rule.host||'\"+primary+\"';\").replace(/var HS=\\[[^\\]]*band\\.nnfndyhn\\.cc[^\\]]*\\]/g,'var HS='+hosts);}}"
                 + "function __xmMeta(url,opt){var obj=__xmPrepareReqOpt(opt||{});var raw=Android.requestMeta(String(url||''),JSON.stringify(obj||{}));var meta={body:'',headers:{},contentType:'',finalUrl:String(url||''),code:0};try{meta=JSON.parse(raw||'{}')||meta;}catch(e){}meta.headers=__xmNormalizeHeaders(meta.headers);meta.body=String(meta.body||'');meta.content=meta.body;meta.url=meta.finalUrl||String(url||'');document.html=meta.body;__xmSyncHost(meta,url);return meta;}"
                 + "function __xmReturn(meta,opt){var cfg=opt&&typeof opt==='object'?opt:{};if(cfg.onlyHeaders)return meta.headers||{};if(cfg.withHeaders||cfg.withStatusCode)return meta;return meta.body||'';}"
                 + "function request(url,opt){var meta=__xmMeta(url,opt||{});return __xmReturn(meta,opt||{});}"
@@ -1472,6 +1513,26 @@ public class NativeDrpyEngine {
             return currentHost + value;
         }
         return currentHost + "/" + value;
+    }
+
+    private boolean looksLikeMediaUrl(String value) {
+        if (value == null || value.isEmpty()) {
+            return false;
+        }
+        String lower = value.toLowerCase();
+        return lower.contains(".m3u8")
+                || lower.contains(".mp4")
+                || lower.contains(".flv")
+                || lower.contains(".mkv")
+                || lower.contains(".mpd")
+                || lower.contains(".ts")
+                || lower.contains(".m2ts")
+                || lower.contains("/m3u8")
+                || lower.contains("mime=video")
+                || lower.contains("mime_type=video")
+                || lower.contains("application/vnd.apple.mpegurl")
+                || lower.contains("response-content-type=video")
+                || lower.contains("obj/tos");
     }
 
     private String readAssetText(String path) {

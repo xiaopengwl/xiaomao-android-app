@@ -105,6 +105,11 @@
     <string name="settings_default_library_desc">关闭时默认进入推荐页。</string>
     <string name="settings_keep_search">保留上次搜索关键词</string>
     <string name="settings_keep_search_desc">再次打开应用时，搜索框会保留最近一次输入。</string>
+    <string name="settings_player_memory_title">播放器兼容记忆</string>
+    <string name="settings_player_memory_desc">针对部分兼容性较差的站点，播放器会记住更稳定的兼容内核。遇到误判时可以在这里清空。</string>
+    <string name="settings_player_memory_value">当前记忆站点数：%1$d</string>
+    <string name="settings_player_memory_action">清空兼容记忆</string>
+    <string name="settings_player_memory_cleared">已清空播放器兼容记忆</string>
     <string name="settings_about_title">版本信息</string>
     <string name="settings_about_version">当前版本：%1$s</string>
     <string name="settings_about_core">播放内核：DKVideoPlayer</string>

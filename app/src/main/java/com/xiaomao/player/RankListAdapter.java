@@ -36,6 +36,10 @@ public class RankListAdapter extends RecyclerView.Adapter<RankListAdapter.RankVi
         return items.size();
     }
 
+    public ArrayList<NativeDrpyEngine.MediaItem> getItems() {
+        return new ArrayList<>(items);
+    }
+
     @NonNull
     @Override
     public RankViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {

@@ -5,7 +5,7 @@ import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.LinearGradient;
 import android.graphics.Paint;
-import android.graphics.Rect;
+import android.graphics.RectF;
 import android.graphics.Shader;
 import android.util.LruCache;
 import android.widget.ImageView;
@@ -88,32 +88,36 @@ public final class PosterLoader {
                 0,
                 width,
                 height,
-                0xFF14213D,
-                0xFF0A0F1F,
+                0xFF10151C,
+                0xFF1A2330,
                 Shader.TileMode.CLAMP
         ));
         canvas.drawRect(0, 0, width, height, background);
 
         Paint accent = new Paint(Paint.ANTI_ALIAS_FLAG);
-        accent.setColor(0x332BE4FF);
-        canvas.drawCircle(70, 82, 92, accent);
-        accent.setColor(0x2872FFC7);
-        canvas.drawCircle(308, 438, 124, accent);
+        accent.setColor(0x2FD2A24C);
+        canvas.drawRoundRect(new RectF(24, 26, 132, 58), 14f, 14f, accent);
+        accent.setColor(0x18FFFFFF);
+        canvas.drawRoundRect(new RectF(24, 368, width - 24, height - 24), 20f, 20f, accent);
 
         Paint text = new Paint(Paint.ANTI_ALIAS_FLAG);
-        text.setColor(0xFFDCE7F6);
-        text.setTextAlign(Paint.Align.CENTER);
-        text.setTextSize(34f);
+        text.setColor(0xFFF3F5F7);
+        text.setTextAlign(Paint.Align.LEFT);
+        text.setTextSize(16f);
         text.setFakeBoldText(true);
-        canvas.drawText("XIAOMAO", width / 2f, 240f, text);
+        canvas.drawText("XIAOMAO", 38f, 47f, text);
 
         String label = shorten(title);
+        text.setTextAlign(Paint.Align.CENTER);
+        text.setFakeBoldText(true);
+        text.setTextSize(28f);
+        text.setColor(0xFFF4F7FA);
+        canvas.drawText(label, width / 2f, 424f, text);
+
         text.setFakeBoldText(false);
-        text.setTextSize(22f);
-        text.setColor(0xFF97A9C0);
-        Rect bounds = new Rect();
-        text.getTextBounds(label, 0, label.length(), bounds);
-        canvas.drawText(label, width / 2f, 288f, text);
+        text.setTextSize(16f);
+        text.setColor(0xFF9AA8B8);
+        canvas.drawText("Poster", width / 2f, 454f, text);
         return bitmap;
     }
 
