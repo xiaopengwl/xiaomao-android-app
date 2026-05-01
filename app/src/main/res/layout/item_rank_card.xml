@@ -5,8 +5,9 @@
     android:layout_height="wrap_content"
     android:layout_marginBottom="12dp"
     app:cardBackgroundColor="@color/xm_surface"
-    app:cardCornerRadius="16dp"
-    app:strokeColor="@color/xm_stroke_soft"
+    app:cardCornerRadius="12dp"
+    app:cardElevation="2dp"
+    app:strokeColor="@color/xm_stroke"
     app:strokeWidth="1dp">
 
     <LinearLayout
@@ -14,26 +15,30 @@
         android:layout_height="wrap_content"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:padding="14dp">
+        android:padding="12dp">
 
-        <TextView
-            android:id="@+id/rank_number"
-            android:layout_width="38dp"
-            android:layout_height="38dp"
-            android:background="@drawable/xm_pill_badge"
-            android:gravity="center"
-            android:text="1"
-            android:textColor="@color/xm_badge_text"
-            android:textSize="15sp"
-            android:textStyle="bold" />
+        <FrameLayout
+            android:layout_width="128dp"
+            android:layout_height="82dp">
 
-        <ImageView
-            android:id="@+id/rank_poster"
-            android:layout_width="82dp"
-            android:layout_height="116dp"
-            android:layout_marginStart="12dp"
-            android:background="@color/xm_surface_soft"
-            android:scaleType="centerCrop" />
+            <ImageView
+                android:id="@+id/rank_poster"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="@color/xm_surface_soft"
+                android:scaleType="centerCrop" />
+
+            <TextView
+                android:id="@+id/rank_number"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:layout_gravity="top|start"
+                android:gravity="center"
+                android:text="1"
+                android:textColor="@android:color/white"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+        </FrameLayout>
 
         <LinearLayout
             android:layout_width="0dp"
@@ -46,7 +51,7 @@
                 android:id="@+id/rank_title"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:maxLines="2"
+                android:maxLines="1"
                 android:textColor="@color/xm_text_primary"
                 android:textSize="17sp"
                 android:textStyle="bold" />
@@ -60,19 +65,28 @@
                 android:textColor="@color/xm_text_secondary"
                 android:textSize="13sp" />
 
-            <TextView
-                android:id="@+id/rank_hint"
+            <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:background="@drawable/xm_pill_info"
-                android:paddingStart="10dp"
-                android:paddingTop="5dp"
-                android:paddingEnd="10dp"
-                android:paddingBottom="5dp"
-                android:text="@string/rank_hint"
-                android:textColor="@color/xm_info_text"
-                android:textSize="12sp" />
+                android:layout_marginTop="10dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="🔥"
+                    android:textSize="14sp" />
+
+                <TextView
+                    android:id="@+id/rank_heat"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="6dp"
+                    android:textColor="@color/xm_heat"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
         </LinearLayout>
     </LinearLayout>
 

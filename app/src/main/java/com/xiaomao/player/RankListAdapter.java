@@ -3,14 +3,17 @@ package com.xiaomao.player;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.graphics.drawable.GradientDrawable;
 import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.RecyclerView;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 public class RankListAdapter extends RecyclerView.Adapter<RankListAdapter.RankViewHolder> {
     public interface OnItemClickListener {
@@ -53,6 +56,8 @@ public class RankListAdapter extends RecyclerView.Adapter<RankListAdapter.RankVi
         holder.numberView.setText(String.valueOf(position + 1));
         holder.titleView.setText(item.title.isEmpty() ? "未命名影片" : item.title);
         holder.remarkView.setText(item.remark.isEmpty() ? "当前片源未返回简介，点击进入详情页查看选集。" : item.remark);
+        holder.heatView.setText(String.format(Locale.CHINA, "%d", Math.max(5231, 8450 - (position * 217))));
+        holder.numberView.setBackground(buildRankBadge(holder.numberView, position));
         PosterLoader.load(holder.posterView, item.poster, item.title);
         holder.itemView.setOnClickListener(v -> {
             if (listener != null) {
@@ -71,6 +76,7 @@ public class RankListAdapter extends RecyclerView.Adapter<RankListAdapter.RankVi
         final ImageView posterView;
         final TextView titleView;
         final TextView remarkView;
+        final TextView heatView;
 
         RankViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -78,6 +84,33 @@ public class RankListAdapter extends RecyclerView.Adapter<RankListAdapter.RankVi
             posterView = itemView.findViewById(R.id.rank_poster);
             titleView = itemView.findViewById(R.id.rank_title);
             remarkView = itemView.findViewById(R.id.rank_remark);
+            heatView = itemView.findViewById(R.id.rank_heat);
         }
+    }
+
+    private GradientDrawable buildRankBadge(TextView view, int position) {
+        int colorRes;
+        if (position == 0) {
+            colorRes = R.color.xm_rank_1;
+        } else if (position == 1) {
+            colorRes = R.color.xm_rank_2;
+        } else if (position == 2) {
+            colorRes = R.color.xm_rank_3;
+        } else {
+            colorRes = R.color.xm_rank_other;
+        }
+        GradientDrawable drawable = new GradientDrawable();
+        drawable.setColor(ContextCompat.getColor(view.getContext(), colorRes));
+        drawable.setCornerRadii(new float[]{
+                dp(view, 10), dp(view, 10),
+                dp(view, 0), dp(view, 0),
+                dp(view, 10), dp(view, 10),
+                dp(view, 0), dp(view, 0)
+        });
+        return drawable;
+    }
+
+    private float dp(TextView view, int value) {
+        return value * view.getResources().getDisplayMetrics().density;
     }
 }

@@ -88,14 +88,14 @@ public final class PosterLoader {
                 0,
                 width,
                 height,
-                0xFF10151C,
-                0xFF1A2330,
+                0xFF18211B,
+                0xFF28342D,
                 Shader.TileMode.CLAMP
         ));
         canvas.drawRect(0, 0, width, height, background);
 
         Paint accent = new Paint(Paint.ANTI_ALIAS_FLAG);
-        accent.setColor(0x2FD2A24C);
+        accent.setColor(0x3854CC78);
         canvas.drawRoundRect(new RectF(24, 26, 132, 58), 14f, 14f, accent);
         accent.setColor(0x18FFFFFF);
         canvas.drawRoundRect(new RectF(24, 368, width - 24, height - 24), 20f, 20f, accent);

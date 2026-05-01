@@ -6,7 +6,7 @@
     android:background="@color/xm_bg"
     android:orientation="vertical">
 
-    <ScrollView
+    <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:fillViewport="true">
@@ -14,11 +14,12 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical">
+            android:orientation="vertical"
+            android:paddingBottom="20dp">
 
             <FrameLayout
                 android:layout_width="match_parent"
-                android:layout_height="320dp">
+                android:layout_height="308dp">
 
                 <ImageView
                     android:id="@+id/detail_backdrop"
@@ -38,7 +39,7 @@
                     android:paddingStart="18dp"
                     android:paddingTop="18dp"
                     android:paddingEnd="18dp"
-                    android:paddingBottom="20dp">
+                    android:paddingBottom="18dp">
 
                     <LinearLayout
                         android:layout_width="match_parent"
@@ -66,7 +67,7 @@
                             android:maxLines="1"
                             android:text="@string/detail_toolbar_title"
                             android:textColor="@android:color/white"
-                            android:textSize="16sp"
+                            android:textSize="18sp"
                             android:textStyle="bold" />
                     </LinearLayout>
 
@@ -113,7 +114,7 @@
                                 android:layout_height="wrap_content"
                                 android:layout_marginTop="6dp"
                                 android:maxLines="2"
-                                android:textColor="#D8E0E8"
+                                android:textColor="#E2E9E4"
                                 android:textSize="13sp" />
 
                             <com.google.android.material.button.MaterialButton
@@ -125,7 +126,7 @@
                                 android:textAllCaps="false"
                                 android:textColor="@color/xm_accent_dark"
                                 app:backgroundTint="@color/xm_accent"
-                                app:cornerRadius="12dp"
+                                app:cornerRadius="10dp"
                                 app:icon="@android:drawable/ic_media_play"
                                 app:iconPadding="8dp"
                                 app:iconTint="@color/xm_accent_dark" />
@@ -138,14 +139,17 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="18dp">
+                android:paddingStart="18dp"
+                android:paddingTop="18dp"
+                android:paddingEnd="18dp">
 
                 <com.google.android.material.card.MaterialCardView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     app:cardBackgroundColor="@color/xm_surface"
-                    app:cardCornerRadius="16dp"
-                    app:strokeColor="@color/xm_stroke_soft"
+                    app:cardCornerRadius="14dp"
+                    app:cardElevation="1dp"
+                    app:strokeColor="@color/xm_stroke"
                     app:strokeWidth="1dp">
 
                     <TextView
@@ -163,8 +167,9 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
                     app:cardBackgroundColor="@color/xm_surface"
-                    app:cardCornerRadius="16dp"
-                    app:strokeColor="@color/xm_stroke_soft"
+                    app:cardCornerRadius="14dp"
+                    app:cardElevation="1dp"
+                    app:strokeColor="@color/xm_stroke"
                     app:strokeWidth="1dp">
 
                     <LinearLayout
@@ -186,23 +191,32 @@
                             android:id="@+id/detail_loading_container"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:gravity="center"
                             android:orientation="vertical"
-                            android:paddingTop="28dp"
-                            android:paddingBottom="12dp">
+                            android:paddingTop="18dp"
+                            android:paddingBottom="8dp">
 
-                            <ProgressBar
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content" />
+                            <View
+                                android:layout_width="140dp"
+                                android:layout_height="18dp"
+                                android:background="@drawable/xm_skeleton_block" />
+
+                            <View
+                                android:layout_width="match_parent"
+                                android:layout_height="42dp"
+                                android:layout_marginTop="12dp"
+                                android:background="@drawable/xm_skeleton_block" />
+
+                            <View
+                                android:layout_width="match_parent"
+                                android:layout_height="42dp"
+                                android:layout_marginTop="10dp"
+                                android:background="@drawable/xm_skeleton_block" />
 
                             <TextView
                                 android:id="@+id/detail_loading_text"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:layout_marginTop="10dp"
-                                android:text="@string/detail_loading"
-                                android:textColor="@color/xm_text_muted"
-                                android:textSize="14sp" />
+                                android:visibility="gone" />
                         </LinearLayout>
 
                         <LinearLayout
@@ -215,6 +229,6 @@
                 </com.google.android.material.card.MaterialCardView>
             </LinearLayout>
         </LinearLayout>
-    </ScrollView>
+    </androidx.core.widget.NestedScrollView>
 
 </LinearLayout>

@@ -10,8 +10,8 @@ import android.view.KeyEvent;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.inputmethod.EditorInfo;
-import android.widget.HorizontalScrollView;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -20,6 +20,7 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
+import androidx.core.widget.NestedScrollView;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -29,9 +30,11 @@ import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.chip.Chip;
 import com.google.android.material.chip.ChipGroup;
+import com.google.android.material.switchmaterial.SwitchMaterial;
 import com.google.android.material.textfield.TextInputEditText;
 
 import java.util.ArrayList;
+import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
     private enum BrowseMode {
@@ -48,51 +51,85 @@ public class MainActivity extends AppCompatActivity {
         MINE
     }
 
-    private TextView sectionTitleView;
-    private TextView statusTextView;
-    private TextView pageTextView;
+    private static final String[] RANK_FILTERS = new String[]{
+            "总榜", "剧集", "电影", "综艺", "动漫", "飙升", "院线"
+    };
+
+    private SwipeRefreshLayout swipeRefreshLayout;
+    private BottomNavigationView bottomNavigationView;
+    private View searchPanel;
+    private NestedScrollView homeScrollView;
+    private View libraryContainer;
+    private View rankContainer;
+    private NestedScrollView mineScrollView;
+    private View loadingSkeletonContainer;
+    private View emptyContainer;
+    private View pageControlsView;
+    private RecyclerView mediaRecyclerView;
+    private RecyclerView rankRecyclerView;
+    private RecyclerView librarySidebarRecyclerView;
+    private RecyclerView homeContinueRecyclerView;
+    private RecyclerView homeMovieRecyclerView;
+    private ChipGroup categoryGroup;
+    private ChipGroup rankFilterGroup;
+    private TextInputEditText searchInput;
     private TextView emptyTextView;
+    private TextView browseStatusView;
+    private TextView pageTextView;
+    private TextView headerTitleView;
+    private TextView headerSubtitleView;
+    private TextView featuredSourceView;
+    private TextView featuredTitleView;
+    private TextView featuredRemarkView;
+    private TextView librarySourceTextView;
     private TextView mineSourceNameView;
     private TextView mineSourceHostView;
-    private TextView mineFeatureTextView;
+    private TextView mineNicknameView;
+    private TextView mineSignatureView;
     private TextView mineKernelNameView;
     private TextView mineKernelTipView;
-    private View emptyContainer;
-    private View loadingIndicator;
-    private View pageControlsView;
-    private HorizontalScrollView categoryScrollView;
+    private TextInputEditText mineQqInput;
+    private ImageView mineAvatarView;
     private MaterialButton searchButton;
+    private MaterialButton featuredActionButton;
     private MaterialButton homeButton;
     private MaterialButton prevButton;
     private MaterialButton nextButton;
     private MaterialButton mineSettingsButton;
     private MaterialButton mineImportButton;
     private MaterialButton mineSourceManageButton;
-    private MaterialButton mineKernelSwitchButton;
-    private TextInputEditText searchInput;
-    private ChipGroup categoryGroup;
-    private SwipeRefreshLayout swipeRefreshLayout;
-    private RecyclerView mediaRecyclerView;
-    private RecyclerView rankRecyclerView;
-    private View mineScrollView;
-    private BottomNavigationView bottomNavigationView;
-    private View heroContainer;
-    private ImageView featuredBackdropView;
-    private TextView featuredSourceView;
-    private TextView featuredTitleView;
-    private TextView featuredRemarkView;
-    private MaterialButton featuredActionButton;
+    private MaterialButton mineQueryButton;
+    private MaterialButton mineClearProfileButton;
+    private SwitchMaterial mineThemeSwitch;
+    private SwitchMaterial mineAutoPlaySwitch;
+    private SwitchMaterial mineRememberSourceSwitch;
+    private SwitchMaterial mineKeepSearchSwitch;
+    private SwitchMaterial mineDefaultLibrarySwitch;
+    private View headerSearchAction;
+    private View headerMoreAction;
+    private View homeActionCategory;
+    private View homeActionFeatured;
+    private View homeActionShort;
+    private View homeActionSchedule;
+    private View homeActionLive;
 
     private final ArrayList<SourceStore.SourceItem> sources = new ArrayList<>();
     private final ArrayList<NativeDrpyEngine.Category> categories = new ArrayList<>();
-    private final MediaGridAdapter adapter = new MediaGridAdapter();
+    private final ArrayList<NativeDrpyEngine.MediaItem> homeItems = new ArrayList<>();
+    private final MediaGridAdapter gridAdapter = new MediaGridAdapter();
     private final RankListAdapter rankAdapter = new RankListAdapter();
+    private final MediaRailAdapter continueAdapter = new MediaRailAdapter();
+    private final MediaRailAdapter movieAdapter = new MediaRailAdapter();
+    private final CategorySidebarAdapter sidebarAdapter = new CategorySidebarAdapter();
 
     private final ActivityResultLauncher<Intent> pageLauncher =
             registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
                 if (result.getResultCode() == Activity.RESULT_OK) {
                     String selectedId = result.getData() == null ? "" : result.getData().getStringExtra("selected_source_id");
                     loadSources(selectedId);
+                } else {
+                    syncSourceIfNeeded();
+                    refreshMineSettings();
                 }
             });
 
@@ -104,8 +141,10 @@ public class MainActivity extends AppCompatActivity {
     private int currentPage = 1;
     private int sourceVersion = 0;
     private int contentVersion = 0;
+    private int selectedRankFilterIndex = 0;
     private boolean ignoreBottomSelection = false;
     private boolean sourceMigrationRunning = false;
+    private boolean suppressMineSwitchCallbacks = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -115,11 +154,24 @@ public class MainActivity extends AppCompatActivity {
         bindViews();
         setupRecycler();
         setupEvents();
+        bindQuickActions();
         if (SettingsStore.keepLastSearch(this)) {
             searchInput.setText(SettingsStore.lastSearch(this));
         }
+        renderRankFilters();
+        refreshMineSettings();
+        refreshMineProfile();
         applyTabState();
         loadSources();
+        scheduleRemoteSourceMigration();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        syncSourceIfNeeded();
+        refreshMineSettings();
+        refreshMineProfile();
         scheduleRemoteSourceMigration();
     }
 
@@ -132,58 +184,92 @@ public class MainActivity extends AppCompatActivity {
         super.onDestroy();
     }
 
-    @Override
-    protected void onResume() {
-        super.onResume();
-        syncSourceIfNeeded();
-        scheduleRemoteSourceMigration();
-    }
-
     private void bindViews() {
-        sectionTitleView = findViewById(R.id.section_title);
-        statusTextView = findViewById(R.id.status_text);
-        pageTextView = findViewById(R.id.page_text);
+        swipeRefreshLayout = findViewById(R.id.swipe_refresh);
+        bottomNavigationView = findViewById(R.id.bottom_nav);
+        searchPanel = findViewById(R.id.search_panel);
+        homeScrollView = findViewById(R.id.home_scroll);
+        libraryContainer = findViewById(R.id.library_container);
+        rankContainer = findViewById(R.id.rank_container);
+        mineScrollView = findViewById(R.id.mine_scroll);
+        loadingSkeletonContainer = findViewById(R.id.loading_skeleton_container);
+        emptyContainer = findViewById(R.id.empty_container);
+        pageControlsView = findViewById(R.id.page_controls);
+        mediaRecyclerView = findViewById(R.id.media_recycler);
+        rankRecyclerView = findViewById(R.id.rank_recycler);
+        librarySidebarRecyclerView = findViewById(R.id.library_sidebar_recycler);
+        homeContinueRecyclerView = findViewById(R.id.home_continue_recycler);
+        homeMovieRecyclerView = findViewById(R.id.home_movie_recycler);
+        categoryGroup = findViewById(R.id.category_group);
+        rankFilterGroup = findViewById(R.id.rank_filter_group);
+        searchInput = findViewById(R.id.search_input);
         emptyTextView = findViewById(R.id.empty_text);
+        browseStatusView = findViewById(R.id.browse_status_text);
+        pageTextView = findViewById(R.id.page_text);
+        headerTitleView = findViewById(R.id.header_title);
+        headerSubtitleView = findViewById(R.id.header_subtitle);
+        featuredSourceView = findViewById(R.id.featured_source_text);
+        featuredTitleView = findViewById(R.id.featured_title);
+        featuredRemarkView = findViewById(R.id.featured_remark);
+        librarySourceTextView = findViewById(R.id.library_source_text);
         mineSourceNameView = findViewById(R.id.mine_source_name);
         mineSourceHostView = findViewById(R.id.mine_source_host);
-        mineFeatureTextView = findViewById(R.id.mine_feature_text);
+        mineNicknameView = findViewById(R.id.mine_nickname);
+        mineSignatureView = findViewById(R.id.mine_signature);
         mineKernelNameView = findViewById(R.id.mine_kernel_name);
         mineKernelTipView = findViewById(R.id.mine_kernel_tip);
-        emptyContainer = findViewById(R.id.empty_container);
-        loadingIndicator = findViewById(R.id.loading_indicator);
-        pageControlsView = findViewById(R.id.page_controls);
-        categoryScrollView = findViewById(R.id.category_scroll);
+        mineQqInput = findViewById(R.id.mine_qq_input);
+        mineAvatarView = findViewById(R.id.mine_avatar);
         searchButton = findViewById(R.id.search_button);
+        featuredActionButton = findViewById(R.id.featured_action_button);
         homeButton = findViewById(R.id.home_button);
         prevButton = findViewById(R.id.prev_button);
         nextButton = findViewById(R.id.next_button);
         mineSettingsButton = findViewById(R.id.mine_settings_button);
         mineImportButton = findViewById(R.id.mine_import_button);
         mineSourceManageButton = findViewById(R.id.mine_source_manage_button);
-        mineKernelSwitchButton = findViewById(R.id.mine_kernel_switch_button);
-        searchInput = findViewById(R.id.search_input);
-        categoryGroup = findViewById(R.id.category_group);
-        swipeRefreshLayout = findViewById(R.id.swipe_refresh);
-        mediaRecyclerView = findViewById(R.id.media_recycler);
-        rankRecyclerView = findViewById(R.id.rank_recycler);
-        mineScrollView = findViewById(R.id.mine_scroll);
-        bottomNavigationView = findViewById(R.id.bottom_nav);
-        heroContainer = findViewById(R.id.hero_container);
-        featuredBackdropView = findViewById(R.id.featured_backdrop);
-        featuredSourceView = findViewById(R.id.featured_source_text);
-        featuredTitleView = findViewById(R.id.featured_title);
-        featuredRemarkView = findViewById(R.id.featured_remark);
-        featuredActionButton = findViewById(R.id.featured_action_button);
+        mineQueryButton = findViewById(R.id.mine_query_button);
+        mineClearProfileButton = findViewById(R.id.mine_clear_profile_button);
+        mineThemeSwitch = findViewById(R.id.mine_theme_switch);
+        mineAutoPlaySwitch = findViewById(R.id.mine_auto_play_switch);
+        mineRememberSourceSwitch = findViewById(R.id.mine_remember_source_switch);
+        mineKeepSearchSwitch = findViewById(R.id.mine_keep_search_switch);
+        mineDefaultLibrarySwitch = findViewById(R.id.mine_default_library_switch);
+        headerSearchAction = findViewById(R.id.header_search_action);
+        headerMoreAction = findViewById(R.id.header_more_action);
+        homeActionCategory = findViewById(R.id.home_action_category);
+        homeActionFeatured = findViewById(R.id.home_action_featured);
+        homeActionShort = findViewById(R.id.home_action_short);
+        homeActionSchedule = findViewById(R.id.home_action_schedule);
+        homeActionLive = findViewById(R.id.home_action_live);
     }
 
     private void setupRecycler() {
-        mediaRecyclerView.setLayoutManager(new GridLayoutManager(this, computeSpanCount()));
-        mediaRecyclerView.setAdapter(adapter);
-        adapter.setOnItemClickListener(this::openDetail);
+        mediaRecyclerView.setLayoutManager(new GridLayoutManager(this, computeGridSpanCount()));
+        mediaRecyclerView.setAdapter(gridAdapter);
+        gridAdapter.setOnItemClickListener(this::openDetail);
+
+        librarySidebarRecyclerView.setLayoutManager(new LinearLayoutManager(this));
+        librarySidebarRecyclerView.setAdapter(sidebarAdapter);
+        sidebarAdapter.setOnItemClickListener(category -> {
+            activeCategory = category;
+            browseMode = BrowseMode.CATEGORY;
+            currentTab = MainTab.LIBRARY;
+            renderCategories();
+            loadCategoryPage(category, 1);
+        });
 
         rankRecyclerView.setLayoutManager(new LinearLayoutManager(this));
         rankRecyclerView.setAdapter(rankAdapter);
         rankAdapter.setOnItemClickListener(this::openDetail);
+
+        homeContinueRecyclerView.setLayoutManager(new LinearLayoutManager(this, RecyclerView.HORIZONTAL, false));
+        homeContinueRecyclerView.setAdapter(continueAdapter);
+        continueAdapter.setOnItemClickListener(this::openDetail);
+
+        homeMovieRecyclerView.setLayoutManager(new LinearLayoutManager(this, RecyclerView.HORIZONTAL, false));
+        homeMovieRecyclerView.setAdapter(movieAdapter);
+        movieAdapter.setOnItemClickListener(this::openDetail);
 
         swipeRefreshLayout.setColorSchemeColors(ContextCompat.getColor(this, R.color.xm_accent));
         swipeRefreshLayout.setProgressBackgroundColorSchemeColor(ContextCompat.getColor(this, R.color.xm_surface));
@@ -191,19 +277,22 @@ public class MainActivity extends AppCompatActivity {
 
     private void setupEvents() {
         searchButton.setOnClickListener(v -> performSearch(1));
-        homeButton.setOnClickListener(v -> openHomeTab(true));
+        homeButton.setOnClickListener(v -> jumpToFirstPage());
         prevButton.setOnClickListener(v -> changePage(-1));
         nextButton.setOnClickListener(v -> changePage(1));
-        mineSettingsButton.setOnClickListener(v -> openNativePage(SettingsActivity.class));
-        mineImportButton.setOnClickListener(v -> openNativePage(ImportSourceActivity.class));
-        mineSourceManageButton.setOnClickListener(v -> openNativePage(SourceManagementActivity.class));
-        mineKernelSwitchButton.setOnClickListener(v -> openNativePage(SettingsActivity.class));
         featuredActionButton.setOnClickListener(v -> {
             NativeDrpyEngine.MediaItem item = resolveFeaturedItem();
             if (item != null) {
                 openDetail(item);
             }
         });
+        mineSettingsButton.setOnClickListener(v -> openNativePage(SettingsActivity.class));
+        mineImportButton.setOnClickListener(v -> openNativePage(ImportSourceActivity.class));
+        mineSourceManageButton.setOnClickListener(v -> openNativePage(SourceManagementActivity.class));
+        mineQueryButton.setOnClickListener(v -> queryQqProfile());
+        mineClearProfileButton.setOnClickListener(v -> clearQqProfile());
+        headerSearchAction.setOnClickListener(v -> focusSearchField());
+        headerMoreAction.setOnClickListener(v -> openNativePage(SettingsActivity.class));
         swipeRefreshLayout.setOnRefreshListener(() -> reloadCurrentPage(true));
         searchInput.setOnEditorActionListener((v, actionId, event) -> {
             boolean enterPressed = event != null
@@ -216,6 +305,50 @@ public class MainActivity extends AppCompatActivity {
             return false;
         });
         bottomNavigationView.setOnItemSelectedListener(this::onBottomNavigationSelected);
+
+        mineThemeSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            if (suppressMineSwitchCallbacks) {
+                return;
+            }
+            SettingsStore.setNightModeEnabled(this, isChecked);
+            ThemeHelper.apply(this);
+            recreate();
+        });
+        mineAutoPlaySwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            if (!suppressMineSwitchCallbacks) {
+                SettingsStore.setAutoPlayEnabled(this, isChecked);
+            }
+        });
+        mineRememberSourceSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            if (!suppressMineSwitchCallbacks) {
+                SettingsStore.setRememberSource(this, isChecked);
+            }
+        });
+        mineKeepSearchSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            if (suppressMineSwitchCallbacks) {
+                return;
+            }
+            SettingsStore.setKeepLastSearch(this, isChecked);
+            if (!isChecked) {
+                searchInput.setText("");
+            }
+        });
+        mineDefaultLibrarySwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            if (!suppressMineSwitchCallbacks) {
+                SettingsStore.setDefaultLibrary(this, isChecked);
+            }
+        });
+    }
+
+    private void bindQuickActions() {
+        homeActionCategory.setOnClickListener(v -> openLibraryTab(true));
+        homeActionFeatured.setOnClickListener(v -> openHomeTab(true));
+        homeActionShort.setOnClickListener(v -> {
+            searchInput.setText("短剧");
+            performSearch(1);
+        });
+        homeActionSchedule.setOnClickListener(v -> openRankTab(true));
+        homeActionLive.setOnClickListener(v -> openNativePage(SourceManagementActivity.class));
     }
 
     private boolean onBottomNavigationSelected(@NonNull MenuItem item) {
@@ -240,6 +373,13 @@ public class MainActivity extends AppCompatActivity {
             return true;
         }
         return false;
+    }
+
+    private void focusSearchField() {
+        if (currentTab == MainTab.MINE) {
+            openLibraryTab(false);
+        }
+        searchInput.requestFocus();
     }
 
     private void openNativePage(Class<?> cls) {
@@ -280,17 +420,11 @@ public class MainActivity extends AppCompatActivity {
         sources.addAll(latest);
         if (currentSource == null || !sameSource(currentSource, selected)) {
             switchSource(selected);
+            return;
         }
-    }
-
-    private boolean sameSource(SourceStore.SourceItem left, SourceStore.SourceItem right) {
-        if (left == null || right == null) {
-            return false;
-        }
-        return TextUtils.equals(left.id, right.id)
-                && TextUtils.equals(left.title, right.title)
-                && TextUtils.equals(left.host, right.host)
-                && TextUtils.equals(left.raw, right.raw);
+        currentSource = selected;
+        syncSourceLabels();
+        refreshMineProfile();
     }
 
     private void scheduleRemoteSourceMigration() {
@@ -307,18 +441,6 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    private SourceStore.SourceItem findSourceById(ArrayList<SourceStore.SourceItem> items, String sourceId) {
-        if (items == null || items.isEmpty() || TextUtils.isEmpty(sourceId)) {
-            return null;
-        }
-        for (SourceStore.SourceItem item : items) {
-            if (TextUtils.equals(item.id, sourceId)) {
-                return item;
-            }
-        }
-        return null;
-    }
-
     private void switchSource(SourceStore.SourceItem record) {
         if (record == null) {
             return;
@@ -331,21 +453,29 @@ public class MainActivity extends AppCompatActivity {
         engine = new NativeDrpyEngine(this, record.toNativeSource());
         sourceVersion += 1;
         contentVersion += 1;
+        currentPage = 1;
         browseMode = BrowseMode.HOME;
         currentTab = MainTab.HOME;
         activeCategory = null;
-        currentPage = 1;
+        selectedRankFilterIndex = 0;
         categories.clear();
-        adapter.submitList(new ArrayList<>());
+        homeItems.clear();
+        gridAdapter.setSourceLabel(record.title);
+        continueAdapter.setSourceLabel(record.title);
+        movieAdapter.setSourceLabel(record.title);
+        gridAdapter.submitList(new ArrayList<>());
+        continueAdapter.submitList(new ArrayList<>());
+        movieAdapter.submitList(new ArrayList<>());
         rankAdapter.submitList(new ArrayList<>());
-        syncFeaturedContent();
+        renderCategories();
+        renderRankFilters();
+        syncSourceLabels();
+        refreshMineProfile();
         if (!SettingsStore.keepLastSearch(this)) {
             searchInput.setText("");
         } else {
             searchInput.setText(SettingsStore.lastSearch(this));
         }
-        updateMinePanel();
-        renderCategories();
         applyTabState();
         loadCategories();
         if (SettingsStore.defaultLibrary(this)) {
@@ -370,12 +500,14 @@ public class MainActivity extends AppCompatActivity {
             if (items != null) {
                 categories.addAll(items);
             }
+            if (activeCategory == null && !categories.isEmpty()) {
+                activeCategory = categories.get(0);
+            }
             renderCategories();
             if (!TextUtils.isEmpty(err)) {
                 toast(getString(R.string.main_msg_load_categories_failed));
             }
-            if (currentTab == MainTab.LIBRARY && activeCategory == null && !categories.isEmpty()) {
-                activeCategory = categories.get(0);
+            if (currentTab == MainTab.LIBRARY && browseMode != BrowseMode.SEARCH && activeCategory != null && gridAdapter.getDataCount() == 0) {
                 loadCategoryPage(activeCategory, 1);
             }
         });
@@ -384,45 +516,47 @@ public class MainActivity extends AppCompatActivity {
     private void openHomeTab(boolean reload) {
         currentTab = MainTab.HOME;
         browseMode = BrowseMode.HOME;
-        activeCategory = null;
         currentPage = 1;
         applyTabState();
         syncBottomSelection(R.id.menu_home);
-        renderCategories();
-        if (reload || adapter.getDataCount() == 0) {
+        if (reload || homeItems.isEmpty()) {
             loadHomePage(1);
         } else {
-            setSectionTitle(getString(R.string.main_section_home));
-            setStatus(getString(R.string.main_msg_home_cached));
-            showLoading(false, "");
+            showLoading(false, homeItems.isEmpty() ? getString(R.string.main_msg_home_empty) : "");
+            setBrowseStatus(getString(R.string.main_msg_home_status, currentPage));
             syncFeaturedContent();
         }
     }
 
     private void openLibraryTab(boolean reload) {
         currentTab = MainTab.LIBRARY;
+        if (browseMode == BrowseMode.HOME || browseMode == BrowseMode.RANK) {
+            browseMode = BrowseMode.CATEGORY;
+        }
+        if (browseMode != BrowseMode.SEARCH && activeCategory == null && !categories.isEmpty()) {
+            activeCategory = categories.get(0);
+        }
+        currentPage = 1;
         applyTabState();
         syncBottomSelection(R.id.menu_library);
         renderCategories();
+        if (browseMode == BrowseMode.SEARCH) {
+            if (reload) {
+                performSearch(1);
+            } else {
+                showLoading(false, gridAdapter.getDataCount() == 0 ? getString(R.string.main_msg_search_empty) : "");
+            }
+            return;
+        }
         if (categories.isEmpty()) {
-            setSectionTitle(getString(R.string.main_msg_library_title));
-            setStatus(getString(R.string.main_msg_library_loading));
             showLoading(true, getString(R.string.main_msg_library_loading));
             loadCategories();
             return;
         }
-        if (activeCategory == null) {
-            activeCategory = categories.get(0);
-        }
-        browseMode = BrowseMode.CATEGORY;
-        currentPage = 1;
-        if (reload || adapter.getDataCount() == 0) {
+        if (reload || gridAdapter.getDataCount() == 0) {
             loadCategoryPage(activeCategory, 1);
         } else {
-            setSectionTitle(activeCategory.name);
-            setStatus(getString(R.string.main_msg_library_cached));
-            showLoading(false, "");
-            syncFeaturedContent();
+            showLoading(false, gridAdapter.getDataCount() == 0 ? getString(R.string.main_msg_category_empty) : "");
         }
     }
 
@@ -435,10 +569,7 @@ public class MainActivity extends AppCompatActivity {
         if (reload || rankAdapter.getDataCount() == 0) {
             loadRankPage(1);
         } else {
-            setSectionTitle(getString(R.string.main_msg_rank_title));
-            setStatus(getString(R.string.main_msg_rank_cached));
-            showLoading(false, "");
-            syncFeaturedContent();
+            showLoading(false, rankAdapter.getDataCount() == 0 ? getString(R.string.main_msg_rank_empty) : "");
         }
     }
 
@@ -446,11 +577,9 @@ public class MainActivity extends AppCompatActivity {
         currentTab = MainTab.MINE;
         applyTabState();
         syncBottomSelection(R.id.menu_mine);
-        setSectionTitle(getString(R.string.main_msg_mine_title));
-        setStatus(getString(R.string.main_msg_mine_status));
-        updateMinePanel();
+        refreshMineSettings();
+        refreshMineProfile();
         showLoading(false, "");
-        syncFeaturedContent();
     }
 
     private void loadHomePage(int page) {
@@ -462,11 +591,9 @@ public class MainActivity extends AppCompatActivity {
         final int sourceToken = sourceVersion;
         currentTab = MainTab.HOME;
         browseMode = BrowseMode.HOME;
-        activeCategory = null;
         currentPage = targetPage;
         applyTabState();
         syncBottomSelection(R.id.menu_home);
-        setSectionTitle(getString(R.string.main_section_home));
         showLoading(true, getString(R.string.main_msg_home_loading));
         engine.loadRecommend(targetPage, (items, err) -> {
             if (token != contentVersion || sourceToken != sourceVersion) {
@@ -478,22 +605,27 @@ public class MainActivity extends AppCompatActivity {
                 return;
             }
             if (targetPage > 1 && (items == null || items.isEmpty())) {
-                showLoading(false, adapter.getDataCount() == 0 ? getString(R.string.main_msg_home_last_page) : "");
+                showLoading(false, homeItems.isEmpty() ? getString(R.string.main_msg_home_last_page) : "");
                 toast(getString(R.string.main_msg_home_last_page_toast));
                 return;
             }
-            adapter.submitList(items);
+            homeItems.clear();
+            if (items != null) {
+                homeItems.addAll(items);
+            }
+            continueAdapter.submitList(sliceItems(homeItems, 0, 8));
+            movieAdapter.submitList(sliceItems(homeItems, homeItems.size() > 8 ? 8 : 0, 10));
             currentPage = targetPage;
-            showLoading(false, items == null || items.isEmpty() ? getString(R.string.main_msg_home_empty) : "");
-            setStatus(getString(R.string.main_msg_home_status, currentPage));
+            showLoading(false, homeItems.isEmpty() ? getString(R.string.main_msg_home_empty) : "");
+            setBrowseStatus(getString(R.string.main_msg_home_status, currentPage));
             updatePager();
             syncFeaturedContent();
-            mediaRecyclerView.scrollToPosition(0);
+            homeScrollView.scrollTo(0, 0);
         });
     }
 
-    private void loadCategoryPage(@NonNull NativeDrpyEngine.Category category, int page) {
-        if (engine == null) {
+    private void loadCategoryPage(NativeDrpyEngine.Category category, int page) {
+        if (engine == null || category == null) {
             return;
         }
         final int targetPage = Math.max(1, page);
@@ -506,7 +638,6 @@ public class MainActivity extends AppCompatActivity {
         applyTabState();
         syncBottomSelection(R.id.menu_library);
         renderCategories();
-        setSectionTitle(category.name);
         showLoading(true, getString(R.string.main_msg_category_loading, category.name));
         engine.loadCategoryItems(category.url, targetPage, (items, err) -> {
             if (token != contentVersion || sourceToken != sourceVersion) {
@@ -518,14 +649,13 @@ public class MainActivity extends AppCompatActivity {
                 return;
             }
             if (targetPage > 1 && (items == null || items.isEmpty())) {
-                showLoading(false, adapter.getDataCount() == 0 ? getString(R.string.main_msg_category_last_page) : "");
+                showLoading(false, gridAdapter.getDataCount() == 0 ? getString(R.string.main_msg_category_last_page) : "");
                 toast(getString(R.string.main_msg_category_last_page_toast));
                 return;
             }
-            adapter.submitList(items);
+            gridAdapter.submitList(items);
             currentPage = targetPage;
-            showLoading(false, items == null || items.isEmpty() ? getString(R.string.main_msg_category_empty) : "");
-            setStatus(getString(R.string.main_msg_category_status, category.name, currentPage));
+            showLoading(false, gridAdapter.getDataCount() == 0 ? getString(R.string.main_msg_category_empty) : "");
             updatePager();
             syncFeaturedContent();
             mediaRecyclerView.scrollToPosition(0);
@@ -544,7 +674,6 @@ public class MainActivity extends AppCompatActivity {
         currentPage = targetPage;
         applyTabState();
         syncBottomSelection(R.id.menu_rank);
-        setSectionTitle(getString(R.string.main_msg_rank_title));
         showLoading(true, getString(R.string.main_msg_rank_loading));
         engine.loadRecommend(targetPage, (items, err) -> {
             if (token != contentVersion || sourceToken != sourceVersion) {
@@ -562,8 +691,7 @@ public class MainActivity extends AppCompatActivity {
             }
             rankAdapter.submitList(items);
             currentPage = targetPage;
-            showLoading(false, items == null || items.isEmpty() ? getString(R.string.main_msg_rank_empty) : "");
-            setStatus(getString(R.string.main_msg_rank_status, currentPage));
+            showLoading(false, rankAdapter.getDataCount() == 0 ? getString(R.string.main_msg_rank_empty) : "");
             updatePager();
             syncFeaturedContent();
             rankRecyclerView.scrollToPosition(0);
@@ -574,7 +702,7 @@ public class MainActivity extends AppCompatActivity {
         if (engine == null) {
             return;
         }
-        String keyword = searchInput.getText() == null ? "" : searchInput.getText().toString().trim();
+        String keyword = textOf(searchInput);
         if (keyword.isEmpty()) {
             toast(getString(R.string.main_msg_search_empty_keyword));
             return;
@@ -591,7 +719,6 @@ public class MainActivity extends AppCompatActivity {
         applyTabState();
         syncBottomSelection(R.id.menu_library);
         renderCategories();
-        setSectionTitle(getString(R.string.main_msg_search_title, keyword));
         showLoading(true, getString(R.string.main_msg_search_loading, keyword));
         engine.search(keyword, targetPage, (items, err) -> {
             if (token != contentVersion || sourceToken != sourceVersion) {
@@ -603,14 +730,13 @@ public class MainActivity extends AppCompatActivity {
                 return;
             }
             if (targetPage > 1 && (items == null || items.isEmpty())) {
-                showLoading(false, adapter.getDataCount() == 0 ? getString(R.string.main_msg_search_last_page) : "");
+                showLoading(false, gridAdapter.getDataCount() == 0 ? getString(R.string.main_msg_search_last_page) : "");
                 toast(getString(R.string.main_msg_search_last_page_toast));
                 return;
             }
-            adapter.submitList(items);
+            gridAdapter.submitList(items);
             currentPage = targetPage;
-            showLoading(false, items == null || items.isEmpty() ? getString(R.string.main_msg_search_empty) : "");
-            setStatus(getString(R.string.main_msg_search_status, currentPage));
+            showLoading(false, gridAdapter.getDataCount() == 0 ? getString(R.string.main_msg_search_empty) : "");
             updatePager();
             syncFeaturedContent();
             mediaRecyclerView.scrollToPosition(0);
@@ -625,7 +751,7 @@ public class MainActivity extends AppCompatActivity {
             swipeRefreshLayout.setRefreshing(false);
             return;
         }
-        if (userInitiated && (currentTab == MainTab.HOME || currentTab == MainTab.LIBRARY)) {
+        if (userInitiated && (currentTab == MainTab.HOME || currentTab == MainTab.LIBRARY || currentTab == MainTab.RANK)) {
             swipeRefreshLayout.setRefreshing(true);
         }
         if (browseMode == BrowseMode.SEARCH) {
@@ -658,10 +784,23 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    private void jumpToFirstPage() {
+        if (browseMode == BrowseMode.SEARCH) {
+            performSearch(1);
+        } else if (browseMode == BrowseMode.CATEGORY && activeCategory != null) {
+            loadCategoryPage(activeCategory, 1);
+        } else if (browseMode == BrowseMode.RANK) {
+            loadRankPage(1);
+        } else {
+            loadHomePage(1);
+        }
+    }
+
     private void renderCategories() {
         categoryGroup.removeAllViews();
         for (NativeDrpyEngine.Category category : categories) {
-            Chip chip = buildChip(category.name, activeCategory != null && TextUtils.equals(activeCategory.url, category.url));
+            boolean checked = activeCategory != null && TextUtils.equals(activeCategory.url, category.url) && browseMode != BrowseMode.SEARCH;
+            Chip chip = buildChip(category.name, checked);
             chip.setOnClickListener(v -> {
                 activeCategory = category;
                 browseMode = BrowseMode.CATEGORY;
@@ -671,6 +810,23 @@ public class MainActivity extends AppCompatActivity {
                 loadCategoryPage(category, 1);
             });
             categoryGroup.addView(chip);
+        }
+        sidebarAdapter.submitList(categories, browseMode == BrowseMode.SEARCH || activeCategory == null ? "" : activeCategory.url);
+    }
+
+    private void renderRankFilters() {
+        rankFilterGroup.removeAllViews();
+        for (int i = 0; i < RANK_FILTERS.length; i++) {
+            final int index = i;
+            Chip chip = buildChip(RANK_FILTERS[i], selectedRankFilterIndex == i);
+            chip.setOnClickListener(v -> {
+                selectedRankFilterIndex = index;
+                renderRankFilters();
+                if (currentTab == MainTab.RANK && rankAdapter.getDataCount() == 0) {
+                    loadRankPage(1);
+                }
+            });
+            rankFilterGroup.addView(chip);
         }
     }
 
@@ -682,15 +838,15 @@ public class MainActivity extends AppCompatActivity {
         chip.setClickable(true);
         chip.setChipMinHeight(dp(38));
         chip.setEnsureMinTouchTargetSize(false);
-        chip.setChipCornerRadius(dp(12));
+        chip.setChipCornerRadius(dp(10));
         chip.setChipStartPadding(dp(12));
         chip.setChipEndPadding(dp(12));
         int checkedText = ContextCompat.getColor(this, R.color.xm_accent_dark);
         int defaultText = ContextCompat.getColor(this, R.color.xm_text_primary);
         int checkedBg = ContextCompat.getColor(this, R.color.xm_accent);
-        int defaultBg = ContextCompat.getColor(this, R.color.xm_panel_surface);
+        int defaultBg = ContextCompat.getColor(this, R.color.xm_surface);
         int checkedStroke = ContextCompat.getColor(this, R.color.xm_accent);
-        int defaultStroke = ContextCompat.getColor(this, R.color.xm_stroke_soft);
+        int defaultStroke = ContextCompat.getColor(this, R.color.xm_stroke);
         chip.setTextColor(new ColorStateList(
                 new int[][]{new int[]{android.R.attr.state_checked}, new int[]{}},
                 new int[]{checkedText, defaultText}
@@ -708,26 +864,57 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void applyTabState() {
-        boolean showMedia = currentTab == MainTab.HOME || currentTab == MainTab.LIBRARY;
+        boolean showHome = currentTab == MainTab.HOME;
+        boolean showLibrary = currentTab == MainTab.LIBRARY;
         boolean showRank = currentTab == MainTab.RANK;
         boolean showMine = currentTab == MainTab.MINE;
 
-        categoryScrollView.setVisibility(currentTab == MainTab.LIBRARY && !categories.isEmpty() ? View.VISIBLE : View.GONE);
-        swipeRefreshLayout.setVisibility(showMedia ? View.VISIBLE : View.GONE);
-        rankRecyclerView.setVisibility(showRank ? View.VISIBLE : View.GONE);
+        swipeRefreshLayout.setVisibility(showMine ? View.GONE : View.VISIBLE);
         mineScrollView.setVisibility(showMine ? View.VISIBLE : View.GONE);
-        heroContainer.setVisibility(showMine ? View.GONE : View.VISIBLE);
+        homeScrollView.setVisibility(showHome ? View.VISIBLE : View.GONE);
+        libraryContainer.setVisibility(showLibrary ? View.VISIBLE : View.GONE);
+        rankContainer.setVisibility(showRank ? View.VISIBLE : View.GONE);
         pageControlsView.setVisibility(showMine ? View.GONE : View.VISIBLE);
-        pageTextView.setVisibility(showMine ? View.GONE : View.VISIBLE);
+        searchPanel.setVisibility(showMine ? View.GONE : View.VISIBLE);
 
         if (showMine) {
+            loadingSkeletonContainer.setVisibility(View.GONE);
             emptyContainer.setVisibility(View.GONE);
         }
+        updateHeaderContent();
         updatePager();
-        updateMinePanel();
-        updateKernelPanel();
-        syncKernelPanelLabels();
         syncFeaturedContent();
+        syncSourceLabels();
+    }
+
+    private void updateHeaderContent() {
+        if (headerTitleView == null || headerSubtitleView == null) {
+            return;
+        }
+        if (currentTab == MainTab.MINE) {
+            headerTitleView.setText(getString(R.string.nav_mine));
+            headerSubtitleView.setText(getString(R.string.main_header_subtitle_mine));
+            return;
+        }
+        if (currentTab == MainTab.RANK) {
+            headerTitleView.setText(getString(R.string.nav_rank));
+            headerSubtitleView.setText(getString(R.string.main_header_subtitle_rank));
+            return;
+        }
+        if (currentTab == MainTab.LIBRARY) {
+            headerTitleView.setText(getString(R.string.nav_library));
+            if (browseMode == BrowseMode.SEARCH) {
+                String keyword = textOf(searchInput);
+                headerSubtitleView.setText(keyword.isEmpty()
+                        ? getString(R.string.main_header_subtitle_library)
+                        : getString(R.string.main_msg_search_title, keyword));
+            } else {
+                headerSubtitleView.setText(getString(R.string.main_header_subtitle_library));
+            }
+            return;
+        }
+        headerTitleView.setText(getString(R.string.app_name));
+        headerSubtitleView.setText(getString(R.string.main_header_subtitle));
     }
 
     private void syncBottomSelection(int itemId) {
@@ -736,32 +923,161 @@ public class MainActivity extends AppCompatActivity {
         ignoreBottomSelection = false;
     }
 
-    private void updateMinePanel() {
-        String title = currentSource == null
+    private void showLoading(boolean loading, String message) {
+        if (currentTab == MainTab.MINE) {
+            loadingSkeletonContainer.setVisibility(View.GONE);
+            emptyContainer.setVisibility(View.GONE);
+            return;
+        }
+        if (loading) {
+            loadingSkeletonContainer.setVisibility(View.VISIBLE);
+            emptyContainer.setVisibility(View.GONE);
+            updatePager();
+            return;
+        }
+        loadingSkeletonContainer.setVisibility(View.GONE);
+        int count = currentContentCount();
+        if (!TextUtils.isEmpty(message) && count == 0) {
+            emptyContainer.setVisibility(View.VISIBLE);
+            emptyTextView.setText(message);
+        } else if (count == 0) {
+            emptyContainer.setVisibility(View.VISIBLE);
+            emptyTextView.setText(getString(R.string.main_msg_no_content));
+        } else {
+            emptyContainer.setVisibility(View.GONE);
+        }
+        updatePager();
+    }
+
+    private int currentContentCount() {
+        if (currentTab == MainTab.RANK) {
+            return rankAdapter.getDataCount();
+        }
+        if (currentTab == MainTab.LIBRARY) {
+            return gridAdapter.getDataCount();
+        }
+        if (currentTab == MainTab.HOME) {
+            return homeItems.size();
+        }
+        return 1;
+    }
+
+    private void updatePager() {
+        pageTextView.setText(getString(R.string.main_page_label, currentPage));
+        boolean enabled = currentSource != null && currentTab != MainTab.MINE;
+        pageTextView.setAlpha(enabled ? 1f : 0.72f);
+        prevButton.setEnabled(enabled && currentPage > 1);
+        nextButton.setEnabled(enabled);
+        homeButton.setEnabled(enabled);
+    }
+
+    private void setBrowseStatus(String status) {
+        browseStatusView.setText(status == null ? "" : status);
+    }
+
+    private void syncSourceLabels() {
+        String sourceTitle = currentSource == null || currentSource.title == null || currentSource.title.trim().isEmpty()
+                ? getString(R.string.main_msg_source_title_loading)
+                : currentSource.title;
+        featuredSourceView.setText(sourceTitle);
+        librarySourceTextView.setText(sourceTitle);
+        gridAdapter.setSourceLabel(sourceTitle);
+        continueAdapter.setSourceLabel(sourceTitle);
+        movieAdapter.setSourceLabel(sourceTitle);
+    }
+
+    private void syncFeaturedContent() {
+        NativeDrpyEngine.MediaItem item = resolveFeaturedItem();
+        String title = item == null || item.title.isEmpty()
+                ? getString(R.string.main_section_home)
+                : item.title;
+        String remark = item == null
+                ? getString(R.string.main_status_preparing)
+                : (item.remark.isEmpty() ? getString(R.string.rank_hint) : item.remark);
+        featuredTitleView.setText(title);
+        featuredRemarkView.setText(remark);
+        featuredActionButton.setEnabled(item != null);
+        featuredActionButton.setAlpha(item != null ? 1f : 0.72f);
+        PosterLoader.load(findViewById(R.id.featured_backdrop), item == null ? "" : item.poster, title);
+    }
+
+    private NativeDrpyEngine.MediaItem resolveFeaturedItem() {
+        if (!homeItems.isEmpty()) {
+            return homeItems.get(0);
+        }
+        if (gridAdapter.getDataCount() > 0) {
+            List<NativeDrpyEngine.MediaItem> items = gridAdapter.getItems();
+            return items.isEmpty() ? null : items.get(0);
+        }
+        if (rankAdapter.getDataCount() > 0) {
+            ArrayList<NativeDrpyEngine.MediaItem> items = rankAdapter.getItems();
+            return items.isEmpty() ? null : items.get(0);
+        }
+        return null;
+    }
+
+    private void refreshMineSettings() {
+        suppressMineSwitchCallbacks = true;
+        mineThemeSwitch.setChecked(SettingsStore.nightModeEnabled(this));
+        mineAutoPlaySwitch.setChecked(SettingsStore.autoPlayEnabled(this));
+        mineRememberSourceSwitch.setChecked(SettingsStore.rememberSource(this));
+        mineKeepSearchSwitch.setChecked(SettingsStore.keepLastSearch(this));
+        mineDefaultLibrarySwitch.setChecked(SettingsStore.defaultLibrary(this));
+        suppressMineSwitchCallbacks = false;
+        mineKernelNameView.setText(getString(R.string.main_mine_kernel_name, BuildConfig.VERSION_NAME));
+        mineKernelTipView.setText(getString(R.string.main_mine_kernel_tip));
+    }
+
+    private void refreshMineProfile() {
+        String sourceTitle = currentSource == null
                 ? getString(R.string.main_msg_source_title_loading)
                 : getString(R.string.main_msg_source_title, currentSource.title);
-        String host = currentSource == null || currentSource.host.isEmpty()
+        String sourceHost = currentSource == null || currentSource.host.isEmpty()
                 ? getString(R.string.main_msg_source_host_unavailable)
                 : getString(R.string.main_msg_source_host, currentSource.host);
-        mineSourceNameView.setText(title);
-        mineSourceHostView.setText(host);
-        mineFeatureTextView.setText(getString(R.string.main_mine_source_desc));
+        mineSourceNameView.setText(sourceTitle);
+        mineSourceHostView.setText(sourceHost);
+
+        QqProfileStore.Profile profile = QqProfileStore.load(this);
+        if (profile.qq.isEmpty()) {
+            mineQqInput.setText("");
+        } else if (!TextUtils.equals(profile.qq, textOf(mineQqInput))) {
+            mineQqInput.setText(profile.qq);
+        }
+        mineNicknameView.setText(profile.nickname.isEmpty()
+                ? getString(R.string.mine_profile_default_name)
+                : profile.nickname);
+        mineSignatureView.setText(profile.signature.isEmpty()
+                ? getString(R.string.mine_profile_default_signature)
+                : profile.signature);
+        AvatarLoader.load(mineAvatarView, profile.avatarUrl);
     }
 
-    private void updateKernelPanel() {
-        mineKernelNameView.setText(getString(R.string.main_mine_kernel_name, BuildConfig.VERSION_NAME));
-        mineKernelTipView.setText(getString(R.string.main_mine_kernel_tip));
-        mineKernelSwitchButton.setText(getString(R.string.main_mine_kernel_switch));
-        mineKernelSwitchButton.setEnabled(true);
-        mineKernelSwitchButton.setAlpha(1f);
+    private void queryQqProfile() {
+        String qq = textOf(mineQqInput);
+        if (qq.isEmpty()) {
+            toast(getString(R.string.mine_profile_input_hint));
+            return;
+        }
+        mineQueryButton.setEnabled(false);
+        mineQueryButton.setText(getString(R.string.mine_profile_querying));
+        QqProfileService.fetch(qq, (profile, error) -> runOnUiThread(() -> {
+            mineQueryButton.setEnabled(true);
+            mineQueryButton.setText(getString(R.string.mine_profile_query));
+            if (!TextUtils.isEmpty(error) || profile == null) {
+                toast(TextUtils.isEmpty(error) ? getString(R.string.mine_profile_query_failed) : error);
+                return;
+            }
+            QqProfileStore.save(this, profile);
+            refreshMineProfile();
+            toast(getString(R.string.mine_profile_query_success));
+        }));
     }
 
-    private void syncKernelPanelLabels() {
-        mineKernelNameView.setText(getString(R.string.main_mine_kernel_name, BuildConfig.VERSION_NAME));
-        mineKernelTipView.setText(getString(R.string.main_mine_kernel_tip));
-        mineKernelSwitchButton.setText(getString(R.string.main_mine_kernel_switch));
-        mineKernelSwitchButton.setEnabled(true);
-        mineKernelSwitchButton.setAlpha(1f);
+    private void clearQqProfile() {
+        QqProfileStore.clear(this);
+        refreshMineProfile();
+        toast(getString(R.string.mine_profile_clear_success));
     }
 
     private void openDetail(NativeDrpyEngine.MediaItem item) {
@@ -779,120 +1095,60 @@ public class MainActivity extends AppCompatActivity {
         startActivity(intent);
     }
 
-    private void setSectionTitle(String title) {
-        sectionTitleView.setText(title);
-    }
-
-    private void setStatus(String status) {
-        statusTextView.setText(status);
-    }
-
-    private void showLoading(boolean loading, String message) {
-        if (currentTab == MainTab.MINE) {
-            emptyContainer.setVisibility(View.GONE);
-            loadingIndicator.setVisibility(View.GONE);
-            updatePager();
-            syncFeaturedContent();
-            return;
+    private boolean sameSource(SourceStore.SourceItem left, SourceStore.SourceItem right) {
+        if (left == null || right == null) {
+            return false;
         }
-        if (loading) {
-            emptyContainer.setVisibility(View.VISIBLE);
-            loadingIndicator.setVisibility(View.VISIBLE);
-            emptyTextView.setText(message);
-        } else if (!TextUtils.isEmpty(message)) {
-            emptyContainer.setVisibility(View.VISIBLE);
-            loadingIndicator.setVisibility(View.GONE);
-            emptyTextView.setText(message);
-        } else {
-            emptyContainer.setVisibility(currentContentCount() == 0 ? View.VISIBLE : View.GONE);
-            loadingIndicator.setVisibility(View.GONE);
-            if (currentContentCount() == 0) {
-                emptyTextView.setText(getString(R.string.main_msg_no_content));
+        return TextUtils.equals(left.id, right.id)
+                && TextUtils.equals(left.title, right.title)
+                && TextUtils.equals(left.host, right.host)
+                && TextUtils.equals(left.raw, right.raw);
+    }
+
+    private SourceStore.SourceItem findSourceById(ArrayList<SourceStore.SourceItem> items, String sourceId) {
+        if (items == null || items.isEmpty() || TextUtils.isEmpty(sourceId)) {
+            return null;
+        }
+        for (SourceStore.SourceItem item : items) {
+            if (TextUtils.equals(item.id, sourceId)) {
+                return item;
             }
         }
-        updatePager();
-        syncFeaturedContent();
+        return null;
     }
 
-    private int currentContentCount() {
-        if (currentTab == MainTab.RANK) {
-            return rankAdapter.getDataCount();
+    private ArrayList<NativeDrpyEngine.MediaItem> sliceItems(List<NativeDrpyEngine.MediaItem> items, int start, int count) {
+        ArrayList<NativeDrpyEngine.MediaItem> sliced = new ArrayList<>();
+        if (items == null || items.isEmpty()) {
+            return sliced;
         }
-        if (currentTab == MainTab.MINE) {
-            return 1;
+        int safeStart = Math.max(0, Math.min(start, items.size()));
+        int end = Math.min(items.size(), safeStart + Math.max(1, count));
+        for (int i = safeStart; i < end; i++) {
+            sliced.add(items.get(i));
         }
-        return adapter.getDataCount();
+        if (sliced.isEmpty() && safeStart > 0) {
+            return sliceItems(items, 0, count);
+        }
+        return sliced;
     }
 
-    private void updatePager() {
-        pageTextView.setText(getString(R.string.main_page_label, currentPage));
-        boolean enabled = currentSource != null && currentTab != MainTab.MINE;
-        pageTextView.setAlpha(enabled ? 1f : 0.72f);
-        prevButton.setEnabled(enabled && currentPage > 1);
-        nextButton.setEnabled(enabled);
-        homeButton.setEnabled(enabled);
+    private int computeGridSpanCount() {
+        DisplayMetrics metrics = getResources().getDisplayMetrics();
+        float widthDp = metrics.widthPixels / metrics.density;
+        return widthDp >= 900 ? 4 : (widthDp >= 600 ? 3 : 2);
     }
 
-    private void syncFeaturedContent() {
-        if (featuredBackdropView == null || featuredSourceView == null || featuredTitleView == null || featuredRemarkView == null || featuredActionButton == null) {
-            return;
-        }
-        if (currentTab == MainTab.MINE) {
-            return;
-        }
-        NativeDrpyEngine.MediaItem item = resolveFeaturedItem();
-        String sectionText = sectionTitleView == null || sectionTitleView.getText() == null
-                ? getString(R.string.app_name)
-                : sectionTitleView.getText().toString();
-        String statusText = statusTextView == null || statusTextView.getText() == null
-                ? ""
-                : statusTextView.getText().toString();
-        String sourceText = currentSource == null || TextUtils.isEmpty(currentSource.title)
-                ? getString(R.string.app_name)
-                : currentSource.title;
-
-        String title = sectionText;
-        String remark = statusText;
-        String poster = "";
-        if (item != null) {
-            if (!TextUtils.isEmpty(item.title)) {
-                title = item.title;
-            }
-            if (!TextUtils.isEmpty(item.remark)) {
-                remark = item.remark;
-            }
-            poster = item.poster;
-        }
-
-        featuredSourceView.setText(sourceText);
-        featuredTitleView.setText(title);
-        featuredRemarkView.setText(remark);
-        featuredRemarkView.setVisibility(TextUtils.isEmpty(remark) ? View.GONE : View.VISIBLE);
-        featuredActionButton.setEnabled(item != null);
-        featuredActionButton.setAlpha(item != null ? 1f : 0.72f);
-        PosterLoader.load(featuredBackdropView, poster, title);
+    private int dp(int value) {
+        return (int) (value * getResources().getDisplayMetrics().density + 0.5f);
     }
 
-    private NativeDrpyEngine.MediaItem resolveFeaturedItem() {
-        if (currentTab == MainTab.RANK) {
-            ArrayList<NativeDrpyEngine.MediaItem> items = rankAdapter.getItems();
-            return items.isEmpty() ? null : items.get(0);
-        }
-        ArrayList<NativeDrpyEngine.MediaItem> items = new ArrayList<>(adapter.getItems());
-        return items.isEmpty() ? null : items.get(0);
+    private String textOf(TextInputEditText editText) {
+        return editText == null || editText.getText() == null ? "" : editText.getText().toString().trim();
     }
 
     private void toast(String message) {
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
     }
 
-    private int computeSpanCount() {
-        DisplayMetrics metrics = getResources().getDisplayMetrics();
-        float widthDp = metrics.widthPixels / metrics.density;
-        return widthDp >= 840 ? 4 : (widthDp >= 600 ? 3 : 2);
-    }
-
-    private int dp(int value) {
-        return (int) (value * getResources().getDisplayMetrics().density + 0.5f);
-    }
 }

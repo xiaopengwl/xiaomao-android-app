@@ -9,11 +9,22 @@
     <string name="nav_mine">我的</string>
 
     <string name="main_header_subtitle">精选片库、榜单推荐与更稳定的播放体验</string>
+    <string name="main_header_subtitle_library">按分类与片源浏览，支持侧栏快速切换</string>
+    <string name="main_header_subtitle_rank">热门榜单与更新趋势，快速定位内容</string>
+    <string name="main_header_subtitle_mine">管理片源、模式与播放偏好，并展示 QQ 公开资料</string>
     <string name="main_search_hint">输入片名、演员、关键词</string>
     <string name="main_search_action">搜索</string>
     <string name="main_section_home">推荐</string>
     <string name="main_status_preparing">正在准备片源...</string>
     <string name="main_empty_placeholder">内容会显示在这里</string>
+    <string name="home_action_category">分类</string>
+    <string name="home_action_featured">精选</string>
+    <string name="home_action_short">短剧</string>
+    <string name="home_action_schedule">排期</string>
+    <string name="home_action_live">直播</string>
+    <string name="home_section_continue">猜你在追</string>
+    <string name="home_section_hot_movies">热播电影</string>
+    <string name="home_section_more">更多</string>
 
     <string name="main_mine_current">当前片源</string>
     <string name="main_mine_source_loading">片源：加载中</string>
@@ -93,6 +104,18 @@
     <string name="main_msg_kernel_fixed_dk">当前版本使用 DKVideoPlayer</string>
 
     <string name="main_msg_no_content">暂时没有内容</string>
+    <string name="mine_profile_hint">接入 QQ 公开头像、昵称和个性签名展示，仅做资料展示与本地缓存。</string>
+    <string name="mine_profile_default_name">获取昵称</string>
+    <string name="mine_profile_default_signature">输入 QQ 号码后查询公开资料，重启后会保留缓存。</string>
+    <string name="mine_profile_input_hint">输入 QQ 号码</string>
+    <string name="mine_profile_query">查询资料</string>
+    <string name="mine_profile_querying">查询中...</string>
+    <string name="mine_profile_clear">清空资料</string>
+    <string name="mine_profile_query_failed">QQ 资料获取失败</string>
+    <string name="mine_profile_query_success">QQ 资料已更新</string>
+    <string name="mine_profile_clear_success">已清空本地 QQ 资料</string>
+    <string name="mine_setting_title">软件设置</string>
+    <string name="mine_setting_mode_desc">一键切换白天与夜晚模式，重启应用后继续保持。</string>
 
     <string name="settings_title">设置</string>
     <string name="settings_done">完成</string>
