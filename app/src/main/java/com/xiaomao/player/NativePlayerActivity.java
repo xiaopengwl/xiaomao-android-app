@@ -76,7 +76,7 @@ import xyz.doikki.videoplayer.player.BaseVideoView;
 import xyz.doikki.videoplayer.player.VideoView;
 
 public class NativePlayerActivity extends Activity {
-    private static final long PREPARE_TIMEOUT_MS = 15000L;
+    private static final long PREPARE_TIMEOUT_MS = 30000L;
     private static final String DEFAULT_MOBILE_UA = "Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36";
     private static final String PLAYER_MEMORY_PREFS = "xiaomao_player_memory";
     private static final String KEY_PREFER_IJK_PREFIX = "prefer_ijk_";
@@ -1113,7 +1113,11 @@ public class NativePlayerActivity extends Activity {
             return;
         }
         if (forceSniff || !looksLikeDirectMedia(playUrl)) {
-            startSniff(resolveSniffEntryUrl(playUrl), "\u89e3\u6790\u7ed3\u679c\u4e0d\u662f\u76f4\u94fe\uff0c\u6b63\u5728\u6309\u89c4\u5219\u7f51\u9875\u55c5\u63a2\u2026");
+            String sniffEntry = sanitizeSniffEntry(playUrl, true);
+            if (sniffEntry.isEmpty()) {
+                sniffEntry = resolveSniffEntryUrl(playUrl);
+            }
+            startSniff(sniffEntry, "\u89e3\u6790\u7ed3\u679c\u4e0d\u662f\u76f4\u94fe\uff0c\u6b63\u5728\u6309\u89c4\u5219\u7f51\u9875\u55c5\u63a2\u2026");
             return;
         }
         playInPlace(playUrl, false, "");
@@ -1754,28 +1758,35 @@ public class NativePlayerActivity extends Activity {
         if (safe(lower).isEmpty()) {
             return false;
         }
-        boolean parserPath = lower.contains(".php")
-                || lower.contains(".html")
-                || lower.contains(".asp")
-                || lower.contains(".aspx")
-                || lower.contains(".jsp")
-                || lower.contains("/player")
-                || lower.contains("player.php")
-                || lower.contains("/parse")
-                || lower.contains("parse.php")
-                || lower.contains("/api.php")
-                || lower.contains("/jx")
+        String pathOnly = lower;
+        int queryStart = pathOnly.indexOf('?');
+        if (queryStart >= 0) {
+            pathOnly = pathOnly.substring(0, queryStart);
+        }
+        int hashStart = pathOnly.indexOf('#');
+        if (hashStart >= 0) {
+            pathOnly = pathOnly.substring(0, hashStart);
+        }
+        boolean parserPath = pathOnly.contains(".php")
+                || pathOnly.contains(".html")
+                || pathOnly.contains(".asp")
+                || pathOnly.contains(".aspx")
+                || pathOnly.contains(".jsp")
+                || pathOnly.contains("/player")
+                || pathOnly.contains("player.php")
+                || pathOnly.contains("/parse")
+                || pathOnly.contains("parse.php")
+                || pathOnly.contains("/api.php")
+                || pathOnly.contains("/jx")
                 || lower.contains("url=http")
                 || lower.contains("url=https")
                 || lower.contains("v=http")
                 || lower.contains("v=https");
-        boolean mediaPath = lower.matches(".*(\\.m3u8|\\.mp4|\\.flv|\\.mkv|\\.mpd|\\.ts|\\.m2ts)(\\?.*)?$")
-                || lower.contains("/m3u8")
-                || lower.contains("mime=video")
-                || lower.contains("mime_type=video")
-                || lower.contains("application/vnd.apple.mpegurl")
-                || lower.contains("response-content-type=video")
-                || lower.contains("obj/tos");
+        if (!parserPath) {
+            return false;
+        }
+        boolean mediaPath = pathOnly.matches(".*(\\.m3u8|\\.mp4|\\.flv|\\.mkv|\\.mpd|\\.ts|\\.m2ts)$")
+                || pathOnly.contains("/m3u8");
         return parserPath && !mediaPath;
     }
 
@@ -2748,7 +2759,7 @@ public class NativePlayerActivity extends Activity {
                 sniffCurrentUrl
         };
         for (String candidate : candidates) {
-            String resolved = sanitizeSniffEntry(candidate);
+            String resolved = sanitizeSniffEntry(candidate, false);
             if (!resolved.isEmpty()) {
                 return resolved;
             }
@@ -2768,7 +2779,7 @@ public class NativePlayerActivity extends Activity {
                 || lower.contains("zijieapi.douyinbyte.com/m3u8/");
     }
 
-    private String sanitizeSniffEntry(String raw) {
+    private String sanitizeSniffEntry(String raw, boolean allowCurrentPlayUrl) {
         String value = safe(raw);
         if (value.isEmpty()) {
             return "";
@@ -2785,7 +2796,7 @@ public class NativePlayerActivity extends Activity {
         if (looksLikeDirectMedia(value) && !isLikelyParserLikeMediaUrl(lower)) {
             return "";
         }
-        if (value.equals(playUrl)) {
+        if (!allowCurrentPlayUrl && value.equals(playUrl)) {
             return "";
         }
         return value;

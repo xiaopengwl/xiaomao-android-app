@@ -40,10 +40,14 @@
     return /^x-xm-/i.test(String(key || ''));
   }
 
+  function isForbiddenBrowserHeader(key) {
+    return /^(accept-charset|accept-encoding|access-control-request-headers|access-control-request-method|connection|content-length|cookie|cookie2|date|dnt|expect|host|keep-alive|origin|referer|te|trailer|transfer-encoding|upgrade|user-agent|via)$/i.test(String(key || ''));
+  }
+
   function stripInternalHeaders(input) {
     const headers = {};
     Object.keys(input || {}).forEach((key) => {
-      if (!isInternalHeader(key)) {
+      if (!isInternalHeader(key) && !isForbiddenBrowserHeader(key)) {
         headers[key] = input[key];
       }
     });
@@ -302,6 +306,7 @@
       url: options.url || '',
       title: options.title || '',
       poster: options.poster || '',
+      autoplay: true,
       lang: 'zh-cn',
       theme: '#e13f5a',
       autoSize: true,
@@ -373,6 +378,21 @@
               } catch (error) {
                 console.warn(error);
               }
+            }
+            try {
+              hlsInstance.on(window.Hls.Events.MANIFEST_PARSED, function onManifestParsed() {
+                notify('onPlayerReady');
+                try {
+                  const promise = video.play && video.play();
+                  if (promise && promise.catch) {
+                    promise.catch(function () {});
+                  }
+                } catch (error) {
+                  console.warn(error);
+                }
+              });
+            } catch (error) {
+              console.warn(error);
             }
             hlsInstance.loadSource(url);
             hlsInstance.attachMedia(video);

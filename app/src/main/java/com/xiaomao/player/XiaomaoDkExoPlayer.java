@@ -270,8 +270,8 @@ public class XiaomaoDkExoPlayer extends AbstractPlayer {
     private DataSource.Factory buildDataSourceFactory(Map<String, String> headers) {
         DefaultHttpDataSource.Factory httpFactory = new DefaultHttpDataSource.Factory()
                 .setAllowCrossProtocolRedirects(true)
-                .setConnectTimeoutMs(15000)
-                .setReadTimeoutMs(15000);
+                .setConnectTimeoutMs(30000)
+                .setReadTimeoutMs(30000);
         String userAgent = headers == null ? "" : headers.get("User-Agent");
         httpFactory.setUserAgent(TextUtils.isEmpty(userAgent) ? DEFAULT_MOBILE_UA : userAgent);
         HashMap<String, String> requestProps = new HashMap<>();

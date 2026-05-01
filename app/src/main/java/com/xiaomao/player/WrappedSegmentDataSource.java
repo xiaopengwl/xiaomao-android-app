@@ -108,6 +108,9 @@ final class WrappedSegmentDataSource implements DataSource {
         if (lower.contains(".m3u8") || lower.contains("/m3u8/")) {
             return false;
         }
+        if (unwrapEnabled) {
+            return true;
+        }
         if (lower.contains(".png") || lower.contains("xhscdn.com") || lower.contains("yximgs.com")) {
             return true;
         }

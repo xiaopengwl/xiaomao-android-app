@@ -3,7 +3,6 @@ package com.xiaomao.player;
 import android.app.Activity;
 import android.text.TextUtils;
 import android.util.Base64;
-import android.webkit.CookieManager;
 import android.webkit.WebChromeClient;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebSettings;
@@ -534,22 +533,9 @@ public class NativeDrpyEngine {
         if (!TextUtils.isEmpty(resolved.backupHosts)) {
             result.headers.put("X-XM-Backup-Hosts", resolved.backupHosts);
         }
-        String pageOrigin = originOf(pageUrl);
-        result.headers.put("Referer", pageUrl);
-        if (!TextUtils.isEmpty(pageOrigin)) {
-            result.headers.put("Origin", pageOrigin);
-        }
         result.headers.put("User-Agent", PC_USER_AGENT);
         result.headers.put("Accept", "*/*");
         result.headers.put("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8");
-        String cookie = "";
-        try {
-            cookie = CookieManager.getInstance().getCookie(pageUrl);
-        } catch (Exception ignored) {
-        }
-        if (!TextUtils.isEmpty(cookie)) {
-            result.headers.put("Cookie", cookie);
-        }
         return result;
     }
 
