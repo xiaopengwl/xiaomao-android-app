@@ -12,15 +12,15 @@
         android:background="@drawable/xm_top_bar_bg"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:paddingStart="16dp"
-        android:paddingTop="16dp"
-        android:paddingEnd="16dp"
-        android:paddingBottom="14dp">
+        android:paddingStart="18dp"
+        android:paddingTop="18dp"
+        android:paddingEnd="18dp"
+        android:paddingBottom="16dp">
 
         <ImageButton
             android:id="@+id/import_back_button"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
+            android:layout_width="42dp"
+            android:layout_height="42dp"
             android:background="@drawable/xm_toolbar_button_bg"
             android:contentDescription="@string/common_back"
             android:padding="9dp"
@@ -34,18 +34,18 @@
             android:layout_weight="1"
             android:text="@string/import_title"
             android:textColor="@color/xm_text_primary"
-            android:textSize="19sp"
+            android:textSize="20sp"
             android:textStyle="bold" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/import_save_button"
             android:layout_width="wrap_content"
-            android:layout_height="40dp"
+            android:layout_height="42dp"
             android:text="@string/import_save"
             android:textAllCaps="false"
             android:textColor="@color/xm_accent_dark"
             app:backgroundTint="@color/xm_accent"
-            app:cornerRadius="8dp" />
+            app:cornerRadius="12dp" />
     </LinearLayout>
 
     <ScrollView
@@ -57,7 +57,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="16dp">
+            android:padding="18dp">
 
             <TextView
                 android:layout_width="match_parent"
@@ -73,10 +73,10 @@
                 android:layout_marginTop="16dp"
                 android:hint="@string/import_title_hint"
                 app:boxBackgroundColor="@color/xm_surface"
-                app:boxCornerRadiusBottomEnd="8dp"
-                app:boxCornerRadiusBottomStart="8dp"
-                app:boxCornerRadiusTopEnd="8dp"
-                app:boxCornerRadiusTopStart="8dp"
+                app:boxCornerRadiusBottomEnd="16dp"
+                app:boxCornerRadiusBottomStart="16dp"
+                app:boxCornerRadiusTopEnd="16dp"
+                app:boxCornerRadiusTopStart="16dp"
                 app:boxStrokeColor="@color/xm_stroke_soft"
                 app:hintTextColor="@color/xm_text_muted">
 
@@ -95,10 +95,10 @@
                 android:layout_marginTop="14dp"
                 android:hint="@string/import_host_hint"
                 app:boxBackgroundColor="@color/xm_surface"
-                app:boxCornerRadiusBottomEnd="8dp"
-                app:boxCornerRadiusBottomStart="8dp"
-                app:boxCornerRadiusTopEnd="8dp"
-                app:boxCornerRadiusTopStart="8dp"
+                app:boxCornerRadiusBottomEnd="16dp"
+                app:boxCornerRadiusBottomStart="16dp"
+                app:boxCornerRadiusTopEnd="16dp"
+                app:boxCornerRadiusTopStart="16dp"
                 app:boxStrokeColor="@color/xm_stroke_soft"
                 app:hintTextColor="@color/xm_text_muted">
 
@@ -117,10 +117,10 @@
                 android:layout_marginTop="14dp"
                 android:hint="@string/import_rule_hint"
                 app:boxBackgroundColor="@color/xm_surface"
-                app:boxCornerRadiusBottomEnd="8dp"
-                app:boxCornerRadiusBottomStart="8dp"
-                app:boxCornerRadiusTopEnd="8dp"
-                app:boxCornerRadiusTopStart="8dp"
+                app:boxCornerRadiusBottomEnd="16dp"
+                app:boxCornerRadiusBottomStart="16dp"
+                app:boxCornerRadiusTopEnd="16dp"
+                app:boxCornerRadiusTopStart="16dp"
                 app:boxStrokeColor="@color/xm_stroke_soft"
                 app:hintTextColor="@color/xm_text_muted">
 

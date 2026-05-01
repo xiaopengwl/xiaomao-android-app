@@ -680,13 +680,17 @@ public class MainActivity extends AppCompatActivity {
         chip.setCheckable(true);
         chip.setChecked(checked);
         chip.setClickable(true);
-        chip.setChipMinHeight(dp(36));
+        chip.setChipMinHeight(dp(38));
         chip.setEnsureMinTouchTargetSize(false);
+        chip.setChipCornerRadius(dp(12));
+        chip.setChipStartPadding(dp(12));
+        chip.setChipEndPadding(dp(12));
         int checkedText = ContextCompat.getColor(this, R.color.xm_accent_dark);
         int defaultText = ContextCompat.getColor(this, R.color.xm_text_primary);
         int checkedBg = ContextCompat.getColor(this, R.color.xm_accent);
-        int defaultBg = ContextCompat.getColor(this, R.color.xm_surface_alt);
-        int strokeColor = ContextCompat.getColor(this, R.color.xm_stroke_soft);
+        int defaultBg = ContextCompat.getColor(this, R.color.xm_panel_surface);
+        int checkedStroke = ContextCompat.getColor(this, R.color.xm_accent);
+        int defaultStroke = ContextCompat.getColor(this, R.color.xm_stroke_soft);
         chip.setTextColor(new ColorStateList(
                 new int[][]{new int[]{android.R.attr.state_checked}, new int[]{}},
                 new int[]{checkedText, defaultText}
@@ -696,7 +700,10 @@ public class MainActivity extends AppCompatActivity {
                 new int[]{checkedBg, defaultBg}
         ));
         chip.setChipStrokeWidth(dp(1));
-        chip.setChipStrokeColor(ColorStateList.valueOf(strokeColor));
+        chip.setChipStrokeColor(new ColorStateList(
+                new int[][]{new int[]{android.R.attr.state_checked}, new int[]{}},
+                new int[]{checkedStroke, defaultStroke}
+        ));
         return chip;
     }
 

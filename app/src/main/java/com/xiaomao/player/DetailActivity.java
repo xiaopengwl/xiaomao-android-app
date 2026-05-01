@@ -147,7 +147,7 @@ public class DetailActivity extends AppCompatActivity {
 
         int headerColor = ContextCompat.getColor(this, R.color.xm_text_primary);
         int chipTextColor = ContextCompat.getColor(this, R.color.xm_text_primary);
-        int chipBackgroundColor = ContextCompat.getColor(this, R.color.xm_surface_alt);
+        int chipBackgroundColor = ContextCompat.getColor(this, R.color.xm_panel_surface);
         int chipStrokeColor = ContextCompat.getColor(this, R.color.xm_stroke_soft);
         int chipRippleColor = ContextCompat.getColor(this, R.color.xm_accent);
 
@@ -165,8 +165,8 @@ public class DetailActivity extends AppCompatActivity {
             groupsContainer.addView(header, headerParams);
 
             ChipGroup chipGroup = new ChipGroup(this);
-            chipGroup.setChipSpacingHorizontal(dp(8));
-            chipGroup.setChipSpacingVertical(dp(8));
+            chipGroup.setChipSpacingHorizontal(dp(10));
+            chipGroup.setChipSpacingVertical(dp(10));
             LinearLayout.LayoutParams chipParams = new LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT
@@ -182,7 +182,10 @@ public class DetailActivity extends AppCompatActivity {
                 chip.setCheckable(false);
                 chip.setClickable(true);
                 chip.setEnsureMinTouchTargetSize(false);
-                chip.setMinHeight(dp(36));
+                chip.setMinHeight(dp(38));
+                chip.setChipCornerRadius(dp(12));
+                chip.setChipStartPadding(dp(12));
+                chip.setChipEndPadding(dp(12));
                 chip.setTextColor(chipTextColor);
                 chip.setChipBackgroundColor(ColorStateList.valueOf(chipBackgroundColor));
                 chip.setChipStrokeColor(ColorStateList.valueOf(chipStrokeColor));

@@ -12,15 +12,15 @@
         android:background="@drawable/xm_top_bar_bg"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:paddingStart="16dp"
-        android:paddingTop="16dp"
-        android:paddingEnd="16dp"
-        android:paddingBottom="14dp">
+        android:paddingStart="18dp"
+        android:paddingTop="18dp"
+        android:paddingEnd="18dp"
+        android:paddingBottom="16dp">
 
         <ImageButton
             android:id="@+id/source_manage_back_button"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
+            android:layout_width="42dp"
+            android:layout_height="42dp"
             android:background="@drawable/xm_toolbar_button_bg"
             android:contentDescription="@string/common_back"
             android:padding="9dp"
@@ -39,7 +39,7 @@
                 android:layout_height="wrap_content"
                 android:text="@string/source_manage_title"
                 android:textColor="@color/xm_text_primary"
-                android:textSize="19sp"
+                android:textSize="20sp"
                 android:textStyle="bold" />
 
             <TextView
@@ -54,22 +54,22 @@
         <com.google.android.material.button.MaterialButton
             android:id="@+id/source_manage_import_button"
             android:layout_width="wrap_content"
-            android:layout_height="40dp"
+            android:layout_height="42dp"
             android:text="@string/source_manage_import"
             android:textAllCaps="false"
             android:textColor="@color/xm_accent_dark"
             app:backgroundTint="@color/xm_accent"
-            app:cornerRadius="8dp" />
+            app:cornerRadius="12dp" />
     </LinearLayout>
 
     <com.google.android.material.card.MaterialCardView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginStart="16dp"
+        android:layout_marginStart="18dp"
         android:layout_marginTop="14dp"
-        android:layout_marginEnd="16dp"
+        android:layout_marginEnd="18dp"
         app:cardBackgroundColor="@color/xm_surface"
-        app:cardCornerRadius="8dp"
+        app:cardCornerRadius="16dp"
         app:strokeColor="@color/xm_stroke_soft"
         app:strokeWidth="1dp">
 
@@ -77,7 +77,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="14dp">
+            android:padding="18dp">
 
             <TextView
                 android:id="@+id/source_manage_summary"
@@ -109,12 +109,12 @@
                 android:id="@+id/source_manage_settings_button"
                 style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                 android:layout_width="wrap_content"
-                android:layout_height="38dp"
+                android:layout_height="40dp"
                 android:layout_marginTop="12dp"
                 android:text="@string/source_manage_open_settings"
                 android:textAllCaps="false"
                 android:textColor="@color/xm_text_primary"
-                app:cornerRadius="8dp"
+                app:cornerRadius="12dp"
                 app:strokeColor="@color/xm_stroke_soft" />
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
@@ -123,12 +123,12 @@
         android:id="@+id/source_manage_empty_card"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginStart="16dp"
+        android:layout_marginStart="18dp"
         android:layout_marginTop="12dp"
-        android:layout_marginEnd="16dp"
+        android:layout_marginEnd="18dp"
         android:visibility="gone"
         app:cardBackgroundColor="@color/xm_surface"
-        app:cardCornerRadius="8dp"
+        app:cardCornerRadius="16dp"
         app:strokeColor="@color/xm_stroke_soft"
         app:strokeWidth="1dp">
 
@@ -155,7 +155,7 @@
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/source_manage_empty_button"
                 android:layout_width="wrap_content"
-                android:layout_height="40dp"
+                android:layout_height="42dp"
                 android:layout_marginTop="14dp"
                 android:insetTop="0dp"
                 android:insetBottom="0dp"
@@ -163,7 +163,7 @@
                 android:textAllCaps="false"
                 android:textColor="@color/xm_accent_dark"
                 app:backgroundTint="@color/xm_accent"
-                app:cornerRadius="8dp" />
+                app:cornerRadius="12dp" />
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
 
@@ -174,8 +174,8 @@
         android:layout_marginTop="12dp"
         android:layout_weight="1"
         android:clipToPadding="false"
-        android:paddingStart="16dp"
-        android:paddingEnd="16dp"
-        android:paddingBottom="20dp" />
+        android:paddingStart="18dp"
+        android:paddingEnd="18dp"
+        android:paddingBottom="24dp" />
 
 </LinearLayout>

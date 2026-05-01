@@ -18,7 +18,7 @@
 
             <FrameLayout
                 android:layout_width="match_parent"
-                android:layout_height="300dp">
+                android:layout_height="320dp">
 
                 <ImageView
                     android:id="@+id/detail_backdrop"
@@ -35,10 +35,10 @@
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:orientation="vertical"
-                    android:paddingStart="16dp"
-                    android:paddingTop="16dp"
-                    android:paddingEnd="16dp"
-                    android:paddingBottom="18dp">
+                    android:paddingStart="18dp"
+                    android:paddingTop="18dp"
+                    android:paddingEnd="18dp"
+                    android:paddingBottom="20dp">
 
                     <LinearLayout
                         android:layout_width="match_parent"
@@ -48,8 +48,8 @@
 
                         <ImageButton
                             android:id="@+id/detail_back_button"
-                            android:layout_width="40dp"
-                            android:layout_height="40dp"
+                            android:layout_width="42dp"
+                            android:layout_height="42dp"
                             android:background="@drawable/xm_toolbar_button_bg"
                             android:contentDescription="@string/common_back"
                             android:padding="9dp"
@@ -66,7 +66,7 @@
                             android:maxLines="1"
                             android:text="@string/detail_toolbar_title"
                             android:textColor="@android:color/white"
-                            android:textSize="15sp"
+                            android:textSize="16sp"
                             android:textStyle="bold" />
                     </LinearLayout>
 
@@ -78,13 +78,15 @@
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:background="@drawable/xm_hero_panel_bg"
                         android:gravity="bottom"
-                        android:orientation="horizontal">
+                        android:orientation="horizontal"
+                        android:padding="14dp">
 
                         <ImageView
                             android:id="@+id/detail_poster"
-                            android:layout_width="96dp"
-                            android:layout_height="136dp"
+                            android:layout_width="104dp"
+                            android:layout_height="148dp"
                             android:adjustViewBounds="true"
                             android:background="@color/xm_surface_soft"
                             android:scaleType="centerCrop" />
@@ -102,7 +104,7 @@
                                 android:layout_height="wrap_content"
                                 android:maxLines="2"
                                 android:textColor="@android:color/white"
-                                android:textSize="21sp"
+                                android:textSize="22sp"
                                 android:textStyle="bold" />
 
                             <TextView
@@ -117,13 +119,16 @@
                             <com.google.android.material.button.MaterialButton
                                 android:id="@+id/detail_play_first_button"
                                 android:layout_width="wrap_content"
-                                android:layout_height="38dp"
+                                android:layout_height="40dp"
                                 android:layout_marginTop="10dp"
                                 android:text="@string/detail_play_now"
                                 android:textAllCaps="false"
                                 android:textColor="@color/xm_accent_dark"
                                 app:backgroundTint="@color/xm_accent"
-                                app:cornerRadius="8dp" />
+                                app:cornerRadius="12dp"
+                                app:icon="@android:drawable/ic_media_play"
+                                app:iconPadding="8dp"
+                                app:iconTint="@color/xm_accent_dark" />
                         </LinearLayout>
                     </LinearLayout>
                 </LinearLayout>
@@ -133,13 +138,13 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="14dp">
+                android:padding="18dp">
 
                 <com.google.android.material.card.MaterialCardView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     app:cardBackgroundColor="@color/xm_surface"
-                    app:cardCornerRadius="8dp"
+                    app:cardCornerRadius="16dp"
                     app:strokeColor="@color/xm_stroke_soft"
                     app:strokeWidth="1dp">
 
@@ -147,8 +152,8 @@
                         android:id="@+id/detail_content"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:lineSpacingExtra="4dp"
-                        android:padding="14dp"
+                        android:lineSpacingExtra="5dp"
+                        android:padding="16dp"
                         android:textColor="@color/xm_text_secondary"
                         android:textSize="14sp" />
                 </com.google.android.material.card.MaterialCardView>
@@ -158,7 +163,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
                     app:cardBackgroundColor="@color/xm_surface"
-                    app:cardCornerRadius="8dp"
+                    app:cardCornerRadius="16dp"
                     app:strokeColor="@color/xm_stroke_soft"
                     app:strokeWidth="1dp">
 
@@ -166,7 +171,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="vertical"
-                        android:padding="14dp">
+                        android:padding="16dp">
 
                         <TextView
                             android:id="@+id/detail_episode_title"
@@ -174,7 +179,7 @@
                             android:layout_height="wrap_content"
                             android:text="@string/detail_episode_title"
                             android:textColor="@color/xm_text_primary"
-                            android:textSize="17sp"
+                            android:textSize="18sp"
                             android:textStyle="bold" />
 
                         <LinearLayout
