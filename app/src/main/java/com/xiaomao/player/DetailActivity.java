@@ -1,4 +1,4 @@
-﻿package com.xiaomao.player;
+package com.xiaomao.player;
 
 import android.content.Intent;
 import android.content.res.ColorStateList;

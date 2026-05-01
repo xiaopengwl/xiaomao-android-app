@@ -1,4 +1,4 @@
-﻿package com.xiaomao.player;
+package com.xiaomao.player;
 
 import android.graphics.drawable.GradientDrawable;
 import android.view.LayoutInflater;
