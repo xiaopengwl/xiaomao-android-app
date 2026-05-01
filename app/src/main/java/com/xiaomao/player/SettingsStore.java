@@ -13,6 +13,8 @@ public final class SettingsStore {
     private static final String KEY_PLAYER_KERNEL = "player_kernel";
     private static final String KEY_NIGHT_MODE = "night_mode";
     private static final String KEY_AUTO_PLAY = "auto_play";
+    private static final String KEY_FOLLOW_SYSTEM_THEME = "follow_system_theme";
+    private static final String KEY_ONBOARDING_SHOWN = "onboarding_shown";
 
     public static final String PLAYER_KERNEL_SYSTEM = "system";
     public static final String PLAYER_KERNEL_EXO = "exo";
@@ -91,6 +93,22 @@ public final class SettingsStore {
 
     public static void setAutoPlayEnabled(Context context, boolean enabled) {
         prefs(context).edit().putBoolean(KEY_AUTO_PLAY, enabled).apply();
+    }
+
+    public static boolean followSystemTheme(Context context) {
+        return prefs(context).getBoolean(KEY_FOLLOW_SYSTEM_THEME, false);
+    }
+
+    public static void setFollowSystemTheme(Context context, boolean enabled) {
+        prefs(context).edit().putBoolean(KEY_FOLLOW_SYSTEM_THEME, enabled).apply();
+    }
+
+    public static boolean shouldShowOnboarding(Context context) {
+        return !prefs(context).getBoolean(KEY_ONBOARDING_SHOWN, false);
+    }
+
+    public static void markOnboardingShown(Context context) {
+        prefs(context).edit().putBoolean(KEY_ONBOARDING_SHOWN, true).apply();
     }
 
     public static int playerCompatMemoryCount(Context context) {

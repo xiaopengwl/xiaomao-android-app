@@ -1,4 +1,4 @@
-package com.xiaomao.player;
+﻿package com.xiaomao.player;
 
 import android.view.LayoutInflater;
 import android.view.View;
@@ -17,12 +17,21 @@ public class MediaGridAdapter extends RecyclerView.Adapter<MediaGridAdapter.Medi
         void onClick(NativeDrpyEngine.MediaItem item);
     }
 
+    public interface OnItemLongClickListener {
+        void onLongClick(NativeDrpyEngine.MediaItem item, View anchor);
+    }
+
     private final ArrayList<NativeDrpyEngine.MediaItem> items = new ArrayList<>();
     private OnItemClickListener listener;
+    private OnItemLongClickListener longClickListener;
     private String sourceLabel = "";
 
     public void setOnItemClickListener(OnItemClickListener listener) {
         this.listener = listener;
+    }
+
+    public void setOnItemLongClickListener(OnItemLongClickListener listener) {
+        this.longClickListener = listener;
     }
 
     public void setSourceLabel(String sourceLabel) {
@@ -50,6 +59,7 @@ public class MediaGridAdapter extends RecyclerView.Adapter<MediaGridAdapter.Medi
     @Override
     public MediaViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_media_card, parent, false);
+        UiEffects.bindPressScale(view);
         return new MediaViewHolder(view);
     }
 
@@ -66,6 +76,13 @@ public class MediaGridAdapter extends RecyclerView.Adapter<MediaGridAdapter.Medi
             if (listener != null) {
                 listener.onClick(item);
             }
+        });
+        holder.itemView.setOnLongClickListener(v -> {
+            if (longClickListener != null) {
+                longClickListener.onLongClick(item, holder.itemView);
+                return true;
+            }
+            return false;
         });
     }
 

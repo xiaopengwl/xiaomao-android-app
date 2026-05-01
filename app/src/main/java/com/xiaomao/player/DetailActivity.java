@@ -1,10 +1,11 @@
-package com.xiaomao.player;
+﻿package com.xiaomao.player;
 
 import android.content.Intent;
 import android.content.res.ColorStateList;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.View;
+import android.widget.HorizontalScrollView;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -16,17 +17,22 @@ import androidx.core.content.ContextCompat;
 
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.chip.Chip;
-import com.google.android.material.chip.ChipGroup;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.Locale;
 
 public class DetailActivity extends AppCompatActivity {
+    private static final int COLLAPSED_CONTENT_LINES = 4;
+
     private TextView toolbarTitleView;
     private ImageView backdropView;
     private ImageView posterView;
     private TextView titleView;
     private TextView metaView;
     private TextView contentView;
+    private MaterialButton contentToggleButton;
     private View loadingContainer;
     private TextView loadingTextView;
     private LinearLayout groupsContainer;
@@ -38,6 +44,9 @@ public class DetailActivity extends AppCompatActivity {
     private String itemTitle = "";
     private String itemPoster = "";
     private String itemRemark = "";
+    private String detailContent = "";
+    private boolean contentExpanded = false;
+    private boolean autoPlayFirstRequested = false;
     private NativeDrpyEngine.MediaDetail currentDetail;
 
     private static final class EpisodeTarget {
@@ -77,14 +86,18 @@ public class DetailActivity extends AppCompatActivity {
         titleView = findViewById(R.id.detail_title);
         metaView = findViewById(R.id.detail_meta);
         contentView = findViewById(R.id.detail_content);
+        contentToggleButton = findViewById(R.id.detail_intro_toggle);
         loadingContainer = findViewById(R.id.detail_loading_container);
         loadingTextView = findViewById(R.id.detail_loading_text);
         groupsContainer = findViewById(R.id.detail_episode_groups);
         playFirstButton = findViewById(R.id.detail_play_first_button);
 
         ImageButton backButton = findViewById(R.id.detail_back_button);
+        UiEffects.bindPressScale(backButton);
+        UiEffects.bindPressScale(playFirstButton);
         backButton.setOnClickListener(v -> finish());
         playFirstButton.setOnClickListener(v -> playFirstEpisode());
+        contentToggleButton.setOnClickListener(v -> toggleContentExpanded());
     }
 
     private void bindInput() {
@@ -98,6 +111,7 @@ public class DetailActivity extends AppCompatActivity {
         itemTitle = safe(intent.getStringExtra("item_title"));
         itemPoster = safe(intent.getStringExtra("item_poster"));
         itemRemark = safe(intent.getStringExtra("item_remark"));
+        autoPlayFirstRequested = intent.getBooleanExtra("auto_play_first", false);
         engine = new NativeDrpyEngine(this, source);
     }
 
@@ -126,12 +140,39 @@ public class DetailActivity extends AppCompatActivity {
         loadingContainer.setVisibility(View.GONE);
         toolbarTitleView.setText(detail.title);
         titleView.setText(detail.title);
-        metaView.setText(detail.remark.isEmpty() ? getString(R.string.detail_line_ready) : detail.remark);
-        contentView.setText(detail.content.isEmpty() ? getString(R.string.detail_no_content) : detail.content);
+        ArrayList<NativeDrpyEngine.EpisodeGroup> sortedGroups = sortPlayGroups(detail.playGroups);
+        metaView.setText(composeDetailMeta(detail, sortedGroups));
+        detailContent = detail.content.isEmpty() ? getString(R.string.detail_no_content) : detail.content;
+        contentExpanded = DetailStateStore.isIntroExpanded(this, itemUrl);
+        applyDetailContent();
         PosterLoader.load(posterView, detail.poster, detail.title);
         PosterLoader.load(backdropView, detail.poster, detail.title);
-        renderEpisodeGroups(detail.playGroups);
-        playFirstButton.setEnabled(findFirstPlayable(detail) != null);
+        renderEpisodeGroups(sortedGroups);
+        EpisodeTarget target = findFirstPlayable(sortedGroups);
+        playFirstButton.setEnabled(target != null);
+        if (autoPlayFirstRequested && target != null) {
+            autoPlayFirstRequested = false;
+            playFirstButton.post(this::playFirstEpisode);
+        }
+    }
+
+    private void applyDetailContent() {
+        contentView.setText(detailContent);
+        contentView.setMaxLines(contentExpanded ? Integer.MAX_VALUE : COLLAPSED_CONTENT_LINES);
+        contentView.setEllipsize(contentExpanded ? null : TextUtils.TruncateAt.END);
+        contentToggleButton.setText(contentExpanded
+                ? getString(R.string.detail_intro_collapse)
+                : getString(R.string.detail_intro_expand));
+        contentView.post(() -> {
+            boolean needsToggle = contentView.getLineCount() > COLLAPSED_CONTENT_LINES || contentExpanded;
+            contentToggleButton.setVisibility(needsToggle ? View.VISIBLE : View.GONE);
+        });
+    }
+
+    private void toggleContentExpanded() {
+        contentExpanded = !contentExpanded;
+        DetailStateStore.setIntroExpanded(this, itemUrl, contentExpanded);
+        applyDetailContent();
     }
 
     private void renderEpisodeGroups(ArrayList<NativeDrpyEngine.EpisodeGroup> groups) {
@@ -164,21 +205,27 @@ public class DetailActivity extends AppCompatActivity {
             headerParams.topMargin = dp(12);
             groupsContainer.addView(header, headerParams);
 
-            ChipGroup chipGroup = new ChipGroup(this);
-            chipGroup.setChipSpacingHorizontal(dp(10));
-            chipGroup.setChipSpacingVertical(dp(10));
+            HorizontalScrollView scrollView = new HorizontalScrollView(this);
+            scrollView.setHorizontalScrollBarEnabled(false);
             LinearLayout.LayoutParams chipParams = new LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT
             );
             chipParams.topMargin = dp(8);
-            groupsContainer.addView(chipGroup, chipParams);
+            groupsContainer.addView(scrollView, chipParams);
+
+            LinearLayout chipRow = new LinearLayout(this);
+            chipRow.setOrientation(LinearLayout.HORIZONTAL);
+            scrollView.addView(chipRow, new HorizontalScrollView.LayoutParams(
+                    HorizontalScrollView.LayoutParams.WRAP_CONTENT,
+                    HorizontalScrollView.LayoutParams.WRAP_CONTENT
+            ));
 
             ArrayList<NativeDrpyEngine.EpisodeItem> items = group.items == null ? new ArrayList<>() : group.items;
             for (int i = 0; i < items.size(); i++) {
                 NativeDrpyEngine.EpisodeItem episode = items.get(i);
                 Chip chip = new Chip(this);
-                chip.setText(episode.name.isEmpty() ? ("播放 " + (i + 1)) : episode.name);
+                chip.setText(episode.name.isEmpty() ? ("鎾斁 " + (i + 1)) : episode.name);
                 chip.setCheckable(false);
                 chip.setClickable(true);
                 chip.setEnsureMinTouchTargetSize(false);
@@ -191,9 +238,15 @@ public class DetailActivity extends AppCompatActivity {
                 chip.setChipStrokeColor(ColorStateList.valueOf(chipStrokeColor));
                 chip.setChipStrokeWidth(dp(1));
                 chip.setRippleColor(ColorStateList.valueOf(chipRippleColor));
+                UiEffects.bindPressScale(chip);
                 final int index = i;
                 chip.setOnClickListener(v -> openNativePlayer(group, index));
-                chipGroup.addView(chip);
+                LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                );
+                rowParams.rightMargin = dp(10);
+                chipRow.addView(chip, rowParams);
             }
         }
     }
@@ -208,10 +261,17 @@ public class DetailActivity extends AppCompatActivity {
     }
 
     private EpisodeTarget findFirstPlayable(NativeDrpyEngine.MediaDetail detail) {
-        if (detail == null || detail.playGroups == null) {
+        if (detail == null) {
             return null;
         }
-        for (NativeDrpyEngine.EpisodeGroup group : detail.playGroups) {
+        return findFirstPlayable(detail.playGroups);
+    }
+
+    private EpisodeTarget findFirstPlayable(ArrayList<NativeDrpyEngine.EpisodeGroup> groups) {
+        if (groups == null) {
+            return null;
+        }
+        for (NativeDrpyEngine.EpisodeGroup group : groups) {
             ArrayList<NativeDrpyEngine.EpisodeItem> items = group.items == null ? new ArrayList<>() : group.items;
             for (int i = 0; i < items.size(); i++) {
                 if (!safe(items.get(i).url).isEmpty()) {
@@ -242,10 +302,14 @@ public class DetailActivity extends AppCompatActivity {
         intent.putExtra("source_title", source.title);
         intent.putExtra("source_host", source.host);
         intent.putExtra("source_raw", source.raw);
+        intent.putExtra("detail_page_url", itemUrl);
+        intent.putExtra("detail_poster", currentDetail == null ? itemPoster : currentDetail.poster);
+        intent.putExtra("detail_remark", currentDetail == null ? itemRemark : currentDetail.remark);
         intent.putStringArrayListExtra("episode_names", names);
         intent.putStringArrayListExtra("episode_inputs", inputs);
         intent.putExtra("episode_index", index);
         startActivity(intent);
+        overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
     }
 
     private void showLoading(String text) {
@@ -263,5 +327,71 @@ public class DetailActivity extends AppCompatActivity {
 
     private String safe(String value) {
         return value == null ? "" : value.trim();
+    }
+
+    private ArrayList<NativeDrpyEngine.EpisodeGroup> sortPlayGroups(ArrayList<NativeDrpyEngine.EpisodeGroup> groups) {
+        ArrayList<NativeDrpyEngine.EpisodeGroup> result = groups == null ? new ArrayList<>() : new ArrayList<>(groups);
+        Collections.sort(result, Comparator.comparingInt(this::groupPriority));
+        return result;
+    }
+
+    private int groupPriority(NativeDrpyEngine.EpisodeGroup group) {
+        String name = safe(group == null ? "" : group.name).toLowerCase(Locale.ROOT);
+        if (name.contains("default")
+                || name.contains("默认")
+                || name.contains("在线")
+                || name.contains("道长")
+                || name.contains("榛樿")
+                || name.contains("閬撻暱")
+                || name.contains("鍦ㄧ嚎")) {
+            return 0;
+        }
+        if (name.contains("蓝光")
+                || name.contains("超清")
+                || name.contains("高清")
+                || name.contains("极清")
+                || name.contains("钃濆厜")
+                || name.contains("瓒呮竻")
+                || name.contains("楂樻竻")
+                || name.contains("鏋侀珮")) {
+            return 1;
+        }
+        if (name.contains("备用") || name.contains("备线") || name.contains("澶囩敤") || name.contains("澶囩嚎")) {
+            return 3;
+        }
+        if (name.contains("解析") || name.contains("瑙ｆ瀽")) {
+            return 4;
+        }
+        return 2;
+    }
+
+    private String composeDetailMeta(NativeDrpyEngine.MediaDetail detail, ArrayList<NativeDrpyEngine.EpisodeGroup> groups) {
+        String base = safe(detail == null ? "" : detail.remark);
+        if (base.isEmpty()) {
+            base = safe(itemRemark);
+        }
+        int groupCount = groups == null ? 0 : groups.size();
+        int episodeCount = 0;
+        if (groups != null) {
+            for (NativeDrpyEngine.EpisodeGroup group : groups) {
+                episodeCount = Math.max(episodeCount, group.items == null ? 0 : group.items.size());
+            }
+        }
+        if (base.isEmpty()) {
+            if (groupCount > 0 && episodeCount > 0) {
+                return "已加载 " + groupCount + " 条播放源 · " + episodeCount + " 集";
+            }
+            return getString(R.string.detail_line_ready);
+        }
+        if (groupCount > 0) {
+            return base + " · " + groupCount + " 源";
+        }
+        return base;
+    }
+
+    @Override
+    public void finish() {
+        super.finish();
+        overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
     }
 }

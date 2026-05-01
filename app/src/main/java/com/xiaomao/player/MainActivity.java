@@ -1,23 +1,29 @@
-package com.xiaomao.player;
+﻿package com.xiaomao.player;
 
 import android.app.Activity;
 import android.content.Intent;
 import android.content.res.ColorStateList;
+import android.content.res.Configuration;
 import android.os.Bundle;
+import android.text.Editable;
 import android.text.TextUtils;
+import android.text.TextWatcher;
 import android.util.DisplayMetrics;
 import android.view.KeyEvent;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.inputmethod.EditorInfo;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.PopupMenu;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 import androidx.core.widget.NestedScrollView;
@@ -70,12 +76,15 @@ public class MainActivity extends AppCompatActivity {
     private RecyclerView librarySidebarRecyclerView;
     private RecyclerView homeContinueRecyclerView;
     private RecyclerView homeMovieRecyclerView;
+    private View categoryScrollView;
     private ChipGroup categoryGroup;
     private ChipGroup rankFilterGroup;
     private TextInputEditText searchInput;
     private TextView emptyTextView;
     private TextView browseStatusView;
     private TextView pageTextView;
+    private TextView mineFavoritesEmptyView;
+    private TextView mineHistoryEmptyView;
     private TextView headerTitleView;
     private TextView headerSubtitleView;
     private TextView featuredSourceView;
@@ -105,6 +114,9 @@ public class MainActivity extends AppCompatActivity {
     private SwitchMaterial mineRememberSourceSwitch;
     private SwitchMaterial mineKeepSearchSwitch;
     private SwitchMaterial mineDefaultLibrarySwitch;
+    private View searchHistoryRow;
+    private LinearLayout searchHistoryContent;
+    private View searchHistoryClearButton;
     private View headerSearchAction;
     private View headerMoreAction;
     private View homeActionCategory;
@@ -112,15 +124,21 @@ public class MainActivity extends AppCompatActivity {
     private View homeActionShort;
     private View homeActionSchedule;
     private View homeActionLive;
+    private RecyclerView mineFavoritesRecyclerView;
+    private RecyclerView mineHistoryRecyclerView;
 
     private final ArrayList<SourceStore.SourceItem> sources = new ArrayList<>();
     private final ArrayList<NativeDrpyEngine.Category> categories = new ArrayList<>();
     private final ArrayList<NativeDrpyEngine.MediaItem> homeItems = new ArrayList<>();
+    private final ArrayList<NativeDrpyEngine.MediaItem> libraryItems = new ArrayList<>();
+    private final ArrayList<NativeDrpyEngine.MediaItem> rankItems = new ArrayList<>();
     private final MediaGridAdapter gridAdapter = new MediaGridAdapter();
+    private final MediaGridAdapter homeRecommendAdapter = new MediaGridAdapter();
     private final RankListAdapter rankAdapter = new RankListAdapter();
     private final MediaRailAdapter continueAdapter = new MediaRailAdapter();
-    private final MediaRailAdapter movieAdapter = new MediaRailAdapter();
     private final CategorySidebarAdapter sidebarAdapter = new CategorySidebarAdapter();
+    private final ShelfRailAdapter favoriteShelfAdapter = new ShelfRailAdapter();
+    private final ShelfRailAdapter historyShelfAdapter = new ShelfRailAdapter();
 
     private final ActivityResultLauncher<Intent> pageLauncher =
             registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
@@ -145,6 +163,10 @@ public class MainActivity extends AppCompatActivity {
     private boolean ignoreBottomSelection = false;
     private boolean sourceMigrationRunning = false;
     private boolean suppressMineSwitchCallbacks = false;
+    private boolean pageLoading = false;
+    private boolean reachedEnd = false;
+    private boolean mineSignatureExpanded = false;
+    private String lastMineSignatureText = "";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -159,11 +181,14 @@ public class MainActivity extends AppCompatActivity {
             searchInput.setText(SettingsStore.lastSearch(this));
         }
         renderRankFilters();
+        renderSearchHistory();
         refreshMineSettings();
         refreshMineProfile();
+        refreshMineShelves();
         applyTabState();
         loadSources();
         scheduleRemoteSourceMigration();
+        maybeShowOnboarding();
     }
 
     @Override
@@ -172,6 +197,8 @@ public class MainActivity extends AppCompatActivity {
         syncSourceIfNeeded();
         refreshMineSettings();
         refreshMineProfile();
+        refreshMineShelves();
+        renderSearchHistory();
         scheduleRemoteSourceMigration();
     }
 
@@ -200,12 +227,15 @@ public class MainActivity extends AppCompatActivity {
         librarySidebarRecyclerView = findViewById(R.id.library_sidebar_recycler);
         homeContinueRecyclerView = findViewById(R.id.home_continue_recycler);
         homeMovieRecyclerView = findViewById(R.id.home_movie_recycler);
+        categoryScrollView = findViewById(R.id.category_scroll);
         categoryGroup = findViewById(R.id.category_group);
         rankFilterGroup = findViewById(R.id.rank_filter_group);
         searchInput = findViewById(R.id.search_input);
         emptyTextView = findViewById(R.id.empty_text);
         browseStatusView = findViewById(R.id.browse_status_text);
         pageTextView = findViewById(R.id.page_text);
+        mineFavoritesEmptyView = findViewById(R.id.mine_favorites_empty);
+        mineHistoryEmptyView = findViewById(R.id.mine_history_empty);
         headerTitleView = findViewById(R.id.header_title);
         headerSubtitleView = findViewById(R.id.header_subtitle);
         featuredSourceView = findViewById(R.id.featured_source_text);
@@ -235,6 +265,9 @@ public class MainActivity extends AppCompatActivity {
         mineRememberSourceSwitch = findViewById(R.id.mine_remember_source_switch);
         mineKeepSearchSwitch = findViewById(R.id.mine_keep_search_switch);
         mineDefaultLibrarySwitch = findViewById(R.id.mine_default_library_switch);
+        searchHistoryRow = findViewById(R.id.search_history_row);
+        searchHistoryContent = findViewById(R.id.search_history_content);
+        searchHistoryClearButton = findViewById(R.id.search_history_clear_button);
         headerSearchAction = findViewById(R.id.header_search_action);
         headerMoreAction = findViewById(R.id.header_more_action);
         homeActionCategory = findViewById(R.id.home_action_category);
@@ -242,12 +275,15 @@ public class MainActivity extends AppCompatActivity {
         homeActionShort = findViewById(R.id.home_action_short);
         homeActionSchedule = findViewById(R.id.home_action_schedule);
         homeActionLive = findViewById(R.id.home_action_live);
+        mineFavoritesRecyclerView = findViewById(R.id.mine_favorites_recycler);
+        mineHistoryRecyclerView = findViewById(R.id.mine_history_recycler);
     }
 
     private void setupRecycler() {
         mediaRecyclerView.setLayoutManager(new GridLayoutManager(this, computeGridSpanCount()));
         mediaRecyclerView.setAdapter(gridAdapter);
         gridAdapter.setOnItemClickListener(this::openDetail);
+        gridAdapter.setOnItemLongClickListener(this::showMediaActions);
 
         librarySidebarRecyclerView.setLayoutManager(new LinearLayoutManager(this));
         librarySidebarRecyclerView.setAdapter(sidebarAdapter);
@@ -262,20 +298,74 @@ public class MainActivity extends AppCompatActivity {
         rankRecyclerView.setLayoutManager(new LinearLayoutManager(this));
         rankRecyclerView.setAdapter(rankAdapter);
         rankAdapter.setOnItemClickListener(this::openDetail);
+        rankAdapter.setOnItemLongClickListener(this::showMediaActions);
 
         homeContinueRecyclerView.setLayoutManager(new LinearLayoutManager(this, RecyclerView.HORIZONTAL, false));
         homeContinueRecyclerView.setAdapter(continueAdapter);
         continueAdapter.setOnItemClickListener(this::openDetail);
+        continueAdapter.setOnItemLongClickListener(this::showMediaActions);
 
-        homeMovieRecyclerView.setLayoutManager(new LinearLayoutManager(this, RecyclerView.HORIZONTAL, false));
-        homeMovieRecyclerView.setAdapter(movieAdapter);
-        movieAdapter.setOnItemClickListener(this::openDetail);
+        homeMovieRecyclerView.setLayoutManager(new GridLayoutManager(this, computeGridSpanCount()));
+        homeMovieRecyclerView.setAdapter(homeRecommendAdapter);
+        homeRecommendAdapter.setOnItemClickListener(this::openDetail);
+        homeRecommendAdapter.setOnItemLongClickListener(this::showMediaActions);
+
+        mineFavoritesRecyclerView.setLayoutManager(new LinearLayoutManager(this, RecyclerView.HORIZONTAL, false));
+        mineFavoritesRecyclerView.setAdapter(favoriteShelfAdapter);
+        favoriteShelfAdapter.setOnItemClickListener(card -> {
+            if (card.payload instanceof FavoriteStore.FavoriteItem) {
+                openFavoriteDetail((FavoriteStore.FavoriteItem) card.payload, false);
+            }
+        });
+        favoriteShelfAdapter.setOnItemLongClickListener((card, anchor) -> {
+            if (card.payload instanceof FavoriteStore.FavoriteItem) {
+                showFavoriteActions((FavoriteStore.FavoriteItem) card.payload, anchor);
+            }
+        });
+
+        mineHistoryRecyclerView.setLayoutManager(new LinearLayoutManager(this, RecyclerView.HORIZONTAL, false));
+        mineHistoryRecyclerView.setAdapter(historyShelfAdapter);
+        historyShelfAdapter.setOnItemClickListener(card -> {
+            if (card.payload instanceof WatchHistoryStore.HistoryItem) {
+                openHistoryPlayback((WatchHistoryStore.HistoryItem) card.payload);
+            }
+        });
+        historyShelfAdapter.setOnItemLongClickListener((card, anchor) -> {
+            if (card.payload instanceof WatchHistoryStore.HistoryItem) {
+                showHistoryActions((WatchHistoryStore.HistoryItem) card.payload, anchor);
+            }
+        });
 
         swipeRefreshLayout.setColorSchemeColors(ContextCompat.getColor(this, R.color.xm_accent));
         swipeRefreshLayout.setProgressBackgroundColorSchemeColor(ContextCompat.getColor(this, R.color.xm_surface));
+        swipeRefreshLayout.setOnChildScrollUpCallback((parent, child) -> {
+            if (currentTab == MainTab.HOME) {
+                return homeScrollView.canScrollVertically(-1);
+            }
+            if (currentTab == MainTab.MINE) {
+                return mineScrollView.canScrollVertically(-1);
+            }
+            if (currentTab == MainTab.RANK) {
+                return rankRecyclerView.canScrollVertically(-1);
+            }
+            return mediaRecyclerView.canScrollVertically(-1);
+        });
+        setupEndlessPaging();
     }
 
     private void setupEvents() {
+        UiEffects.bindPressScale(searchButton);
+        UiEffects.bindPressScale(featuredActionButton);
+        UiEffects.bindPressScale(homeButton);
+        UiEffects.bindPressScale(prevButton);
+        UiEffects.bindPressScale(nextButton);
+        UiEffects.bindPressScale(mineSettingsButton);
+        UiEffects.bindPressScale(mineImportButton);
+        UiEffects.bindPressScale(mineSourceManageButton);
+        UiEffects.bindPressScale(mineQueryButton);
+        UiEffects.bindPressScale(mineClearProfileButton);
+        UiEffects.bindPressScale(headerSearchAction);
+        UiEffects.bindPressScale(headerMoreAction);
         searchButton.setOnClickListener(v -> performSearch(1));
         homeButton.setOnClickListener(v -> jumpToFirstPage());
         prevButton.setOnClickListener(v -> changePage(-1));
@@ -293,6 +383,14 @@ public class MainActivity extends AppCompatActivity {
         mineClearProfileButton.setOnClickListener(v -> clearQqProfile());
         headerSearchAction.setOnClickListener(v -> focusSearchField());
         headerMoreAction.setOnClickListener(v -> openNativePage(SettingsActivity.class));
+        if (searchHistoryClearButton != null) {
+            UiEffects.bindPressScale(searchHistoryClearButton);
+            searchHistoryClearButton.setOnClickListener(v -> {
+                SearchHistoryStore.clear(this);
+                renderSearchHistory();
+                toast("\u5DF2\u6E05\u7A7A\u641C\u7D22\u5386\u53F2");
+            });
+        }
         swipeRefreshLayout.setOnRefreshListener(() -> reloadCurrentPage(true));
         searchInput.setOnEditorActionListener((v, actionId, event) -> {
             boolean enterPressed = event != null
@@ -304,10 +402,42 @@ public class MainActivity extends AppCompatActivity {
             }
             return false;
         });
+        searchInput.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+            }
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {
+                renderSearchHistory();
+            }
+        });
         bottomNavigationView.setOnItemSelectedListener(this::onBottomNavigationSelected);
+        mineAvatarView.setOnTouchListener((v, event) -> {
+            if (event == null) {
+                return false;
+            }
+            int action = event.getActionMasked();
+            if (action == android.view.MotionEvent.ACTION_DOWN) {
+                v.animate().scaleX(1.16f).scaleY(1.16f).setDuration(120L).start();
+            } else if (action == android.view.MotionEvent.ACTION_UP || action == android.view.MotionEvent.ACTION_CANCEL) {
+                v.animate().scaleX(1f).scaleY(1f).setDuration(160L).start();
+            }
+            return false;
+        });
+        mineSignatureView.setOnClickListener(v -> toggleMineSignatureExpanded());
 
         mineThemeSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
             if (suppressMineSwitchCallbacks) {
+                return;
+            }
+            if (SettingsStore.followSystemTheme(this)) {
+                refreshMineSettings();
+                toast("\u5F53\u524D\u5DF2\u5F00\u542F\u8DDF\u968F\u7CFB\u7EDF\u4E3B\u9898");
                 return;
             }
             SettingsStore.setNightModeEnabled(this, isChecked);
@@ -332,6 +462,7 @@ public class MainActivity extends AppCompatActivity {
             if (!isChecked) {
                 searchInput.setText("");
             }
+            renderSearchHistory();
         });
         mineDefaultLibrarySwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
             if (!suppressMineSwitchCallbacks) {
@@ -341,14 +472,78 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void bindQuickActions() {
+        UiEffects.bindPressScale(homeActionCategory);
+        UiEffects.bindPressScale(homeActionFeatured);
+        UiEffects.bindPressScale(homeActionShort);
+        UiEffects.bindPressScale(homeActionSchedule);
+        UiEffects.bindPressScale(homeActionLive);
         homeActionCategory.setOnClickListener(v -> openLibraryTab(true));
         homeActionFeatured.setOnClickListener(v -> openHomeTab(true));
         homeActionShort.setOnClickListener(v -> {
-            searchInput.setText("短剧");
+            searchInput.setText("鐭墽");
             performSearch(1);
         });
         homeActionSchedule.setOnClickListener(v -> openRankTab(true));
         homeActionLive.setOnClickListener(v -> openNativePage(SourceManagementActivity.class));
+    }
+
+    private void setupEndlessPaging() {
+        homeScrollView.setOnScrollChangeListener((NestedScrollView.OnScrollChangeListener) (v, scrollX, scrollY, oldScrollX, oldScrollY) -> {
+            if (currentTab != MainTab.HOME || scrollY <= oldScrollY) {
+                return;
+            }
+            View child = v.getChildAt(0);
+            if (child == null) {
+                return;
+            }
+            if (scrollY + v.getHeight() >= child.getHeight() - dp(140)) {
+                loadNextPageIfNeeded();
+            }
+        });
+        mediaRecyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
+            @Override
+            public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
+                if (dy > 0 && currentTab == MainTab.LIBRARY) {
+                    maybeLoadMoreFromRecycler(recyclerView);
+                }
+            }
+        });
+        rankRecyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
+            @Override
+            public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
+                if (dy > 0 && currentTab == MainTab.RANK) {
+                    maybeLoadMoreFromRecycler(recyclerView);
+                }
+            }
+        });
+    }
+
+    private void maybeLoadMoreFromRecycler(RecyclerView recyclerView) {
+        RecyclerView.LayoutManager layoutManager = recyclerView.getLayoutManager();
+        if (!(layoutManager instanceof LinearLayoutManager)) {
+            return;
+        }
+        LinearLayoutManager linearLayoutManager = (LinearLayoutManager) layoutManager;
+        int lastVisible = linearLayoutManager.findLastVisibleItemPosition();
+        int total = linearLayoutManager.getItemCount();
+        if (total > 0 && lastVisible >= total - Math.max(2, computeGridSpanCount())) {
+            loadNextPageIfNeeded();
+        }
+    }
+
+    private void loadNextPageIfNeeded() {
+        if (engine == null || pageLoading || reachedEnd || swipeRefreshLayout.isRefreshing() || currentTab == MainTab.MINE) {
+            return;
+        }
+        if (browseMode == BrowseMode.SEARCH) {
+            performSearch(currentPage + 1);
+        } else if (browseMode == BrowseMode.CATEGORY && activeCategory != null) {
+            loadCategoryPage(activeCategory, currentPage + 1);
+        } else if (browseMode == BrowseMode.RANK) {
+            loadRankPage(currentPage + 1);
+        } else if (browseMode == BrowseMode.HOME) {
+            loadHomePage(currentPage + 1);
+        }
     }
 
     private boolean onBottomNavigationSelected(@NonNull MenuItem item) {
@@ -380,10 +575,12 @@ public class MainActivity extends AppCompatActivity {
             openLibraryTab(false);
         }
         searchInput.requestFocus();
+        searchInput.post(this::renderSearchHistory);
     }
 
     private void openNativePage(Class<?> cls) {
         pageLauncher.launch(new Intent(this, cls));
+        overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
     }
 
     private void loadSources() {
@@ -454,18 +651,22 @@ public class MainActivity extends AppCompatActivity {
         sourceVersion += 1;
         contentVersion += 1;
         currentPage = 1;
+        pageLoading = false;
+        reachedEnd = false;
         browseMode = BrowseMode.HOME;
         currentTab = MainTab.HOME;
         activeCategory = null;
         selectedRankFilterIndex = 0;
         categories.clear();
         homeItems.clear();
+        libraryItems.clear();
+        rankItems.clear();
         gridAdapter.setSourceLabel(record.title);
         continueAdapter.setSourceLabel(record.title);
-        movieAdapter.setSourceLabel(record.title);
+        homeRecommendAdapter.setSourceLabel(record.title);
         gridAdapter.submitList(new ArrayList<>());
         continueAdapter.submitList(new ArrayList<>());
-        movieAdapter.submitList(new ArrayList<>());
+        homeRecommendAdapter.submitList(new ArrayList<>());
         rankAdapter.submitList(new ArrayList<>());
         renderCategories();
         renderRankFilters();
@@ -476,6 +677,7 @@ public class MainActivity extends AppCompatActivity {
         } else {
             searchInput.setText(SettingsStore.lastSearch(this));
         }
+        renderSearchHistory();
         applyTabState();
         loadCategories();
         if (SettingsStore.defaultLibrary(this)) {
@@ -587,40 +789,55 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
         final int targetPage = Math.max(1, page);
+        if (pageLoading && targetPage > currentPage) {
+            return;
+        }
         final int token = ++contentVersion;
         final int sourceToken = sourceVersion;
+        final boolean append = targetPage > 1;
+        if (!append) {
+            reachedEnd = false;
+        }
+        pageLoading = true;
         currentTab = MainTab.HOME;
         browseMode = BrowseMode.HOME;
         currentPage = targetPage;
         applyTabState();
         syncBottomSelection(R.id.menu_home);
-        showLoading(true, getString(R.string.main_msg_home_loading));
+        if (!append) {
+            showLoading(true, getString(R.string.main_msg_home_loading));
+        }
         engine.loadRecommend(targetPage, (items, err) -> {
             if (token != contentVersion || sourceToken != sourceVersion) {
                 return;
             }
+            pageLoading = false;
             swipeRefreshLayout.setRefreshing(false);
             if (!TextUtils.isEmpty(err) && (items == null || items.isEmpty())) {
                 showLoading(false, getString(R.string.main_msg_home_failed, err));
                 return;
             }
-            if (targetPage > 1 && (items == null || items.isEmpty())) {
+            if (append && (items == null || items.isEmpty())) {
+                reachedEnd = true;
                 showLoading(false, homeItems.isEmpty() ? getString(R.string.main_msg_home_last_page) : "");
-                toast(getString(R.string.main_msg_home_last_page_toast));
                 return;
             }
-            homeItems.clear();
+            if (!append) {
+                homeItems.clear();
+            }
             if (items != null) {
                 homeItems.addAll(items);
             }
             continueAdapter.submitList(sliceItems(homeItems, 0, 8));
-            movieAdapter.submitList(sliceItems(homeItems, homeItems.size() > 8 ? 8 : 0, 10));
+            homeRecommendAdapter.submitList(sliceTailItems(homeItems, 8));
             currentPage = targetPage;
+            reachedEnd = items == null || items.isEmpty();
             showLoading(false, homeItems.isEmpty() ? getString(R.string.main_msg_home_empty) : "");
             setBrowseStatus(getString(R.string.main_msg_home_status, currentPage));
-            updatePager();
             syncFeaturedContent();
-            homeScrollView.scrollTo(0, 0);
+            if (!append) {
+                homeScrollView.scrollTo(0, 0);
+            }
         });
     }
 
@@ -629,8 +846,16 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
         final int targetPage = Math.max(1, page);
+        if (pageLoading && targetPage > currentPage) {
+            return;
+        }
         final int token = ++contentVersion;
         final int sourceToken = sourceVersion;
+        final boolean append = targetPage > 1;
+        if (!append) {
+            reachedEnd = false;
+        }
+        pageLoading = true;
         currentTab = MainTab.LIBRARY;
         browseMode = BrowseMode.CATEGORY;
         activeCategory = category;
@@ -638,27 +863,39 @@ public class MainActivity extends AppCompatActivity {
         applyTabState();
         syncBottomSelection(R.id.menu_library);
         renderCategories();
-        showLoading(true, getString(R.string.main_msg_category_loading, category.name));
+        if (!append) {
+            showLoading(true, getString(R.string.main_msg_category_loading, category.name));
+        }
         engine.loadCategoryItems(category.url, targetPage, (items, err) -> {
             if (token != contentVersion || sourceToken != sourceVersion) {
                 return;
             }
+            pageLoading = false;
             swipeRefreshLayout.setRefreshing(false);
             if (!TextUtils.isEmpty(err) && (items == null || items.isEmpty())) {
                 showLoading(false, getString(R.string.main_msg_category_failed, err));
                 return;
             }
-            if (targetPage > 1 && (items == null || items.isEmpty())) {
-                showLoading(false, gridAdapter.getDataCount() == 0 ? getString(R.string.main_msg_category_last_page) : "");
-                toast(getString(R.string.main_msg_category_last_page_toast));
+            if (append && (items == null || items.isEmpty())) {
+                reachedEnd = true;
+                showLoading(false, libraryItems.isEmpty() ? getString(R.string.main_msg_category_last_page) : "");
                 return;
             }
-            gridAdapter.submitList(items);
+            if (!append) {
+                libraryItems.clear();
+            }
+            if (items != null) {
+                libraryItems.addAll(items);
+            }
+            gridAdapter.submitList(new ArrayList<>(libraryItems));
             currentPage = targetPage;
-            showLoading(false, gridAdapter.getDataCount() == 0 ? getString(R.string.main_msg_category_empty) : "");
-            updatePager();
+            reachedEnd = items == null || items.isEmpty();
+            showLoading(false, libraryItems.isEmpty() ? getString(R.string.main_msg_category_empty) : "");
+            setBrowseStatus(getString(R.string.main_msg_category_status, category.name, currentPage));
             syncFeaturedContent();
-            mediaRecyclerView.scrollToPosition(0);
+            if (!append) {
+                mediaRecyclerView.scrollToPosition(0);
+            }
         });
     }
 
@@ -667,34 +904,56 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
         final int targetPage = Math.max(1, page);
+        if (pageLoading && targetPage > currentPage) {
+            return;
+        }
         final int token = ++contentVersion;
         final int sourceToken = sourceVersion;
+        final boolean append = targetPage > 1;
+        if (!append) {
+            reachedEnd = false;
+        }
+        pageLoading = true;
         currentTab = MainTab.RANK;
         browseMode = BrowseMode.RANK;
         currentPage = targetPage;
         applyTabState();
         syncBottomSelection(R.id.menu_rank);
-        showLoading(true, getString(R.string.main_msg_rank_loading));
+        if (!append) {
+            showLoading(true, getString(R.string.main_msg_rank_loading));
+        }
         engine.loadRecommend(targetPage, (items, err) -> {
             if (token != contentVersion || sourceToken != sourceVersion) {
                 return;
             }
+            pageLoading = false;
             swipeRefreshLayout.setRefreshing(false);
             if (!TextUtils.isEmpty(err) && (items == null || items.isEmpty())) {
                 showLoading(false, getString(R.string.main_msg_rank_failed, err));
                 return;
             }
-            if (targetPage > 1 && (items == null || items.isEmpty())) {
-                showLoading(false, rankAdapter.getDataCount() == 0 ? getString(R.string.main_msg_rank_last_page) : "");
-                toast(getString(R.string.main_msg_rank_last_page_toast));
+            if (append && (items == null || items.isEmpty())) {
+                reachedEnd = true;
+                showLoading(false, rankItems.isEmpty() ? getString(R.string.main_msg_rank_last_page) : "");
                 return;
             }
-            rankAdapter.submitList(items);
+            if (!append) {
+                rankItems.clear();
+            }
+            if (items != null) {
+                rankItems.addAll(items);
+            }
+            rankAdapter.submitList(new ArrayList<>(rankItems));
             currentPage = targetPage;
-            showLoading(false, rankAdapter.getDataCount() == 0 ? getString(R.string.main_msg_rank_empty) : "");
-            updatePager();
+            reachedEnd = items == null || items.isEmpty();
+            showLoading(false, rankItems.isEmpty() ? getString(R.string.main_msg_rank_empty) : "");
+            setBrowseStatus(RANK_FILTERS[Math.max(0, Math.min(selectedRankFilterIndex, RANK_FILTERS.length - 1))]
+                    + " 路 "
+                    + getString(R.string.main_msg_rank_status, currentPage));
             syncFeaturedContent();
-            rankRecyclerView.scrollToPosition(0);
+            if (!append) {
+                rankRecyclerView.scrollToPosition(0);
+            }
         });
     }
 
@@ -711,35 +970,57 @@ public class MainActivity extends AppCompatActivity {
             SettingsStore.setLastSearch(this, keyword);
         }
         final int targetPage = Math.max(1, page);
+        if (pageLoading && targetPage > currentPage) {
+            return;
+        }
         final int token = ++contentVersion;
         final int sourceToken = sourceVersion;
+        final boolean append = targetPage > 1;
+        if (!append) {
+            reachedEnd = false;
+        }
+        pageLoading = true;
         currentTab = MainTab.LIBRARY;
         browseMode = BrowseMode.SEARCH;
         currentPage = targetPage;
         applyTabState();
         syncBottomSelection(R.id.menu_library);
         renderCategories();
-        showLoading(true, getString(R.string.main_msg_search_loading, keyword));
+        if (!append) {
+            showLoading(true, getString(R.string.main_msg_search_loading, keyword));
+            SearchHistoryStore.save(this, keyword);
+            renderSearchHistory();
+        }
         engine.search(keyword, targetPage, (items, err) -> {
             if (token != contentVersion || sourceToken != sourceVersion) {
                 return;
             }
+            pageLoading = false;
             swipeRefreshLayout.setRefreshing(false);
             if (!TextUtils.isEmpty(err) && (items == null || items.isEmpty())) {
                 showLoading(false, getString(R.string.main_msg_search_failed, err));
                 return;
             }
-            if (targetPage > 1 && (items == null || items.isEmpty())) {
-                showLoading(false, gridAdapter.getDataCount() == 0 ? getString(R.string.main_msg_search_last_page) : "");
-                toast(getString(R.string.main_msg_search_last_page_toast));
+            if (append && (items == null || items.isEmpty())) {
+                reachedEnd = true;
+                showLoading(false, libraryItems.isEmpty() ? getString(R.string.main_msg_search_last_page) : "");
                 return;
             }
-            gridAdapter.submitList(items);
+            if (!append) {
+                libraryItems.clear();
+            }
+            if (items != null) {
+                libraryItems.addAll(items);
+            }
+            gridAdapter.submitList(new ArrayList<>(libraryItems));
             currentPage = targetPage;
-            showLoading(false, gridAdapter.getDataCount() == 0 ? getString(R.string.main_msg_search_empty) : "");
-            updatePager();
+            reachedEnd = items == null || items.isEmpty();
+            showLoading(false, libraryItems.isEmpty() ? getString(R.string.main_msg_search_empty) : "");
+            setBrowseStatus(getString(R.string.main_msg_search_status, currentPage));
             syncFeaturedContent();
-            mediaRecyclerView.scrollToPosition(0);
+            if (!append) {
+                mediaRecyclerView.scrollToPosition(0);
+            }
         });
     }
 
@@ -797,19 +1078,23 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void renderCategories() {
-        categoryGroup.removeAllViews();
+        if (categoryGroup != null) {
+            categoryGroup.removeAllViews();
+        }
         for (NativeDrpyEngine.Category category : categories) {
-            boolean checked = activeCategory != null && TextUtils.equals(activeCategory.url, category.url) && browseMode != BrowseMode.SEARCH;
-            Chip chip = buildChip(category.name, checked);
-            chip.setOnClickListener(v -> {
-                activeCategory = category;
-                browseMode = BrowseMode.CATEGORY;
-                currentTab = MainTab.LIBRARY;
-                currentPage = 1;
-                renderCategories();
-                loadCategoryPage(category, 1);
-            });
-            categoryGroup.addView(chip);
+            if (categoryGroup != null) {
+                boolean checked = activeCategory != null && TextUtils.equals(activeCategory.url, category.url) && browseMode != BrowseMode.SEARCH;
+                Chip chip = buildChip(category.name, checked);
+                chip.setOnClickListener(v -> {
+                    activeCategory = category;
+                    browseMode = BrowseMode.CATEGORY;
+                    currentTab = MainTab.LIBRARY;
+                    currentPage = 1;
+                    renderCategories();
+                    loadCategoryPage(category, 1);
+                });
+                categoryGroup.addView(chip);
+            }
         }
         sidebarAdapter.submitList(categories, browseMode == BrowseMode.SEARCH || activeCategory == null ? "" : activeCategory.url);
     }
@@ -822,7 +1107,8 @@ public class MainActivity extends AppCompatActivity {
             chip.setOnClickListener(v -> {
                 selectedRankFilterIndex = index;
                 renderRankFilters();
-                if (currentTab == MainTab.RANK && rankAdapter.getDataCount() == 0) {
+                if (currentTab == MainTab.RANK) {
+                    reachedEnd = false;
                     loadRankPage(1);
                 }
             });
@@ -838,7 +1124,7 @@ public class MainActivity extends AppCompatActivity {
         chip.setClickable(true);
         chip.setChipMinHeight(dp(38));
         chip.setEnsureMinTouchTargetSize(false);
-        chip.setChipCornerRadius(dp(10));
+        chip.setChipCornerRadius(dp(12));
         chip.setChipStartPadding(dp(12));
         chip.setChipEndPadding(dp(12));
         int checkedText = ContextCompat.getColor(this, R.color.xm_accent_dark);
@@ -860,6 +1146,7 @@ public class MainActivity extends AppCompatActivity {
                 new int[][]{new int[]{android.R.attr.state_checked}, new int[]{}},
                 new int[]{checkedStroke, defaultStroke}
         ));
+        UiEffects.bindPressScale(chip);
         return chip;
     }
 
@@ -874,8 +1161,11 @@ public class MainActivity extends AppCompatActivity {
         homeScrollView.setVisibility(showHome ? View.VISIBLE : View.GONE);
         libraryContainer.setVisibility(showLibrary ? View.VISIBLE : View.GONE);
         rankContainer.setVisibility(showRank ? View.VISIBLE : View.GONE);
-        pageControlsView.setVisibility(showMine ? View.GONE : View.VISIBLE);
+        pageControlsView.setVisibility(View.GONE);
         searchPanel.setVisibility(showMine ? View.GONE : View.VISIBLE);
+        if (categoryScrollView != null) {
+            categoryScrollView.setVisibility(View.GONE);
+        }
 
         if (showMine) {
             loadingSkeletonContainer.setVisibility(View.GONE);
@@ -885,6 +1175,7 @@ public class MainActivity extends AppCompatActivity {
         updatePager();
         syncFeaturedContent();
         syncSourceLabels();
+        animateActivePanel(showHome ? homeScrollView : showLibrary ? libraryContainer : showRank ? rankContainer : mineScrollView);
     }
 
     private void updateHeaderContent() {
@@ -898,7 +1189,9 @@ public class MainActivity extends AppCompatActivity {
         }
         if (currentTab == MainTab.RANK) {
             headerTitleView.setText(getString(R.string.nav_rank));
-            headerSubtitleView.setText(getString(R.string.main_header_subtitle_rank));
+            headerSubtitleView.setText(RANK_FILTERS[Math.max(0, Math.min(selectedRankFilterIndex, RANK_FILTERS.length - 1))]
+                    + " 路 "
+                    + getString(R.string.main_header_subtitle_rank));
             return;
         }
         if (currentTab == MainTab.LIBRARY) {
@@ -908,6 +1201,8 @@ public class MainActivity extends AppCompatActivity {
                 headerSubtitleView.setText(keyword.isEmpty()
                         ? getString(R.string.main_header_subtitle_library)
                         : getString(R.string.main_msg_search_title, keyword));
+            } else if (activeCategory != null && !activeCategory.name.isEmpty()) {
+                headerSubtitleView.setText(activeCategory.name + " 路 " + getString(R.string.main_header_subtitle_library));
             } else {
                 headerSubtitleView.setText(getString(R.string.main_header_subtitle_library));
             }
@@ -983,7 +1278,7 @@ public class MainActivity extends AppCompatActivity {
         librarySourceTextView.setText(sourceTitle);
         gridAdapter.setSourceLabel(sourceTitle);
         continueAdapter.setSourceLabel(sourceTitle);
-        movieAdapter.setSourceLabel(sourceTitle);
+        homeRecommendAdapter.setSourceLabel(sourceTitle);
     }
 
     private void syncFeaturedContent() {
@@ -1018,7 +1313,10 @@ public class MainActivity extends AppCompatActivity {
 
     private void refreshMineSettings() {
         suppressMineSwitchCallbacks = true;
-        mineThemeSwitch.setChecked(SettingsStore.nightModeEnabled(this));
+        boolean followSystemTheme = SettingsStore.followSystemTheme(this);
+        mineThemeSwitch.setChecked(followSystemTheme ? isNightModeActive() : SettingsStore.nightModeEnabled(this));
+        mineThemeSwitch.setEnabled(!followSystemTheme);
+        mineThemeSwitch.setAlpha(followSystemTheme ? 0.45f : 1f);
         mineAutoPlaySwitch.setChecked(SettingsStore.autoPlayEnabled(this));
         mineRememberSourceSwitch.setChecked(SettingsStore.rememberSource(this));
         mineKeepSearchSwitch.setChecked(SettingsStore.keepLastSearch(this));
@@ -1047,9 +1345,16 @@ public class MainActivity extends AppCompatActivity {
         mineNicknameView.setText(profile.nickname.isEmpty()
                 ? getString(R.string.mine_profile_default_name)
                 : profile.nickname);
-        mineSignatureView.setText(profile.signature.isEmpty()
+        String signature = profile.signature.isEmpty()
                 ? getString(R.string.mine_profile_default_signature)
-                : profile.signature);
+                : profile.signature;
+        if (!TextUtils.equals(lastMineSignatureText, signature)) {
+            lastMineSignatureText = signature;
+            mineSignatureExpanded = false;
+        }
+        mineSignatureView.setText(signature);
+        mineSignatureView.setMaxLines(mineSignatureExpanded ? 6 : 2);
+        mineSignatureView.setEllipsize(mineSignatureExpanded ? null : TextUtils.TruncateAt.END);
         AvatarLoader.load(mineAvatarView, profile.avatarUrl);
     }
 
@@ -1081,6 +1386,10 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void openDetail(NativeDrpyEngine.MediaItem item) {
+        openDetail(item, false);
+    }
+
+    private void openDetail(NativeDrpyEngine.MediaItem item, boolean autoPlayFirst) {
         if (currentSource == null || item == null) {
             return;
         }
@@ -1092,7 +1401,9 @@ public class MainActivity extends AppCompatActivity {
         intent.putExtra("item_title", item.title);
         intent.putExtra("item_poster", item.poster);
         intent.putExtra("item_remark", item.remark);
+        intent.putExtra("auto_play_first", autoPlayFirst);
         startActivity(intent);
+        overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
     }
 
     private boolean sameSource(SourceStore.SourceItem left, SourceStore.SourceItem right) {
@@ -1133,6 +1444,17 @@ public class MainActivity extends AppCompatActivity {
         return sliced;
     }
 
+    private ArrayList<NativeDrpyEngine.MediaItem> sliceTailItems(List<NativeDrpyEngine.MediaItem> items, int start) {
+        ArrayList<NativeDrpyEngine.MediaItem> sliced = new ArrayList<>();
+        if (items == null || items.isEmpty() || start >= items.size()) {
+            return sliced;
+        }
+        for (int i = Math.max(0, start); i < items.size(); i++) {
+            sliced.add(items.get(i));
+        }
+        return sliced;
+    }
+
     private int computeGridSpanCount() {
         DisplayMetrics metrics = getResources().getDisplayMetrics();
         float widthDp = metrics.widthPixels / metrics.density;
@@ -1151,4 +1473,312 @@ public class MainActivity extends AppCompatActivity {
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
     }
 
+    private void renderSearchHistory() {
+        if (searchHistoryRow == null || searchHistoryContent == null) {
+            return;
+        }
+        ArrayList<String> histories = SearchHistoryStore.list(this);
+        searchHistoryContent.removeAllViews();
+        if (histories.isEmpty()) {
+            searchHistoryRow.setVisibility(View.GONE);
+            return;
+        }
+        searchHistoryRow.setVisibility(View.VISIBLE);
+        for (String history : histories) {
+            Chip chip = buildChip(history, false);
+            chip.setText(history);
+            chip.setCheckable(false);
+            chip.setChecked(false);
+            chip.setOnClickListener(v -> {
+                searchInput.setText(history);
+                searchInput.setSelection(history.length());
+                performSearch(1);
+            });
+            chip.setOnLongClickListener(v -> {
+                SearchHistoryStore.remove(this, history);
+                renderSearchHistory();
+                toast("\u5DF2\u5220\u9664\u641C\u7D22\u8BB0\u5F55");
+                return true;
+            });
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+            );
+            params.rightMargin = dp(8);
+            searchHistoryContent.addView(chip, params);
+        }
+    }
+
+    private void refreshMineShelves() {
+        ArrayList<ShelfRailAdapter.ShelfCard> favoriteCards = new ArrayList<>();
+        for (FavoriteStore.FavoriteItem item : FavoriteStore.list(this)) {
+            favoriteCards.add(new ShelfRailAdapter.ShelfCard(
+                    item.title,
+                    item.remark.isEmpty() ? "\u70B9\u51FB\u67E5\u770B\u8BE6\u60C5" : item.remark,
+                    item.sourceTitle,
+                    item.poster,
+                    "\u6536\u85CF",
+                    item
+            ));
+        }
+        favoriteShelfAdapter.submitList(favoriteCards);
+        if (mineFavoritesEmptyView != null && mineFavoritesRecyclerView != null) {
+            mineFavoritesEmptyView.setVisibility(favoriteCards.isEmpty() ? View.VISIBLE : View.GONE);
+            mineFavoritesRecyclerView.setVisibility(favoriteCards.isEmpty() ? View.GONE : View.VISIBLE);
+        }
+
+        ArrayList<ShelfRailAdapter.ShelfCard> historyCards = new ArrayList<>();
+        for (WatchHistoryStore.HistoryItem item : WatchHistoryStore.list(this)) {
+            historyCards.add(new ShelfRailAdapter.ShelfCard(
+                    item.seriesTitle,
+                    buildHistoryRemark(item),
+                    item.sourceTitle,
+                    item.poster,
+                    "\u7EED\u64AD",
+                    item
+            ));
+        }
+        historyShelfAdapter.submitList(historyCards);
+        if (mineHistoryEmptyView != null && mineHistoryRecyclerView != null) {
+            mineHistoryEmptyView.setVisibility(historyCards.isEmpty() ? View.VISIBLE : View.GONE);
+            mineHistoryRecyclerView.setVisibility(historyCards.isEmpty() ? View.GONE : View.VISIBLE);
+        }
+    }
+
+    private void showMediaActions(NativeDrpyEngine.MediaItem item, View anchor) {
+        if (currentSource == null || item == null || anchor == null) {
+            return;
+        }
+        PopupMenu menu = new PopupMenu(this, anchor);
+        boolean favored = FavoriteStore.contains(this, currentSource.host, item.url.isEmpty() ? item.vodId : item.url);
+        menu.getMenu().add(0, 1, 0, "\u5FEB\u901F\u64AD\u653E");
+        menu.getMenu().add(0, 2, 1, "\u67E5\u770B\u8BE6\u60C5");
+        menu.getMenu().add(0, 3, 2, favored ? "\u53D6\u6D88\u6536\u85CF" : "\u52A0\u5165\u6536\u85CF");
+        menu.setOnMenuItemClickListener(entry -> {
+            int id = entry.getItemId();
+            if (id == 1) {
+                openDetail(item, true);
+                return true;
+            }
+            if (id == 2) {
+                openDetail(item, false);
+                return true;
+            }
+            if (id == 3) {
+                boolean nowFavored = FavoriteStore.toggle(this, currentSource, item);
+                refreshMineShelves();
+                toast(nowFavored ? "\u5DF2\u52A0\u5165\u6536\u85CF" : "\u5DF2\u53D6\u6D88\u6536\u85CF");
+                return true;
+            }
+            return false;
+        });
+        menu.show();
+    }
+
+    private void showFavoriteActions(FavoriteStore.FavoriteItem item, View anchor) {
+        if (item == null || anchor == null) {
+            return;
+        }
+        PopupMenu menu = new PopupMenu(this, anchor);
+        menu.getMenu().add(0, 1, 0, "\u7EE7\u7EED\u89C2\u770B");
+        menu.getMenu().add(0, 2, 1, "\u67E5\u770B\u8BE6\u60C5");
+        menu.getMenu().add(0, 3, 2, "\u79FB\u51FA\u6536\u85CF");
+        menu.setOnMenuItemClickListener(entry -> {
+            int id = entry.getItemId();
+            if (id == 1) {
+                openFavoriteDetail(item, true);
+                return true;
+            }
+            if (id == 2) {
+                openFavoriteDetail(item, false);
+                return true;
+            }
+            if (id == 3) {
+                FavoriteStore.remove(this, item);
+                refreshMineShelves();
+                toast("\u5DF2\u79FB\u51FA\u6536\u85CF");
+                return true;
+            }
+            return false;
+        });
+        menu.show();
+    }
+
+    private void showHistoryActions(WatchHistoryStore.HistoryItem item, View anchor) {
+        if (item == null || anchor == null) {
+            return;
+        }
+        PopupMenu menu = new PopupMenu(this, anchor);
+        boolean favored = FavoriteStore.contains(this, item.sourceHost, item.detailUrl);
+        menu.getMenu().add(0, 1, 0, "\u7EE7\u7EED\u64AD\u653E");
+        menu.getMenu().add(0, 2, 1, "\u67E5\u770B\u8BE6\u60C5");
+        menu.getMenu().add(0, 3, 2, favored ? "\u53D6\u6D88\u6536\u85CF" : "\u52A0\u5165\u6536\u85CF");
+        menu.getMenu().add(0, 4, 3, "\u5220\u9664\u8BB0\u5F55");
+        menu.setOnMenuItemClickListener(entry -> {
+            int id = entry.getItemId();
+            if (id == 1) {
+                openHistoryPlayback(item);
+                return true;
+            }
+            if (id == 2) {
+                openHistoryDetail(item);
+                return true;
+            }
+            if (id == 3) {
+                boolean nowFavored = FavoriteStore.toggle(this, buildStoredSource(item.sourceTitle, item.sourceHost, item.sourceRaw), buildStoredMediaItem(item.seriesTitle, item.poster, item.remark, item.detailUrl));
+                refreshMineShelves();
+                toast(nowFavored ? "\u5DF2\u52A0\u5165\u6536\u85CF" : "\u5DF2\u53D6\u6D88\u6536\u85CF");
+                return true;
+            }
+            if (id == 4) {
+                WatchHistoryStore.remove(this, item);
+                refreshMineShelves();
+                toast("\u5DF2\u5220\u9664\u89C2\u770B\u8BB0\u5F55");
+                return true;
+            }
+            return false;
+        });
+        menu.show();
+    }
+
+    private void openFavoriteDetail(FavoriteStore.FavoriteItem item, boolean autoPlayFirst) {
+        if (item == null) {
+            return;
+        }
+        Intent intent = new Intent(this, DetailActivity.class);
+        intent.putExtra("source_title", item.sourceTitle);
+        intent.putExtra("source_host", item.sourceHost);
+        intent.putExtra("source_raw", item.sourceRaw);
+        intent.putExtra("item_url", item.itemUrl);
+        intent.putExtra("item_title", item.title);
+        intent.putExtra("item_poster", item.poster);
+        intent.putExtra("item_remark", item.remark);
+        intent.putExtra("auto_play_first", autoPlayFirst);
+        startActivity(intent);
+        overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
+    }
+
+    private void openHistoryDetail(WatchHistoryStore.HistoryItem item) {
+        if (item == null || item.detailUrl.isEmpty()) {
+            return;
+        }
+        Intent intent = new Intent(this, DetailActivity.class);
+        intent.putExtra("source_title", item.sourceTitle);
+        intent.putExtra("source_host", item.sourceHost);
+        intent.putExtra("source_raw", item.sourceRaw);
+        intent.putExtra("item_url", item.detailUrl);
+        intent.putExtra("item_title", item.seriesTitle);
+        intent.putExtra("item_poster", item.poster);
+        intent.putExtra("item_remark", item.remark);
+        startActivity(intent);
+        overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
+    }
+
+    private void openHistoryPlayback(WatchHistoryStore.HistoryItem item) {
+        if (item == null || item.playInput.isEmpty()) {
+            return;
+        }
+        Intent intent = new Intent(this, NativePlayerActivity.class);
+        intent.putExtra("title", item.episodeTitle.isEmpty() ? item.seriesTitle : item.episodeTitle);
+        intent.putExtra("series_title", item.seriesTitle);
+        intent.putExtra("line", item.line);
+        intent.putExtra("input", item.playInput);
+        intent.putExtra("source_title", item.sourceTitle);
+        intent.putExtra("source_host", item.sourceHost);
+        intent.putExtra("source_raw", item.sourceRaw);
+        intent.putExtra("detail_page_url", item.detailUrl);
+        intent.putExtra("detail_poster", item.poster);
+        intent.putExtra("detail_remark", item.remark);
+        startActivity(intent);
+        overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
+    }
+
+    private SourceStore.SourceItem buildStoredSource(String title, String host, String raw) {
+        return new SourceStore.SourceItem("local:" + host, title, host, raw, true);
+    }
+
+    private NativeDrpyEngine.MediaItem buildStoredMediaItem(String title, String poster, String remark, String url) {
+        return new NativeDrpyEngine.MediaItem("", "", title, poster, remark, url);
+    }
+
+    private String buildHistoryRemark(WatchHistoryStore.HistoryItem item) {
+        if (item == null) {
+            return "\u70B9\u51FB\u7EE7\u7EED\u64AD\u653E";
+        }
+        StringBuilder builder = new StringBuilder();
+        if (!item.episodeTitle.isEmpty()) {
+            builder.append(item.episodeTitle);
+        }
+        if (item.progressMs > 0L) {
+            if (builder.length() > 0) {
+                builder.append(" \u00B7 ");
+            }
+            builder.append("\u7EED\u64AD ").append(formatTime(item.progressMs));
+        }
+        if (builder.length() == 0 && !item.remark.isEmpty()) {
+            builder.append(item.remark);
+        }
+        if (builder.length() == 0) {
+            builder.append("\u70B9\u51FB\u7EE7\u7EED\u64AD\u653E");
+        }
+        return builder.toString();
+    }
+
+    private void toggleMineSignatureExpanded() {
+        String signature = mineSignatureView == null ? "" : String.valueOf(mineSignatureView.getText());
+        if (signature.trim().length() <= 28 && mineSignatureView.getLineCount() <= 2) {
+            return;
+        }
+        mineSignatureExpanded = !mineSignatureExpanded;
+        mineSignatureView.setMaxLines(mineSignatureExpanded ? 6 : 2);
+        mineSignatureView.setEllipsize(mineSignatureExpanded ? null : TextUtils.TruncateAt.END);
+    }
+
+    private void maybeShowOnboarding() {
+        if (!SettingsStore.shouldShowOnboarding(this) || isFinishing()) {
+            return;
+        }
+        new AlertDialog.Builder(this)
+                .setTitle("\u4F7F\u7528\u63D0\u793A")
+                .setMessage("\u0031\u002E \u9996\u9875\u3001\u7247\u5E93\u3001\u699C\u5355\u90FD\u652F\u6301\u4E0A\u62C9\u7FFB\u9875\u3002\n"
+                        + "\u0032\u002E \u957F\u6309\u5361\u7247\u53EF\u4EE5\u5FEB\u901F\u64AD\u653E\u6216\u52A0\u5165\u6536\u85CF\u3002\n"
+                        + "\u0033\u002E \u64AD\u653E\u9875\u4F1A\u8BB0\u5F55\u7EE7\u64AD\u8FDB\u5EA6\uFF0C\u201C\u6211\u7684\u201D\u91CC\u53EF\u4EE5\u7EE7\u7EED\u89C2\u770B\u3002")
+                .setPositiveButton("\u6211\u77E5\u9053\u4E86", (dialog, which) -> {
+                    SettingsStore.markOnboardingShown(this);
+                    dialog.dismiss();
+                })
+                .setCancelable(true)
+                .show();
+    }
+
+    private boolean isNightModeActive() {
+        int nightModeMask = getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK;
+        return nightModeMask == Configuration.UI_MODE_NIGHT_YES;
+    }
+
+    private void animateActivePanel(View target) {
+        if (target == null || target.getVisibility() != View.VISIBLE) {
+            return;
+        }
+        target.setAlpha(0f);
+        target.setTranslationX(dp(18));
+        target.animate()
+                .alpha(1f)
+                .translationX(0f)
+                .setDuration(180L)
+                .start();
+    }
+
+    private String formatTime(long positionMs) {
+        long totalSeconds = Math.max(0L, positionMs / 1000L);
+        long hours = totalSeconds / 3600L;
+        long minutes = (totalSeconds % 3600L) / 60L;
+        long seconds = totalSeconds % 60L;
+        if (hours > 0L) {
+            return String.format("%d:%02d:%02d", hours, minutes, seconds);
+        }
+        return String.format("%02d:%02d", minutes, seconds);
+    }
+
 }
+

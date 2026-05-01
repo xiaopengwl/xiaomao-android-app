@@ -1,4 +1,4 @@
-package com.xiaomao.player;
+﻿package com.xiaomao.player;
 
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
@@ -7,6 +7,7 @@ import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
+import android.media.AudioManager;
 import android.net.Uri;
 import android.net.http.SslError;
 import android.os.Build;
@@ -116,6 +117,9 @@ public class NativePlayerActivity extends Activity {
     private String title;
     private String line;
     private String input;
+    private String detailPageUrl = "";
+    private String detailPoster = "";
+    private String detailRemark = "";
     private String playUrl;
     private boolean sniffing = false;
     private boolean portraitPlayerMode = false;
@@ -167,6 +171,24 @@ public class NativePlayerActivity extends Activity {
     private WebChromeClient.CustomViewCallback fullscreenCallback;
     private float longPressDownX = 0f;
     private float longPressDownY = 0f;
+    private float gestureDownX = 0f;
+    private float gestureDownY = 0f;
+    private long gestureSeekStartPosition = 0L;
+    private long gestureSeekPreviewPosition = -1L;
+    private int gestureMode = 0;
+    private int gestureVolumeStart = 0;
+    private float gestureBrightnessStart = 0.5f;
+    private long pendingResumeNoticeMs = 0L;
+    private long lastTapTime = 0L;
+    private float lastTapX = 0f;
+    private float lastTapY = 0f;
+    private AudioManager audioManager;
+    private int maxVolume = 1;
+
+    private static final int GESTURE_NONE = 0;
+    private static final int GESTURE_SEEK = 1;
+    private static final int GESTURE_BRIGHTNESS = 2;
+    private static final int GESTURE_VOLUME = 3;
 
     private final Handler handler = new Handler();
     private final Runnable playBestSniffCandidate = () -> chooseBestSniffCandidate(false);
@@ -216,7 +238,8 @@ public class NativePlayerActivity extends Activity {
                 return;
             }
             if (playbackState == Player.STATE_ENDED) {
-                playbackPosition = 0L;
+                clearSavedPlaybackProgress();
+                recordWatchHistory();
                 showState("\u64ad\u653e\u5b8c\u6210", false, 0.95f);
             }
         }
@@ -259,9 +282,12 @@ public class NativePlayerActivity extends Activity {
         if (title.isEmpty()) title = "\u89c6\u9891\u64ad\u653e";
         line = safe(getIntent().getStringExtra("line"));
         if (line.isEmpty()) line = "\u9ed8\u8ba4\u7ebf\u8def";
+        detailPageUrl = safe(getIntent().getStringExtra("detail_page_url"));
+        detailPoster = safe(getIntent().getStringExtra("detail_poster"));
+        detailRemark = safe(getIntent().getStringExtra("detail_remark"));
         seriesTitle = safe(getIntent().getStringExtra("series_title"));
         if (seriesTitle.isEmpty()) {
-            int split = title.indexOf(" 璺?");
+            int split = title.indexOf(" · ");
             seriesTitle = split > 0 ? title.substring(0, split) : title;
         }
         ArrayList<String> names = getIntent().getStringArrayListExtra("episode_names");
@@ -289,13 +315,19 @@ public class NativePlayerActivity extends Activity {
                 getIntent().getStringExtra("source_raw")
         );
         engine = new NativeDrpyEngine(this, source);
+        audioManager = (AudioManager) getSystemService(AUDIO_SERVICE);
+        if (audioManager != null) {
+            maxVolume = Math.max(1, audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC));
+        }
         playWhenReady = SettingsStore.autoPlayEnabled(this);
         loadSnifferRules();
         normalizePlaybackDefaultsSafe();
         buildUi();
+        applyImmersiveMode();
         updateHeader();
         refreshHeaderTextSafe();
         buildEpisodeButtons();
+        restoreSavedPlaybackPosition();
         resolveAndPlay();
     }
 
@@ -311,22 +343,41 @@ public class NativePlayerActivity extends Activity {
         }
         int action = event.getActionMasked();
         if (action == MotionEvent.ACTION_DOWN) {
-            longPressGestureArmed = shouldArmGlobalLongPressGesture(event);
+            boolean canUsePlayerGesture = shouldArmGlobalLongPressGesture(event);
+            if (canUsePlayerGesture && isDoubleTap(event)) {
+                togglePlayerPlayState();
+                cancelLongPressGesture(false);
+                resetGestureTracking();
+                return;
+            }
+            longPressGestureArmed = canUsePlayerGesture;
             longPressDownX = event.getRawX();
             longPressDownY = event.getRawY();
+            gestureDownX = event.getRawX();
+            gestureDownY = event.getRawY();
+            gestureSeekStartPosition = currentPlayerPosition();
+            gestureSeekPreviewPosition = -1L;
+            gestureMode = GESTURE_NONE;
+            gestureVolumeStart = currentVolumeLevel();
+            gestureBrightnessStart = currentWindowBrightness();
             handler.removeCallbacks(longPressSpeedRunnable);
             if (longPressGestureArmed) {
                 handler.postDelayed(longPressSpeedRunnable, 350);
             }
+            lastTapTime = event.getEventTime();
+            lastTapX = event.getRawX();
+            lastTapY = event.getRawY();
             return;
         }
         if (action == MotionEvent.ACTION_MOVE) {
             if (longPressGestureArmed && !tempSpeedBoost && movedBeyondGlobalLongPressSlop(event)) {
                 cancelLongPressGesture(false);
             }
+            handlePlayerGestureMove(event);
             return;
         }
         if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
+            finishPlayerGesture();
             cancelLongPressGesture(true);
         }
     }
@@ -370,6 +421,213 @@ public class NativePlayerActivity extends Activity {
         return (dx * dx + dy * dy) > (touchSlop * touchSlop)
                 || !isTouchInsidePlayerBox(event)
                 || isTouchInsideBottomControllerZone(event);
+    }
+
+    private void togglePlayerPlayState() {
+        if (dkPlayerView != null && dkPlayerView.getVisibility() == View.VISIBLE) {
+            try {
+                if (dkPlayerView.isPlaying()) {
+                    dkPlayerView.pause();
+                    playWhenReady = false;
+                    showState("\u5DF2\u6682\u505C", false, 0.96f);
+                } else {
+                    dkPlayerView.start();
+                    playWhenReady = true;
+                    showState("\u7EE7\u7EED\u64AD\u653E", false, 0.96f);
+                }
+                handler.postDelayed(hideState, 700L);
+                return;
+            } catch (Throwable ignored) {
+            }
+        }
+        if (mediaPlayer != null) {
+            if (mediaPlayer.isPlaying()) {
+                mediaPlayer.pause();
+                playWhenReady = false;
+                showState("\u5DF2\u6682\u505C", false, 0.96f);
+            } else {
+                mediaPlayer.play();
+                playWhenReady = true;
+                showState("\u7EE7\u7EED\u64AD\u653E", false, 0.96f);
+            }
+            handler.postDelayed(hideState, 700L);
+            return;
+        }
+        if (artPlayerWebView != null && artPlayerWebView.getVisibility() == View.VISIBLE) {
+            playWhenReady = !playWhenReady;
+            artPlayerWebView.evaluateJavascript("window.xmPlayerTogglePlay && window.xmPlayerTogglePlay();", null);
+            showState(playWhenReady ? "\u7EE7\u7EED\u64AD\u653E" : "\u5DF2\u6682\u505C", false, 0.96f);
+            handler.postDelayed(hideState, 700L);
+        }
+    }
+
+    private long currentPlayerPosition() {
+        try {
+            if (dkPlayerView != null && dkPlayerView.getVisibility() == View.VISIBLE) {
+                return Math.max(0L, dkPlayerView.getCurrentPosition());
+            }
+        } catch (Throwable ignored) {
+        }
+        if (mediaPlayer != null) {
+            return Math.max(0L, mediaPlayer.getCurrentPosition());
+        }
+        return Math.max(0L, playbackPosition);
+    }
+
+    private long currentPlayerDuration() {
+        try {
+            if (dkPlayerView != null && dkPlayerView.getVisibility() == View.VISIBLE) {
+                return Math.max(0L, dkPlayerView.getDuration());
+            }
+        } catch (Throwable ignored) {
+        }
+        if (mediaPlayer != null) {
+            long duration = mediaPlayer.getDuration();
+            return duration < 0L ? 0L : duration;
+        }
+        return 0L;
+    }
+
+    private void seekCurrentPlayerTo(long positionMs) {
+        long target = Math.max(0L, positionMs);
+        playbackPosition = target;
+        try {
+            if (dkPlayerView != null && dkPlayerView.getVisibility() == View.VISIBLE) {
+                dkPlayerView.seekTo(target);
+                return;
+            }
+        } catch (Throwable ignored) {
+        }
+        if (mediaPlayer != null) {
+            mediaPlayer.seekTo(target);
+            return;
+        }
+        if (artPlayerWebView != null && artPlayerWebView.getVisibility() == View.VISIBLE) {
+            artPlayerWebView.evaluateJavascript("window.xmPlayerSeek && window.xmPlayerSeek(" + target + ");", null);
+        }
+    }
+
+    private int currentVolumeLevel() {
+        if (audioManager == null) {
+            return 0;
+        }
+        try {
+            return audioManager.getStreamVolume(AudioManager.STREAM_MUSIC);
+        } catch (Throwable ignored) {
+            return 0;
+        }
+    }
+
+    private void setVolumeLevel(int level) {
+        if (audioManager == null) {
+            return;
+        }
+        try {
+            audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, (int) clamp(level, 0, maxVolume), 0);
+        } catch (Throwable ignored) {
+        }
+    }
+
+    private float currentWindowBrightness() {
+        float value = getWindow().getAttributes().screenBrightness;
+        if (value <= 0f) {
+            return 0.5f;
+        }
+        return value;
+    }
+
+    private void applyWindowBrightness(float brightness) {
+        WindowManager.LayoutParams params = getWindow().getAttributes();
+        params.screenBrightness = clamp(brightness, 0.08f, 1f);
+        getWindow().setAttributes(params);
+    }
+
+    private void applyImmersiveMode() {
+        View decor = getWindow().getDecorView();
+        decor.setSystemUiVisibility(
+                View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                        | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                        | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                        | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                        | View.SYSTEM_UI_FLAG_FULLSCREEN
+                        | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+        );
+    }
+
+    private void handlePlayerGestureMove(MotionEvent event) {
+        if (event == null || tempSpeedBoost || sniffing || !isTouchInsidePlayerBox(event) || isTouchInsideBottomControllerZone(event)) {
+            return;
+        }
+        float dx = event.getRawX() - gestureDownX;
+        float dy = event.getRawY() - gestureDownY;
+        int touchSlop = ViewConfiguration.get(this).getScaledTouchSlop();
+        if (gestureMode == GESTURE_NONE) {
+            if ((dx * dx + dy * dy) < (touchSlop * touchSlop)) {
+                return;
+            }
+            if (Math.abs(dx) > Math.abs(dy) && currentPlayerDuration() > 0L) {
+                gestureMode = GESTURE_SEEK;
+            } else if (event.getRawX() < getResources().getDisplayMetrics().widthPixels / 2f) {
+                gestureMode = GESTURE_BRIGHTNESS;
+            } else {
+                gestureMode = GESTURE_VOLUME;
+            }
+        }
+        if (gestureMode == GESTURE_SEEK) {
+            long duration = currentPlayerDuration();
+            if (duration <= 0L) {
+                return;
+            }
+            long delta = (long) ((dx / Math.max(1f, playerBox == null ? 1f : playerBox.getWidth())) * Math.min(duration, 240000L));
+            gestureSeekPreviewPosition = clamp(gestureSeekStartPosition + delta, 0L, Math.max(0L, duration - 1000L));
+            showState("\u5FEB\u8FDB\u81F3 " + formatTime(gestureSeekPreviewPosition), false, 0.96f);
+            return;
+        }
+        float percent = -dy / Math.max(1f, playerBox == null ? 1f : playerBox.getHeight());
+        if (gestureMode == GESTURE_BRIGHTNESS) {
+            float target = clamp(gestureBrightnessStart + percent, 0.08f, 1f);
+            applyWindowBrightness(target);
+            showState("\u4EAE\u5EA6 " + Math.round(target * 100f) + "%", false, 0.96f);
+            return;
+        }
+        if (gestureMode == GESTURE_VOLUME) {
+            int target = (int) clamp(gestureVolumeStart + Math.round(percent * maxVolume), 0, maxVolume);
+            setVolumeLevel(target);
+            int ratio = maxVolume <= 0 ? 0 : Math.round((target * 100f) / maxVolume);
+            showState("\u97F3\u91CF " + ratio + "%", false, 0.96f);
+        }
+    }
+
+    private void finishPlayerGesture() {
+        if (gestureMode == GESTURE_SEEK && gestureSeekPreviewPosition >= 0L) {
+            seekCurrentPlayerTo(gestureSeekPreviewPosition);
+            showState("\u5DF2\u8DF3\u8F6C\u81F3 " + formatTime(gestureSeekPreviewPosition), false, 0.96f);
+            handler.postDelayed(hideState, 800L);
+        } else if (gestureMode == GESTURE_BRIGHTNESS || gestureMode == GESTURE_VOLUME) {
+            handler.postDelayed(hideState, 700L);
+        }
+        resetGestureTracking();
+    }
+
+    private void resetGestureTracking() {
+        gestureMode = GESTURE_NONE;
+        gestureSeekPreviewPosition = -1L;
+    }
+
+    private boolean isDoubleTap(MotionEvent event) {
+        if (event == null) {
+            return false;
+        }
+        long now = event.getEventTime();
+        long delta = now - lastTapTime;
+        float dx = event.getRawX() - lastTapX;
+        float dy = event.getRawY() - lastTapY;
+        float distance = (dx * dx) + (dy * dy);
+        int slop = dp(40);
+        return lastTapTime > 0L
+                && delta > 40L
+                && delta < 280L
+                && distance < (slop * slop);
     }
 
     private void buildUi() {
@@ -603,6 +861,7 @@ public class NativePlayerActivity extends Activity {
                     : cardBgRes(R.color.xm_player_chip_tonal_bg, R.color.xm_player_chip_tonal_stroke, 16));
             portraitModeButton.setTextColor(color(enabled ? R.color.xm_player_chip_primary_text : R.color.xm_player_chip_tonal_text));
         }
+        applyImmersiveMode();
     }
 
     private WebView createArtPlayerWebView() {
@@ -791,7 +1050,7 @@ public class NativePlayerActivity extends Activity {
             applyPlaybackSpeed(selectedSpeed);
         }
         updateSpeedButton();
-        showState("閸掑洦宕查崐宥夆偓鐔惰礋 " + formatSpeed(selectedSpeed), false, 0.92f);
+        showState("闁告帒娲﹀畷鏌ュ磹瀹ュ鍋撻悢鎯扮 " + formatSpeed(selectedSpeed), false, 0.92f);
         handler.postDelayed(hideState, 800);
     }
 
@@ -857,7 +1116,7 @@ public class NativePlayerActivity extends Activity {
         String episodeName = currentIndex >= 0 && currentIndex < episodeNames.size() ? episodeNames.get(currentIndex) : "\u64ad\u653e";
         titleView.setText(seriesTitle + " \u00b7 " + episodeName);
         lineView.setText(buildHeaderMetaText());
-        title = seriesTitle + " 璺?" + episodeName;
+        title = seriesTitle + " \u00b7 " + episodeName;
     }
 
     private void buildEpisodeButtons() {
@@ -886,8 +1145,11 @@ public class NativePlayerActivity extends Activity {
 
     private void switchEpisode(int index) {
         if (index < 0 || index >= episodeInputs.size() || index == currentIndex) return;
+        persistPlaybackProgress();
+        recordWatchHistory();
         currentIndex = index;
         input = safe(episodeInputs.get(index));
+        restoreSavedPlaybackPosition();
         updateHeader();
         refreshHeaderTextSafe();
         buildEpisodeButtons();
@@ -897,10 +1159,10 @@ public class NativePlayerActivity extends Activity {
     /*
     private void normalizePlaybackDefaults() {
         if (title.isEmpty() || looksBrokenPlaybackText(title)) {
-            title = "闂傚倸鍊搁崐宄懊归崶褏鏆﹂柣銏㈩焾缁愭鏌熼幍顔碱暭闁稿绻濋弻鏇熷緞閸繂澹斿┑鐐村灦鑿ら柡鈧禒瀣€甸柨婵嗗暙婵＄兘鏌涚€ｎ偅宕岀€规洘甯￠幃娆撳蓟閵夈儲鏆梻鍌欑閹碱偄煤閵娾晛纾婚柣鏃傗拡閺佸﹪鏌熼悜妯虹劸婵炴挸顭烽弻鏇㈠醇濠靛浂妫￠柣蹇撶箳閺佸寮诲☉銏″亹闁告劖褰冮～鎺楁倵?;
+            title = "闂傚倸鍊搁崐鎼佸磹瀹勬噴褰掑炊瑜忛弳锕傛煟閵忋埄鐒剧紒鎰殜閺岀喖骞嶉纰辨毉闂佺顑戠换婵嬪蓟閺囩喎绶為柛顐ｇ箓婢规柨鈹戦悙鏉戠仸閼裤倝鏌￠埀顒佺鐎ｎ偄鈧敻鏌ㄥ┑鍡楁殭濠碉紕鍏橀弻娑氣偓锝庡亝瀹曞瞼鈧娲樼敮锟犲箖濞嗘挸钃熼柕澶堝劜閺嗩亪姊婚崒娆戭槮闁圭⒈鍋勭叅闁靛ň鏅涚壕濠氭煟閺冨倵鎷￠柡浣革躬閺岀喖鎮滃Ο铏瑰姼濠电偞鎸搁…鐑藉蓟閺囥垹閱囨繝闈涙祩濡繝鏌ｈ箛鎾剁闁轰礁顭峰璇测槈閵忊€充汗闂佸憡鍔栬ぐ鍐綖閹烘鍊?;
         }
         if (line.isEmpty() || looksBrokenPlaybackText(line)) {
-            line = "濠电姷鏁告慨鐢割敊閺嶎厼绐楁俊銈呭暞閺嗘粍淇婇妶鍛殶闁活厽鐟╅弻鐔兼倻濡晲绮堕梺閫炲苯澧剧紒鐘虫尭閻ｉ攱绺界粙璇俱劍銇勯弮鍥撴繛鍛Ч濮婄粯鎷呴崫鍕粯濡炪値鍋呭ú鐔风暦閹邦儵鏃堝焵椤掑啰浜辨俊鐐€栭悧婊堝磻閻愮儤鍋傞柣妯肩帛閻撴瑥螞妫颁浇鍏屾い锔肩畵閺岋綀绠涢妷褏袦闂?;
+            line = "婵犵數濮烽弫鍛婃叏閻㈠壊鏁婇柡宥庡幖缁愭淇婇妶鍛殲闁哄棙绮嶆穱濠囧Χ閸涱厽娈堕梺娲诲幗閻熲晠寮婚悢鍏煎€绘俊顖炴櫜缁爼姊洪柅鐐茶嫰婢у墽绱掗悩铏碍闁伙綁鏀辩缓鐣岀矙鐠囦勘鍔嶉妵鍕籍閸ヮ灝鎾寸箾閸涱厾效婵﹦绮幏鍛村传閸曨偂绮俊鐐€ら崑鍛洪悢椋庢殾闁归偊鍎甸弮鍫濈劦妞ゆ帒鍟版禍杈ㄤ繆閻愵亜鈧牠鎮у鍫濈；闁绘劗鍎ら崑鍌炴煟濡偐甯涢柣鎾寸懃铻炲Λ棰佹祰閸忓本銇勯敂鑲╃暤闁哄矉缍€缁犳盯濡疯琚﹂梻?;
         }
         if (seriesTitle.isEmpty() || looksBrokenPlaybackText(seriesTitle)) {
             seriesTitle = title;
@@ -926,17 +1188,17 @@ public class NativePlayerActivity extends Activity {
     private void refreshHeaderText() {
         String episodeName = currentIndex >= 0 && currentIndex < episodeNames.size()
                 ? safe(episodeNames.get(currentIndex))
-                : "閹绢厽鏂?;
+                : "闁圭虎鍘介弬?;
         if (episodeName.isEmpty()) {
-            episodeName = "閹绢厽鏂?;
+            episodeName = "闁圭虎鍘介弬?;
         }
         seriesTitle = safe(seriesTitle).isEmpty() ? title : seriesTitle;
-        title = seriesTitle + " 璺?" + episodeName;
+        title = seriesTitle + " 鐠?" + episodeName;
         if (titleView != null) {
             titleView.setText(title);
         }
         if (lineView != null) {
-            lineView.setText("缁捐儻鐭? " + line + " 璺?濠? " + source.title + " 璺?閸?" + episodeInputs.size() + " 闂?璺?閸″懏甯板ǎ鍗炲 " + maxSniffDepth);
+            lineView.setText("缂佹崘鍎婚惌? " + line + " 鐠?婵? " + source.title + " 鐠?闁?" + episodeInputs.size() + " 闂?鐠?闁糕€虫噺鐢澘菐閸楃偛顔?" + maxSniffDepth);
         }
     }
 
@@ -945,11 +1207,11 @@ public class NativePlayerActivity extends Activity {
         if (text.isEmpty()) {
             return false;
         }
-        return text.contains("閿熸枻鎷?)
+        return text.contains("闁跨喐鏋婚幏?)
                 || text.contains("闂?)
-                || text.contains("婵?)
+                || text.contains("濠?)
                 || text.contains("缂?)
-                || text.contains("濠?);
+                || text.contains("婵?);
 
 
 
@@ -1008,6 +1270,98 @@ public class NativePlayerActivity extends Activity {
         return "\u7ebf\u8def: " + line
                 + " \u00b7 \u6e90: " + source.title
                 + " \u00b7 \u5171 " + episodeInputs.size() + " \u96c6";
+    }
+
+    private void restoreSavedPlaybackPosition() {
+        pendingResumeNoticeMs = 0L;
+        playbackPosition = 0L;
+        String currentInput = safe(input);
+        if (currentInput.isEmpty()) {
+            return;
+        }
+        long saved = PlaybackResumeStore.load(
+                this,
+                source == null ? "" : source.host,
+                safe(seriesTitle),
+                safe(line),
+                currentInput
+        );
+        if (saved <= 0L) {
+            return;
+        }
+        playbackPosition = saved;
+        pendingResumeNoticeMs = saved;
+    }
+
+    private void persistPlaybackProgress() {
+        String currentInput = safe(input);
+        if (currentInput.isEmpty()) {
+            return;
+        }
+        long position = Math.max(0L, currentPlayerPosition());
+        long duration = Math.max(0L, currentPlayerDuration());
+        playbackPosition = position;
+        if (duration > 0L && position >= Math.max(0L, duration - 5000L)) {
+            clearSavedPlaybackProgress();
+            return;
+        }
+        PlaybackResumeStore.save(
+                this,
+                source == null ? "" : source.host,
+                safe(seriesTitle),
+                safe(line),
+                currentInput,
+                position
+        );
+    }
+
+    private void clearSavedPlaybackProgress() {
+        String currentInput = safe(input);
+        if (!currentInput.isEmpty()) {
+            PlaybackResumeStore.clear(
+                    this,
+                    source == null ? "" : source.host,
+                    safe(seriesTitle),
+                    safe(line),
+                    currentInput
+            );
+        }
+        playbackPosition = 0L;
+        pendingResumeNoticeMs = 0L;
+    }
+
+    private void recordWatchHistory() {
+        String currentInput = safe(input);
+        if (source == null || currentInput.isEmpty()) {
+            return;
+        }
+        long progress = Math.max(0L, currentPlayerPosition());
+        long duration = Math.max(0L, currentPlayerDuration());
+        if (duration > 0L && progress >= Math.max(0L, duration - 5000L)) {
+            progress = 0L;
+        }
+        String episodeTitle = currentIndex >= 0 && currentIndex < episodeNames.size()
+                ? safe(episodeNames.get(currentIndex))
+                : safe(title);
+        if (episodeTitle.isEmpty()) {
+            episodeTitle = "\u64ad\u653e";
+        }
+        String historyDetailUrl = safe(detailPageUrl).isEmpty() ? currentInput : safe(detailPageUrl);
+        WatchHistoryStore.record(this, new WatchHistoryStore.HistoryItem(
+                WatchHistoryStore.buildKey(source.host, historyDetailUrl, currentInput),
+                source.title,
+                source.host,
+                source.raw,
+                historyDetailUrl,
+                safe(seriesTitle),
+                episodeTitle,
+                safe(detailPoster),
+                safe(detailRemark),
+                safe(line),
+                currentInput,
+                progress,
+                System.currentTimeMillis()
+        ));
     }
 
     private boolean looksBrokenPlaybackTextSafe(String value) {
@@ -1370,8 +1724,7 @@ public class NativePlayerActivity extends Activity {
         stopSniffer(fromSniff);
         releaseDkPlayer();
         playUrl = mediaUrl;
-        showLoadingState("姝ｅ湪鍔犺浇鎾斁鍣?..");
-        playbackPosition = 0L;
+        showLoadingState("\u6b63\u5728\u52a0\u8f7d\u64ad\u653e\u5668\u2026");
         playWhenReady = SettingsStore.autoPlayEnabled(this);
         try {
             prepareDkPlayer(mediaUrl, buildPlayerHeaders());
@@ -1385,11 +1738,11 @@ public class NativePlayerActivity extends Activity {
             if (tryWebHlsBridgeFallback("DK \u521d\u59cb\u5316\u5931\u8d25\uff0c\u6b63\u5728\u542f\u7528 HLS \u5907\u7528\u6865\u63a5\u2026")) {
                 return;
             }
-            String message = "鎾斁鍣ㄥ垵濮嬪寲澶辫触";
+            String message = "\u64ad\u653e\u5668\u521d\u59cb\u5316\u5931\u8d25";
             if (recoverFromPlaybackFailure(message)) {
                 return;
             }
-            Toast.makeText(this, message + "锛屽皾璇曞閮ㄦ挱鏀惧櫒", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, message + "\uff0c\u5df2\u5c1d\u8bd5\u8c03\u7528\u5916\u90e8\u64ad\u653e\u5668", Toast.LENGTH_SHORT).show();
             openExternalPlayer();
         }
     }
@@ -1497,8 +1850,8 @@ public class NativePlayerActivity extends Activity {
         }
         String js = "(function(){try{"
                 + "function clickAdControls(){try{var sels=['.skip','.skip-btn','.skipad','.btn-skip','.ad-skip','.video-ad-skip','.close','.close-btn','.close-icon','.layui-layer-close','.icon-close','[class*=skip]','[class*=close]','[id*=skip]','[id*=close]'];"
-                + "for(var i=0;i<sels.length;i++){var nodes=document.querySelectorAll(sels[i]);for(var j=0;j<nodes.length;j++){var el=nodes[j];var text=((el.innerText||el.textContent||'')+' '+(el.value||'')).toLowerCase();if(!text||/skip|close|jump|闂傚倸鍊搁崐宄懊归崶褏鏆﹂柛顭戝亝閸欏繘鏌熺紒銏犳灈缂佺姾顫夐妵鍕箛閸洘顎嶉梺绋款儛娴滎亪寮诲☉銏犖ㄩ柕蹇婂墲閻濇洟鎮楃憴鍕闁绘搫绻濆璇测槈濞嗘劕鍔呴梺鐐藉劜閸撴碍瀵奸崘顔解拺闁告繂瀚﹢鎵磼鐎ｎ偆澧辩紒顔款嚙閳藉濮€閻樻剚妫熼梺鍦帶閻°劑骞愭繝姘€堕柛鈩冾焽缁♀偓缂佸墽澧楄摫妞ゎ偄锕弻娑氣偓锝庝簼椤ャ垽鏌℃担鍝バｉ柟宄版嚇閹煎綊宕烽銊ч棷闂傚倷鑳堕…鍫ュ嫉椤掑嫭鍋＄憸蹇曞垝閺冨牜鏁嗛柛鏇ㄥ墰閸樺崬鈹戦悙鏉戠仴鐎规洦鍓熼幃姗€鏁撻悩宕囧幐闂佺硶鍓濆ú鏍х暤閸℃ɑ鍙忓┑鐘插暞閵囨繄鈧娲滈崗姗€銆佸鈧崺鍕礃闁款垰浜炬俊銈呮噺閳锋垿鏌涘☉妯峰闁兼祴鏅涢崹婵囩箾閸℃绂嬮柛銈嗘礃閵囧嫰骞掑鍫濆帯濡炪倐鏅滈悡锟犲蓟濞戞ǚ妲堥柛妤冨仧娴狀垳绱掗悙顒€鍔ら柕鍫熸倐瀵鏁撻悩鑼紲濠电偞鍨靛畷顒勫礉瀹€鍕拺缂佸娼￠妤冪磼缂佹ê娴柛鈹惧亾濡炪倖甯掗崰姘焽閹扮増鐓欓柛婵勫労閻掗箖鎽堕悙瀵哥瘈闂傚牊渚楅崕鎴犫偓瑙勬尫閻掞箓骞堥妸銉富閻犲洩寮撴竟鏇熶繆閻愵亜鈧垿宕瑰ú顏呮櫇闁靛繈鍊曠粻鏍煏韫囧鈧洖顔忓┑鍡忔斀闁绘ɑ褰冮弳鐔兼煟閿濆洤纾遍梻鍌氬€搁崐椋庣矆娓氣偓楠炴牠顢曚綅閸ヮ剦鏁冮柨鏇楀亾闁汇倗鍋撶换婵囩節閸屾稑娅ч梺娲诲幗閻熲晠寮婚悢鍛婄秶闁告挆鍛闂備焦妞块崢浠嬨€冩繝鍥ц摕婵炴垯鍨归悞娲煕閹板吀绨存俊鎻掔墢缁辨挻鎷呴崫鍕戙儳绱掗鍛仸濠碉紕鏁诲畷鐔碱敍濮橀硸鍟嬮梺鑽ゅЬ濞咃綁宕曢妶澶嬪€靛Δ锝呭暞閳锋垿鏌涘┑鍡楊伌婵″弶妞介弻锝夋晲鎼粹€斥拫濠殿喖锕︾划顖炲箯閸涘瓨鍊绘俊顖滃劋閻ｎ剟姊绘担鍓插悢闁哄鐏濋～鍥倵鐟欏嫭绀€缂傚秴锕獮鍐偩瀹€鈧惌娆撴偣娓氼垳鍘涙俊鏌ヤ憾濮婄粯鎷呴懞銉с€婇梺鍝ュУ閹稿骞堥妸鈺傚仺缂佸娉曢敍鐔兼⒑绾懏褰ч梻鍕瀹曟劙鎮介崨濠勫弳濠电娀娼уΛ娑㈠礄閸︻厾纾奸柕濞垮€楅惌娆撴煛?.test(text)){try{el.click();}catch(e){}}}}"
-                + "var taps=document.querySelectorAll('button,a,div,span');for(var k=0;k<taps.length;k++){var item=taps[k];var label=((item.innerText||item.textContent||'')+' '+(item.value||'')).trim();if(label&&/闂傚倸鍊搁崐宄懊归崶褏鏆﹂柛顭戝亝閸欏繘鏌熺紒銏犳灈缂佺姾顫夐妵鍕箛閸洘顎嶉梺绋款儛娴滎亪寮诲☉銏犖ㄩ柕蹇婂墲閻濇洟鎮楃憴鍕闁绘搫绻濆璇测槈濞嗘劕鍔呴梺鐐藉劜閸撴碍瀵奸崘顔解拺闁告繂瀚﹢鎵磼鐎ｎ偆澧辩紒顔款嚙閳藉濮€閻樻剚妫熼梺鍦帶閻°劑骞愭繝姘€堕柛鈩冾焽缁♀偓缂佸墽澧楄摫妞ゎ偄锕弻娑氣偓锝庝簼椤ャ垽鏌℃担鍝バｉ柟宄版嚇閹煎綊宕烽銊ч棷闂傚倷鑳堕…鍫ュ嫉椤掑嫭鍋＄憸蹇曞垝閺冨牜鏁嗛柛鏇ㄥ墰閸樺崬鈹戦悙鏉戠仴鐎规洦鍓熼幃姗€鏁撻悩宕囧幐闂佺硶鍓濆ú鏍х暤閸℃ɑ鍙忓┑鐘插暞閵囨繄鈧娲滈崗姗€銆佸鈧崺鍕礃闁款垰浜炬俊銈呮噺閳锋垿鏌涘☉妯峰闁兼祴鏅涢崹婵囩箾閸℃绂嬮柛銈嗘礃閵囧嫰骞掑鍫濆帯濡炪倐鏅滈悡锟犲蓟濞戞ǚ妲堥柛妤冨仧娴狀垳绱掗悙顒€鍔ら柕鍫熸倐瀵鏁撻悩鑼紲濠电偞鍨靛畷顒勫礉瀹€鍕拺缂佸娼￠妤冪磼缂佹ê娴柛鈹惧亾濡炪倖甯掗崰姘焽閹扮増鐓欓柛婵勫労閻掗箖鎽堕悙瀵哥瘈闂傚牊渚楅崕鎴犫偓瑙勬尫閻掞箓骞堥妸銉富閻犲洩寮撴竟鏇熶繆閻愵亜鈧垿宕瑰ú顏呮櫇闁靛繈鍊曠粻鏍煏韫囧鈧洖顔忓┑鍡忔斀闁绘ɑ褰冮弳鐔兼煟閿濆洤纾遍梻鍌氬€搁崐椋庣矆娓氣偓楠炴牠顢曚綅閸ヮ剦鏁冮柨鏇楀亾闁汇倗鍋撶换婵囩節閸屾稑娅ч梺娲诲幗閻熲晠寮婚悢鍛婄秶闁告挆鍛闂備焦妞块崢浠嬨€冩繝鍥ц摕婵炴垯鍨归悞娲煕閹板吀绨存俊鎻掔墢缁辨挻鎷呴崫鍕戙儳绱掗鍛仸濠碉紕鏁诲畷鐔碱敍濮橀硸鍟嬮梺鑽ゅЬ濞咃綁宕曢妶澶嬪€靛Δ锝呭暞閳锋垿鏌涘┑鍡楊伌婵″弶妞介弻锝夋晲鎼粹€斥拫濠殿喖锕︾划顖炲箯閸涘瓨鍊绘俊顖滃劋閻ｎ剟姊绘担鍓插悢闁哄鐏濋～鍥倵鐟欏嫭绀€缂傚秴锕獮鍐偩瀹€鈧惌娆撴偣娓氼垳鍘涙俊鏌ヤ憾濮婄粯鎷呴懞銉с€婇梺鍝ュУ閹稿骞堥妸鈺傚仺缂佸娉曢敍鐔兼⒑绾懏褰ч梻鍕瀹曟劙鎮介崨濠勫弳濠电娀娼уΛ娑㈠礄閸︻厾纾奸柕濞垮€楅惌娆撴煛瀹€瀣瘈鐎规洖宕灒缁炬媽椴稿▓瑙勪繆閻愵亜鈧垿宕濇繝鍥х？闁汇垻顭堢粻鏍ㄧ箾閸℃ɑ灏伴柛銈嗗灦閵囧嫰骞嬮敐鍛Х濠碉紕鍋撻幃鍌氼潖缂佹ɑ濯撮柣鎴灻▓灞解攽閳藉棗鐏犻柨鏇ㄤ簻椤曪綁濡搁埞褍娲ら‖濠傤嚈缁变簠close/i.test(label)){try{item.click();}catch(e){}}}"
+                + "for(var i=0;i<sels.length;i++){var nodes=document.querySelectorAll(sels[i]);for(var j=0;j<nodes.length;j++){var el=nodes[j];var text=((el.innerText||el.textContent||'')+' '+(el.value||'')).toLowerCase();if(!text||/skip|close|jump|闂傚倸鍊搁崐鎼佸磹瀹勬噴褰掑炊瑜忛弳锕傛煕椤垵浜濋柛娆忕箻閺岀喓绱掗姀鐘崇亪缂備胶濮鹃～澶愬Φ閸曨垰绠涢柛顐ｆ礃椤庡秹姊虹粙娆惧剾濞存粠浜璇测槈閵忕姈銊╂煏韫囧﹤澧查柣婵囨礋閹鎲撮崟顒傤槰闂佺粯鎼换婵嗩嚕鐠囨祴妲堟繛鍡樺姇閸斿懘姊洪悙钘夊姕闁告挻纰嶇€靛ジ宕橀瑙ｆ嫼闂佸憡绻傜€氼厼锕㈤幍顔剧＜閻庯綆鍋嗘晶杈╃磼椤旀鍤欓柍钘夘樀婵偓闁绘ɑ鍓氬Λ鐔兼⒑閸︻厼甯堕柣掳鍔戦獮鎰節濮橆厼鈧爼鏌涢埄鍐剧劷缂佲檧鍋撶紓浣稿⒔婢ф鎽銈庡亜閿曨亪寮诲☉姘ｅ亾閿濆簼绨兼い銉ｅ灲閺屸剝鎷呴崫銉愶綁鏌熷畡鐗堝殗闁圭厧缍婂畷鐑筋敇閵娧囨７闂傚倸鍊烽懗鍫曗€﹂崼銉ュ珘妞ゆ帒瀚崑锛勬喐韫囨洖鍨濋柡鍐ㄧ墱閺佸棝鏌涢弴銊ュ闁告ê宕埞鎴︽倷閺夋垹浠撮悗瑙勬处閸撶喖骞冨鈧弫鎾绘偐瀹曞洤骞愰梻浣虹《閸撴繂煤閺嵮呮殼闁糕剝蓱閸欏繐鈹戦悩鎻掓殲闁靛洦绻勯埀顒冾潐濞叉粓宕楀鈧妴浣割潨閳ь剟宕洪崟顖氱闂佹鍨版禍鐐繆閵堝懏鍣洪柍閿嬪灴閺屾稑鈽夊Ο宄邦潓闂佸吋绁撮弲娑㈠垂濠靛洨绠鹃柛鈩冾殕缁傚鏌涢妶鍡樼闁靛洤瀚伴獮鎺戭吋閸繂甯俊鐐€愰弲婊堟偂閿熺姴钃熸繛鎴炃氬Σ鍫ユ煕濡ゅ啫浠уù鐙€鍨崇槐鎺楁倷椤掆偓閸斻倝鏌曢崼鐔稿€愮€殿喖顭烽弫鎾绘偐閼碱剨绱叉繝鐢靛仦閸ㄩ潧鐣烽鍕鐎光偓閸曨兘鎷虹紓浣割儏濞硷繝顢撳Δ鍐＜缂備焦锚濞搭噣鏌涢埞鎯т壕婵＄偑鍊栫敮鎺楀窗濮橆剦鐒介柟鎵閻撴瑩鏌涘┑鍕姶闁绘帡绠栭幗鍫曟倷鐎靛摜鐦堥梻鍌氱墛娓氭宕曢幋鐘亾鐟欏嫭灏柣鎺炵畵楠炲牓濡搁妷顔藉瘜闁荤姴娲╁鎾寸珶閺囩喍绻嗛柣鎰典簻閳ь剚鍨垮畷鐟懊洪鍛珖闂侀潧绻堥崐鏇犵不閺嶎厽鐓忛煫鍥ь儏閳ь剚娲栭蹇撯攽閸″繑鏂€闂佺粯蓱瑜板啴寮抽悢鍏肩厽闁挎繂娲ょ壕閬嶆⒒閸屾艾鈧悂宕愭搴ｇ焼濞撴埃鍋撴鐐寸墵椤㈡洑缍呴柛銉墻閺佸啴鏌ㄩ弴妤€浜鹃梺姹囧€楅崑鎾舵崲濠靛洨绡€闁稿本绋戝▍褔姊哄ú璇插箺闁荤啿鏅犲濠氭偄閸涘﹦绉堕梺鍛婃寙閸涱喗顔忛梻鍌欑劍濡炲潡宕㈡禒瀣ㄢ偓鍐╃節閸パ嗘憰濠电偞鍨崹褰掓倿濞差亝鐓曢柟鏉垮悁缁ㄥ瓨淇婇幓鎺斿ⅱ缂佽鲸鎸婚幏鍛村传閸曟垯鍎崇槐鎺楊敋閸涱厾浠告繝纰夌磿閺佽鐣烽悢纰辨晬婵﹢纭搁崯瀣⒑閼姐倕鞋婵炲拑缍佸畷鏇㈠Χ婢跺鈧潧螖閿濆懎鏆為柍閿嬪灴閺屾稑鈹戦崱妤婁紝濠碘€冲级濡炰粙寮婚敐澶嬫櫜閹肩补鈧枼鎷繝娈垮枛閿曪妇鍒掗鐐茬闁告稑鐡ㄩ崐缁樹繆椤栨粌鍔嬮柣锝庡墴濮婄粯鎷呴崜鎻掓偄闂佸搫顦悘婵嬶綖閸ヮ剚鍊甸悷娆忓缁€鈧紓鍌氱Т閿曨亪鐛崘顔藉仼鐎光偓閳ь剟鎯屽▎鎾村仯濞撴凹鍨抽崢娑欎繆閺屻儰鎲炬慨濠勭帛閹峰懘鎳為妷褋鈧﹪姊洪崫銉バｉ柟绋款煼楠炲牓濡搁埡鍌氫缓缂備礁顑堝▔鏇㈡晬閻斿吋鈷戠痪顓炴噺瑜把囨⒒閸曨偄顏€规洘鍔欓幃浠嬪川婵犲嫬寮虫繝鐢靛█濞佳兾涘☉銏犵闁革富鍘剧壕濂告煏婵炲灝鈧鎯屽▎鎾寸厸?.test(text)){try{el.click();}catch(e){}}}}"
+                + "var taps=document.querySelectorAll('button,a,div,span');for(var k=0;k<taps.length;k++){var item=taps[k];var label=((item.innerText||item.textContent||'')+' '+(item.value||'')).trim();if(label&&/闂傚倸鍊搁崐鎼佸磹瀹勬噴褰掑炊瑜忛弳锕傛煕椤垵浜濋柛娆忕箻閺岀喓绱掗姀鐘崇亪缂備胶濮鹃～澶愬Φ閸曨垰绠涢柛顐ｆ礃椤庡秹姊虹粙娆惧剾濞存粠浜璇测槈閵忕姈銊╂煏韫囧﹤澧查柣婵囨礋閹鎲撮崟顒傤槰闂佺粯鎼换婵嗩嚕鐠囨祴妲堟繛鍡樺姇閸斿懘姊洪悙钘夊姕闁告挻纰嶇€靛ジ宕橀瑙ｆ嫼闂佸憡绻傜€氼厼锕㈤幍顔剧＜閻庯綆鍋嗘晶杈╃磼椤旀鍤欓柍钘夘樀婵偓闁绘ɑ鍓氬Λ鐔兼⒑閸︻厼甯堕柣掳鍔戦獮鎰節濮橆厼鈧爼鏌涢埄鍐剧劷缂佲檧鍋撶紓浣稿⒔婢ф鎽銈庡亜閿曨亪寮诲☉姘ｅ亾閿濆簼绨兼い銉ｅ灲閺屸剝鎷呴崫銉愶綁鏌熷畡鐗堝殗闁圭厧缍婂畷鐑筋敇閵娧囨７闂傚倸鍊烽懗鍫曗€﹂崼銉ュ珘妞ゆ帒瀚崑锛勬喐韫囨洖鍨濋柡鍐ㄧ墱閺佸棝鏌涢弴銊ュ闁告ê宕埞鎴︽倷閺夋垹浠撮悗瑙勬处閸撶喖骞冨鈧弫鎾绘偐瀹曞洤骞愰梻浣虹《閸撴繂煤閺嵮呮殼闁糕剝蓱閸欏繐鈹戦悩鎻掓殲闁靛洦绻勯埀顒冾潐濞叉粓宕楀鈧妴浣割潨閳ь剟宕洪崟顖氱闂佹鍨版禍鐐繆閵堝懏鍣洪柍閿嬪灴閺屾稑鈽夊Ο宄邦潓闂佸吋绁撮弲娑㈠垂濠靛洨绠鹃柛鈩冾殕缁傚鏌涢妶鍡樼闁靛洤瀚伴獮鎺戭吋閸繂甯俊鐐€愰弲婊堟偂閿熺姴钃熸繛鎴炃氬Σ鍫ユ煕濡ゅ啫浠уù鐙€鍨崇槐鎺楁倷椤掆偓閸斻倝鏌曢崼鐔稿€愮€殿喖顭烽弫鎾绘偐閼碱剨绱叉繝鐢靛仦閸ㄩ潧鐣烽鍕鐎光偓閸曨兘鎷虹紓浣割儏濞硷繝顢撳Δ鍐＜缂備焦锚濞搭噣鏌涢埞鎯т壕婵＄偑鍊栫敮鎺楀窗濮橆剦鐒介柟鎵閻撴瑩鏌涘┑鍕姶闁绘帡绠栭幗鍫曟倷鐎靛摜鐦堥梻鍌氱墛娓氭宕曢幋鐘亾鐟欏嫭灏柣鎺炵畵楠炲牓濡搁妷顔藉瘜闁荤姴娲╁鎾寸珶閺囩喍绻嗛柣鎰典簻閳ь剚鍨垮畷鐟懊洪鍛珖闂侀潧绻堥崐鏇犵不閺嶎厽鐓忛煫鍥ь儏閳ь剚娲栭蹇撯攽閸″繑鏂€闂佺粯蓱瑜板啴寮抽悢鍏肩厽闁挎繂娲ょ壕閬嶆⒒閸屾艾鈧悂宕愭搴ｇ焼濞撴埃鍋撴鐐寸墵椤㈡洑缍呴柛銉墻閺佸啴鏌ㄩ弴妤€浜鹃梺姹囧€楅崑鎾舵崲濠靛洨绡€闁稿本绋戝▍褔姊哄ú璇插箺闁荤啿鏅犲濠氭偄閸涘﹦绉堕梺鍛婃寙閸涱喗顔忛梻鍌欑劍濡炲潡宕㈡禒瀣ㄢ偓鍐╃節閸パ嗘憰濠电偞鍨崹褰掓倿濞差亝鐓曢柟鏉垮悁缁ㄥ瓨淇婇幓鎺斿ⅱ缂佽鲸鎸婚幏鍛村传閸曟垯鍎崇槐鎺楊敋閸涱厾浠告繝纰夌磿閺佽鐣烽悢纰辨晬婵﹢纭搁崯瀣⒑閼姐倕鞋婵炲拑缍佸畷鏇㈠Χ婢跺鈧潧螖閿濆懎鏆為柍閿嬪灴閺屾稑鈹戦崱妤婁紝濠碘€冲级濡炰粙寮婚敐澶嬫櫜閹肩补鈧枼鎷繝娈垮枛閿曪妇鍒掗鐐茬闁告稑鐡ㄩ崐缁樹繆椤栨粌鍔嬮柣锝庡墴濮婄粯鎷呴崜鎻掓偄闂佸搫顦悘婵嬶綖閸ヮ剚鍊甸悷娆忓缁€鈧紓鍌氱Т閿曨亪鐛崘顔藉仼鐎光偓閳ь剟鎯屽▎鎾村仯濞撴凹鍨抽崢娑欎繆閺屻儰鎲炬慨濠勭帛閹峰懘鎳為妷褋鈧﹪姊洪崫銉バｉ柟绋款煼楠炲牓濡搁埡鍌氫缓缂備礁顑堝▔鏇㈡晬閻斿吋鈷戠痪顓炴噺瑜把囨⒒閸曨偄顏€规洘鍔欓幃浠嬪川婵犲嫬寮虫繝鐢靛█濞佳兾涘☉銏犵闁革富鍘剧壕濂告煏婵炲灝鈧鎯屽▎鎾寸厸鐎光偓鐎ｎ剛鐦堥悗瑙勬礀瀹曨剝鐏掔紒鐐妞寸鈻撶憴鍕箚闁绘劦浜滈埀顒佸灴瀹曟繃绻濋崶褏锛熼梺姹囧灮椤牏绮婚弽銊х闁糕剝蓱鐏忎即鏌涢妶鍡楃仸闁靛洤瀚伴獮瀣晲閸涱厼啸婵犵绱曢崑鎾诲箖閸屾凹娼栫紓浣股戞刊鎾煟閹寸伝顏勨枔鐏炶В鏀介柍钘夋閻忕娀鏌ㄩ弴銊ょ盎妞ゆ洩缍佹俊鎼佸煘瑜嶅ú銈夆€栨繝鍌ゅ殘缂佸彉绨燾lose/i.test(label)){try{item.click();}catch(e){}}}"
                 + "}catch(e){}}"
                 + "function report(tag){try{var out=[];var seen={};"
                 + "function add(u,t){u=String(u||'').trim();if(!u||seen[u])return;seen[u]=1;out.push({url:u,type:t||''});try{if(/%[0-9a-f]{2}/i.test(u)){var du=decodeURIComponent(u);if(du&&du!==u&&!seen[du]){seen[du]=1;out.push({url:du,type:(t||'')+'-decoded'});}}}catch(e){}}"
@@ -1667,7 +2020,7 @@ public class NativePlayerActivity extends Activity {
                               try{ el.click(); }catch(e){}
                               continue;
                             }
-                            if(!text || /skip|close|jump|闂傚倸鍊搁崐鎼佸磹瀹勬噴褰掑炊瑜忛弳锕傛煕椤垵浜濋柛娆忕箻閺岀喓绱掗姀鐘崇亪缂備胶濮鹃～澶愬Φ閸曨垰绠涢柛顐ｆ礃椤庡秹姊虹粙娆惧剾濞存粠浜璇测槈閵忕姈銊╂煏韫囧﹤澧查柣婵囨礋閹鎲撮崟顒傤槰闂佺粯鎼换婵嗩嚕鐠囨祴妲堟繛鍡樺姇閸斿懘姊洪悙钘夊姕闁告挻纰嶇€靛ジ宕橀瑙ｆ嫼闂佸憡绻傜€氼厼锕㈤幍顔剧＜閻庯綆鍋嗘晶杈╃磼椤旀鍤欓柍钘夘樀婵偓闁绘ɑ鍓氬Λ鐔兼⒑閸︻厼甯堕柣掳鍔戦獮鎰節濮橆厼鈧爼鏌涢埄鍐剧劷缂佲檧鍋撶紓浣稿⒔婢ф鎽銈庡亜閿曨亪寮诲☉姘ｅ亾閿濆簼绨兼い銉ｅ灲閺屸剝鎷呴崫銉愶綁鏌熷畡鐗堝殗闁圭厧缍婂畷鐑筋敇閵娧囨７闂傚倸鍊烽懗鍫曗€﹂崼銉ュ珘妞ゆ帒瀚崑锛勬喐韫囨洖鍨濋柡鍐ㄧ墱閺佸棝鏌涢弴銊ュ闁告ê宕埞鎴︽倷閺夋垹浠撮悗瑙勬处閸撶喖骞冨鈧弫鎾绘偐瀹曞洤骞愰梻浣虹《閸撴繂煤閺嵮呮殼闁糕剝蓱閸欏繐鈹戦悩鎻掓殲闁靛洦绻勯埀顒冾潐濞叉粓宕楀鈧妴浣割潨閳ь剟宕洪崟顖氱闂佹鍨版禍鐐繆閵堝懏鍣洪柍閿嬪灴閺屾稑鈽夊Ο宄邦潓闂佸吋绁撮弲娑㈠垂濠靛洨绠鹃柛鈩冾殕缁傚鏌涢妶鍡樼闁靛洤瀚伴獮鎺戭吋閸繂甯俊鐐€愰弲婊堟偂閿熺姴钃熸繛鎴炃氬Σ鍫ユ煕濡ゅ啫浠уù鐙€鍨崇槐鎺楁倷椤掆偓閸斻倝鏌曢崼鐔稿€愮€殿喖顭烽弫鎾绘偐閼碱剨绱叉繝鐢靛仦閸ㄩ潧鐣烽鍕鐎光偓閸曨兘鎷虹紓浣割儏濞硷繝顢撳Δ鍐＜缂備焦锚濞搭噣鏌涢埞鎯т壕婵＄偑鍊栫敮鎺楀窗濮橆剦鐒介柟鎵閻撴瑩鏌涘┑鍕姶闁绘帡绠栭幗鍫曟倷鐎靛摜鐦堥梻鍌氱墛娓氭宕曢幋鐘亾鐟欏嫭灏柣鎺炵畵楠炲牓濡搁妷顔藉瘜闁荤姴娲╁鎾寸珶閺囩喍绻嗛柣鎰典簻閳ь剚鍨垮畷鐟懊洪鍛珖闂侀潧绻堥崐鏇犵不閺嶎厽鐓忛煫鍥ь儏閳ь剚娲栭蹇撯攽閸″繑鏂€闂佺粯蓱瑜板啴寮抽悢鍏肩厽闁挎繂娲ょ壕閬嶆⒒閸屾艾鈧悂宕愭搴ｇ焼濞撴埃鍋撴鐐寸墵椤㈡洑缍呴柛銉墻閺佸啴鏌ㄩ弴妤€浜鹃梺姹囧€楅崑鎾舵崲濠靛洨绡€闁稿本绋戝▍褔姊哄ú璇插箺闁荤啿鏅犲濠氭偄閸涘﹦绉堕梺鍛婃寙閸涱喗顔忛梻鍌欑劍濡炲潡宕㈡禒瀣ㄢ偓鍐╃節閸パ嗘憰濠电偞鍨崹褰掓倿濞差亝鐓曢柟鏉垮悁缁ㄥ瓨淇婇幓鎺斿ⅱ缂佽鲸鎸婚幏鍛村传閸曟垯鍎崇槐鎺楊敋閸涱厾浠告繝纰夌磿閺佽鐣烽悢纰辨晬婵﹢纭搁崯瀣⒑閼姐倕鞋婵炲拑缍佸畷鏇㈠Χ婢跺鈧潧螖閿濆懎鏆為柍閿嬪灴閺屾稑鈹戦崱妤婁紝濠碘€冲级濡炰粙寮婚敐澶嬫櫜閹肩补鈧枼鎷繝娈垮枛閿曪妇鍒掗鐐茬闁告稑鐡ㄩ崐缁樹繆椤栨粌鍔嬮柣锝庡墴濮婄粯鎷呴崜鎻掓偄闂佸搫顦悘婵嬶綖閸ヮ剚鍊甸悷娆忓缁€鈧紓鍌氱Т閿曨亪鐛崘顔藉仼鐎光偓閳ь剟鎯屽▎鎾村仯濞撴凹鍨抽崢娑欎繆閺屻儰鎲炬慨濠勭帛閹峰懘鎳為妷褋鈧﹪姊洪崫銉バｉ柟绋款煼楠炲牓濡搁埡鍌氫缓缂備礁顑堝▔鏇㈡晬閻斿吋鈷戠痪顓炴噺瑜把囨⒒閸曨偄顏€规洘鍔欓幃浠嬪川婵犲嫬寮虫繝鐢靛█濞佳兾涘☉銏犵闁革富鍘剧壕濂告煏婵炲灝鈧鎯屽▎鎾寸厸?.test(text)){
+                            if(!text || /skip|close|jump|闂傚倸鍊搁崐鎼佸磹閹间礁纾圭€瑰嫭鍣磋ぐ鎺戠倞鐟滃繘寮抽敃鍌涚厱妞ゎ厽鍨垫禍婵嬫煕濞嗗繒绠婚柡宀€鍠撶槐鎺楀閻樺磭浜紓鍌欒兌婵箖锝炴径鎰﹂柛鏇ㄥ灠缁犳盯鏌涢锝嗙妞ゅ骸绉瑰铏圭矙濞嗘儳鍓炬繛瀛樼矤娴滎亜顕ｇ拠娴嬫闁靛繒濮堥妸鈺傜厪闊洤锕ゆ晶鏌ユ煟濠靛洦绀嬮柟顔筋殘閹叉挳宕熼鍌ゆО闂備胶绮幖顐ゆ崲濠靛棭鍤曢悹鍥ㄧゴ濡插牊绻涢崱妯哄闁告柨鎳樺娲倷閽樺濮曢梺鍛婃尰绾板秶鈧潧銈稿畷姗€顢欑憴锝嗗闂備礁鎲＄换鍌溾偓姘煎幖閿曘垽骞嶉鍓э紲闁诲函缍嗛崑鍡樻櫠鏉堚晝纾兼い鏃€顑欓崵娆撴煃閽樺妯€濠殿喒鍋撻梺缁樕戦崜姘涢悢鍏尖拺闁革富鍘肩敮鍫曟煟鎺抽崝鎴︾嵁閹邦厾绡€婵﹩鍘奸埀顒€鐖奸弻娑㈠焺閸愬墽鍔风紓浣叉閸嬫挾绱撴担绋库挃濠⒀勵殙閹筋偄顪冮妶搴′簻闁挎洦浜璇测槈濮橈絽浜鹃柨婵嗙凹缁ㄥ吋銇勯妷锝呯伈闁哄备鍓濋幏鍛村传閵夋劧缍侀弻鐔风暋閻楀牆娈楅梺鍦帶缂嶅﹤鐣烽悜绛嬫晣闁靛ě鍥紬闂傚倸鍊搁崐鐑芥嚄閸洍鈧箓宕奸妷銉ョ彉濡炪倖甯掔€氼參宕戦敍鍕枑闊洦娲栭崹婵嬫煛閸愩劎澧遍柡浣告閺屾盯寮撮妸銉ヮ潾闂佸憡锚瀹曨剟鍩為幋锔藉€烽柡澶嬪灩娴犳挳鎮楃憴鍕闁告挾鍠栭獮鍐潨閳ь剟寮幘缁樺亹鐎规洖娲ら獮鎰版⒒娴ｈ櫣銆婇柛鎾寸箓鐓ら柡宓懏娈奸梺绯曞墲钃遍柛娆忕箰閳规垿鎮╅幓鎺撴闂侀潧娲︾换鍕焵椤掑喚娼愭繛鍙夌矒瀹曟顫滈埀顒勫Υ娴ｅ壊娼ㄩ柍褜鍓熷畷娲礋椤栨氨顦ㄩ梻浣诡儥閸ㄧ増绂嶉悙顑跨箚闁靛牆鎳忛崳娲煃闁垮鐏撮柡灞剧☉閳藉螣瀹勯偊娼撻梻浣稿悑缁佹挳寮插☉銏犲瀭婵犻潧娲ㄧ粻楣冩煕閳╁喚娈曠紒鍌氼儔閺屾盯濡堕崱妯碱槰闂侀潧娲ょ€氫即鐛幒鎴悑闁割偅绻傜敮顖涗繆閻愵亜鈧劙寮插鍫熷亗闁跨喓濮撮拑鐔哥箾閹寸們姘ｉ崼銉︾厱婵°倕鍟禒褍霉閻欌偓閸ㄥ磭妲愰幒妤佸€锋い鎺嗗亾闁告柣鍊濋弻鏇㈠醇閻旂鈧劗鈧鍠栭…鐑藉极閹剧粯鍋愰柤纰卞墾缁卞弶绻濋悽闈涗沪闁搞劑娼ч悾鐑筋敆閸曨偆顦悗鍏夊亾闁告洦鍏橀幏铏圭磽娴ｅ壊鍎忔繛纭风節椤㈡挸螖閸愵亞锛滅紓鍌欑劍閿氭繛鎼櫍閺屾盯鍩為幆褌澹曞┑锛勫亼閸婃牜鏁幒妤€绐楁慨姗嗗墻閻掍粙鏌熼幍顔碱暭闁绘挻鐟╅弻娑樷攽閸曨偄濮堕梺缁樺浮缁犳牠骞楅崼鏇熷€烽悗闈涙憸閻﹀牓姊婚崒姘卞濞撴碍顨婂畷鏇㈠箣閻橆偄浜鹃悷娆忓鐏忣偊鏌ｉ幒鐐电暤妤犵偛鐗撴俊鎼佸Ψ椤旇棄鐦滈梺鑽ゅТ濞测晛顕ｉ幘瀵哥彾闁哄洨鍠嶇换鍡涙煟閹板吀绨婚柍褜鍓氶崹鍨暦閻熸噴娲敂閸涱喗鐝栭梻渚€娼х换鍫ュ磹閺囩姷涓嶉柡宥庡幗閻撳繘鐓崶褜鍎忛柍褜鍓氬ú鏍敊韫囨挴鏀介柛鈥崇箲閺傗偓闂備胶绮摫鐟滄澘鍟村鎶芥偄閸忚偐鍘介梺鎸庣箓濞层倗澹曢柆宥嗏拻闁稿本鑹鹃埀顒佹倐瀹曟劖顦版惔锝囩劶婵炴挻鍩冮崑鎾搭殽閻愬澧垫い銏℃磻缂嶅懘鏌涢妷顔煎⒒闁轰礁鍟撮弻銊╁即濡も偓娴滈箖姊哄Ч鍥р偓妤呭磻閹捐埖宕叉繝闈涙川缁♀偓闂佺鏈粙鎴濃枍瑜斿鍝劽虹拠鎻掔闂佽崵鍟块弲鐘差嚕婵犳碍鍋勯柛娑橈功缁夊爼姊洪崨濠冨瘷闁告侗鍠楅蹇涙⒒閸屾瑧鍔嶆俊鐐叉健瀹曘垺绂掔€ｃ劉鍋撻崘鈺冪瘈闁搞儜鍡樻啺婵犵數鍋為崹顖炲垂瑜版帗鍊挎繛宸簼閻撴洟鏌熼弶鍨倎缂併劌鐡ㄦ穱濠囧箵閹烘柨鈪辩紓浣介哺閹稿骞忛崨鏉戜紶闁告洘鍨崕宕囨閹烘鏁嬮柛娑卞幘娴犲憡绻濈喊澶岀？闁轰浇顕ч悾鐑芥偄绾拌鲸鏅┑顔斤耿绾悂宕€ｎ喗鈷戦柤濮愬€曢瀷濠电偛鎷戠紞浣哥暦閺囥垹围濠㈣泛顑呴埀顒勬涧铻栭柨婵嗘噹閺嗙偤鏌嶉柨瀣伌闁哄本绋戦埞鎴﹀幢濡ゅ﹣绱濇繝纰樷偓鍐茬骇婵＄偘绮欏濠氭晲婢跺娅滈柟鑲╄ˉ閳ь剚鏋奸幏顐ｇ節濞堝灝鏋涢柨鏇閸掓帡顢涢悙鑼唵闂佸憡绋戦悺銊╁磹缂佹ü绻嗘い鏍ㄧ矊閸斿鏌ｉ敐搴″⒋婵﹦绮幏鍛村礈閹绘帗鍋勯梻浣告惈椤︻垶鎮樺┑瀣剁稏闁搞儺鍓氶崐鐢告偡濞嗗繐顏紒鈧埀顒傜磽閸屾氨孝闁挎洦浜悰顕€宕橀钘変患閻庡厜鍋撻柍褜鍓熼幆灞解枎閹炬潙浠繛鎾村嚬閸ㄦ娊宕㈠☉娆庣箚闁哄被鍎伴幉鐐叏婵犲嫮甯涢柟宄版嚇閹崇偤濡疯閳ь剙锕娲传閵夈儛锝夋煙缁嬫鐓兼鐐茬墦婵℃悂鍩￠崒姘紦缂傚倷绀侀鍫濃枖閺囥垺鏅柣鏂垮悑閳锋垹鐥鐐村櫤鐟滄妸鍥ㄢ拻闁告洦鍋勯顓犫偓瑙勬礃閸旀瑩骞冩禒瀣窛濠电姴瀚铏節閻㈤潧鈻堟繛浣冲吘娑樷槈閵忕姷顦╅梺闈╁瘜閸樺墽澹曟總鍛婄厪濠电偛鐏濋埀顒侇殜閹苯鈻庨幘瀵稿幐?.test(text)){
                               try{ el.click(); }catch(e){}
                             }
                           }
@@ -1680,7 +2033,7 @@ public class NativePlayerActivity extends Activity {
                             try{ item.click(); }catch(e){}
                             continue;
                           }
-                          if(label && /闂傚倸鍊搁崐鎼佸磹瀹勬噴褰掑炊瑜忛弳锕傛煕椤垵浜濋柛娆忕箻閺岀喓绱掗姀鐘崇亪缂備胶濮鹃～澶愬Φ閸曨垰绠涢柛顐ｆ礃椤庡秹姊虹粙娆惧剾濞存粠浜璇测槈閵忕姈銊╂煏韫囧﹤澧查柣婵囨礋閹鎲撮崟顒傤槰闂佺粯鎼换婵嗩嚕鐠囨祴妲堟繛鍡樺姇閸斿懘姊洪悙钘夊姕闁告挻纰嶇€靛ジ宕橀瑙ｆ嫼闂佸憡绻傜€氼厼锕㈤幍顔剧＜閻庯綆鍋嗘晶杈╃磼椤旀鍤欓柍钘夘樀婵偓闁绘ɑ鍓氬Λ鐔兼⒑閸︻厼甯堕柣掳鍔戦獮鎰節濮橆厼鈧爼鏌涢埄鍐剧劷缂佲檧鍋撶紓浣稿⒔婢ф鎽銈庡亜閿曨亪寮诲☉姘ｅ亾閿濆簼绨兼い銉ｅ灲閺屸剝鎷呴崫銉愶綁鏌熷畡鐗堝殗闁圭厧缍婂畷鐑筋敇閵娧囨７闂傚倸鍊烽懗鍫曗€﹂崼銉ュ珘妞ゆ帒瀚崑锛勬喐韫囨洖鍨濋柡鍐ㄧ墱閺佸棝鏌涢弴銊ュ闁告ê宕埞鎴︽倷閺夋垹浠撮悗瑙勬处閸撶喖骞冨鈧弫鎾绘偐瀹曞洤骞愰梻浣虹《閸撴繂煤閺嵮呮殼闁糕剝蓱閸欏繐鈹戦悩鎻掓殲闁靛洦绻勯埀顒冾潐濞叉粓宕楀鈧妴浣割潨閳ь剟宕洪崟顖氱闂佹鍨版禍鐐繆閵堝懏鍣洪柍閿嬪灴閺屾稑鈽夊Ο宄邦潓闂佸吋绁撮弲娑㈠垂濠靛洨绠鹃柛鈩冾殕缁傚鏌涢妶鍡樼闁靛洤瀚伴獮鎺戭吋閸繂甯俊鐐€愰弲婊堟偂閿熺姴钃熸繛鎴炃氬Σ鍫ユ煕濡ゅ啫浠уù鐙€鍨崇槐鎺楁倷椤掆偓閸斻倝鏌曢崼鐔稿€愮€殿喖顭烽弫鎾绘偐閼碱剨绱叉繝鐢靛仦閸ㄩ潧鐣烽鍕鐎光偓閸曨兘鎷虹紓浣割儏濞硷繝顢撳Δ鍐＜缂備焦锚濞搭噣鏌涢埞鎯т壕婵＄偑鍊栫敮鎺楀窗濮橆剦鐒介柟鎵閻撴瑩鏌涘┑鍕姶闁绘帡绠栭幗鍫曟倷鐎靛摜鐦堥梻鍌氱墛娓氭宕曢幋鐘亾鐟欏嫭灏柣鎺炵畵楠炲牓濡搁妷顔藉瘜闁荤姴娲╁鎾寸珶閺囩喍绻嗛柣鎰典簻閳ь剚鍨垮畷鐟懊洪鍛珖闂侀潧绻堥崐鏇犵不閺嶎厽鐓忛煫鍥ь儏閳ь剚娲栭蹇撯攽閸″繑鏂€闂佺粯蓱瑜板啴寮抽悢鍏肩厽闁挎繂娲ょ壕閬嶆⒒閸屾艾鈧悂宕愭搴ｇ焼濞撴埃鍋撴鐐寸墵椤㈡洑缍呴柛銉墻閺佸啴鏌ㄩ弴妤€浜鹃梺姹囧€楅崑鎾舵崲濠靛洨绡€闁稿本绋戝▍褔姊哄ú璇插箺闁荤啿鏅犲濠氭偄閸涘﹦绉堕梺鍛婃寙閸涱喗顔忛梻鍌欑劍濡炲潡宕㈡禒瀣ㄢ偓鍐╃節閸パ嗘憰濠电偞鍨崹褰掓倿濞差亝鐓曢柟鏉垮悁缁ㄥ瓨淇婇幓鎺斿ⅱ缂佽鲸鎸婚幏鍛村传閸曟垯鍎崇槐鎺楊敋閸涱厾浠告繝纰夌磿閺佽鐣烽悢纰辨晬婵﹢纭搁崯瀣⒑閼姐倕鞋婵炲拑缍佸畷鏇㈠Χ婢跺鈧潧螖閿濆懎鏆為柍閿嬪灴閺屾稑鈹戦崱妤婁紝濠碘€冲级濡炰粙寮婚敐澶嬫櫜閹肩补鈧枼鎷繝娈垮枛閿曪妇鍒掗鐐茬闁告稑鐡ㄩ崐缁樹繆椤栨粌鍔嬮柣锝庡墴濮婄粯鎷呴崜鎻掓偄闂佸搫顦悘婵嬶綖閸ヮ剚鍊甸悷娆忓缁€鈧紓鍌氱Т閿曨亪鐛崘顔藉仼鐎光偓閳ь剟鎯屽▎鎾村仯濞撴凹鍨抽崢娑欎繆閺屻儰鎲炬慨濠勭帛閹峰懘鎳為妷褋鈧﹪姊洪崫銉バｉ柟绋款煼楠炲牓濡搁埡鍌氫缓缂備礁顑堝▔鏇㈡晬閻斿吋鈷戠痪顓炴噺瑜把囨⒒閸曨偄顏€规洘鍔欓幃浠嬪川婵犲嫬寮虫繝鐢靛█濞佳兾涘☉銏犵闁革富鍘剧壕濂告煏婵炲灝鈧鎯屽▎鎾寸厸鐎光偓鐎ｎ剛鐦堥悗瑙勬礀瀹曨剝鐏掔紒鐐妞寸鈻撶憴鍕箚闁绘劦浜滈埀顒佸灴瀹曟繃绻濋崶褏锛熼梺姹囧灮椤牏绮婚弽銊х闁糕剝蓱鐏忎即鏌涢妶鍡楃仸闁靛洤瀚伴獮瀣晲閸涱厼啸婵犵绱曢崑鎾诲箖閸屾凹娼栫紓浣股戞刊鎾煟閹寸伝顏勨枔鐏炶В鏀介柍钘夋閻忕娀鏌ㄩ弴銊ょ盎妞ゆ洩缍佹俊鎼佸煘瑜嶅ú銈夆€栨繝鍌ゅ殘缂佸彉绨燾lose/i.test(label)){
+                          if(label && /闂傚倸鍊搁崐鎼佸磹閹间礁纾圭€瑰嫭鍣磋ぐ鎺戠倞鐟滃繘寮抽敃鍌涚厱妞ゎ厽鍨垫禍婵嬫煕濞嗗繒绠婚柡宀€鍠撶槐鎺楀閻樺磭浜紓鍌欒兌婵箖锝炴径鎰﹂柛鏇ㄥ灠缁犳盯鏌涢锝嗙妞ゅ骸绉瑰铏圭矙濞嗘儳鍓炬繛瀛樼矤娴滎亜顕ｇ拠娴嬫闁靛繒濮堥妸鈺傜厪闊洤锕ゆ晶鏌ユ煟濠靛洦绀嬮柟顔筋殘閹叉挳宕熼鍌ゆО闂備胶绮幖顐ゆ崲濠靛棭鍤曢悹鍥ㄧゴ濡插牊绻涢崱妯哄闁告柨鎳樺娲倷閽樺濮曢梺鍛婃尰绾板秶鈧潧銈稿畷姗€顢欑憴锝嗗闂備礁鎲＄换鍌溾偓姘煎幖閿曘垽骞嶉鍓э紲闁诲函缍嗛崑鍡樻櫠鏉堚晝纾兼い鏃€顑欓崵娆撴煃閽樺妯€濠殿喒鍋撻梺缁樕戦崜姘涢悢鍏尖拺闁革富鍘肩敮鍫曟煟鎺抽崝鎴︾嵁閹邦厾绡€婵﹩鍘奸埀顒€鐖奸弻娑㈠焺閸愬墽鍔风紓浣叉閸嬫挾绱撴担绋库挃濠⒀勵殙閹筋偄顪冮妶搴′簻闁挎洦浜璇测槈濮橈絽浜鹃柨婵嗙凹缁ㄥ吋銇勯妷锝呯伈闁哄备鍓濋幏鍛村传閵夋劧缍侀弻鐔风暋閻楀牆娈楅梺鍦帶缂嶅﹤鐣烽悜绛嬫晣闁靛ě鍥紬闂傚倸鍊搁崐鐑芥嚄閸洍鈧箓宕奸妷銉ョ彉濡炪倖甯掔€氼參宕戦敍鍕枑闊洦娲栭崹婵嬫煛閸愩劎澧遍柡浣告閺屾盯寮撮妸銉ヮ潾闂佸憡锚瀹曨剟鍩為幋锔藉€烽柡澶嬪灩娴犳挳鎮楃憴鍕闁告挾鍠栭獮鍐潨閳ь剟寮幘缁樺亹鐎规洖娲ら獮鎰版⒒娴ｈ櫣銆婇柛鎾寸箓鐓ら柡宓懏娈奸梺绯曞墲钃遍柛娆忕箰閳规垿鎮╅幓鎺撴闂侀潧娲︾换鍕焵椤掑喚娼愭繛鍙夌矒瀹曟顫滈埀顒勫Υ娴ｅ壊娼ㄩ柍褜鍓熷畷娲礋椤栨氨顦ㄩ梻浣诡儥閸ㄧ増绂嶉悙顑跨箚闁靛牆鎳忛崳娲煃闁垮鐏撮柡灞剧☉閳藉螣瀹勯偊娼撻梻浣稿悑缁佹挳寮插☉銏犲瀭婵犻潧娲ㄧ粻楣冩煕閳╁喚娈曠紒鍌氼儔閺屾盯濡堕崱妯碱槰闂侀潧娲ょ€氫即鐛幒鎴悑闁割偅绻傜敮顖涗繆閻愵亜鈧劙寮插鍫熷亗闁跨喓濮撮拑鐔哥箾閹寸們姘ｉ崼銉︾厱婵°倕鍟禒褍霉閻欌偓閸ㄥ磭妲愰幒妤佸€锋い鎺嗗亾闁告柣鍊濋弻鏇㈠醇閻旂鈧劗鈧鍠栭…鐑藉极閹剧粯鍋愰柤纰卞墾缁卞弶绻濋悽闈涗沪闁搞劑娼ч悾鐑筋敆閸曨偆顦悗鍏夊亾闁告洦鍏橀幏铏圭磽娴ｅ壊鍎忔繛纭风節椤㈡挸螖閸愵亞锛滅紓鍌欑劍閿氭繛鎼櫍閺屾盯鍩為幆褌澹曞┑锛勫亼閸婃牜鏁幒妤€绐楁慨姗嗗墻閻掍粙鏌熼幍顔碱暭闁绘挻鐟╅弻娑樷攽閸曨偄濮堕梺缁樺浮缁犳牠骞楅崼鏇熷€烽悗闈涙憸閻﹀牓姊婚崒姘卞濞撴碍顨婂畷鏇㈠箣閻橆偄浜鹃悷娆忓鐏忣偊鏌ｉ幒鐐电暤妤犵偛鐗撴俊鎼佸Ψ椤旇棄鐦滈梺鑽ゅТ濞测晛顕ｉ幘瀵哥彾闁哄洨鍠嶇换鍡涙煟閹板吀绨婚柍褜鍓氶崹鍨暦閻熸噴娲敂閸涱喗鐝栭梻渚€娼х换鍫ュ磹閺囩姷涓嶉柡宥庡幗閻撳繘鐓崶褜鍎忛柍褜鍓氬ú鏍敊韫囨挴鏀介柛鈥崇箲閺傗偓闂備胶绮摫鐟滄澘鍟村鎶芥偄閸忚偐鍘介梺鎸庣箓濞层倗澹曢柆宥嗏拻闁稿本鑹鹃埀顒佹倐瀹曟劖顦版惔锝囩劶婵炴挻鍩冮崑鎾搭殽閻愬澧垫い銏℃磻缂嶅懘鏌涢妷顔煎⒒闁轰礁鍟撮弻銊╁即濡も偓娴滈箖姊哄Ч鍥р偓妤呭磻閹捐埖宕叉繝闈涙川缁♀偓闂佺鏈粙鎴濃枍瑜斿鍝劽虹拠鎻掔闂佽崵鍟块弲鐘差嚕婵犳碍鍋勯柛娑橈功缁夊爼姊洪崨濠冨瘷闁告侗鍠楅蹇涙⒒閸屾瑧鍔嶆俊鐐叉健瀹曘垺绂掔€ｃ劉鍋撻崘鈺冪瘈闁搞儜鍡樻啺婵犵數鍋為崹顖炲垂瑜版帗鍊挎繛宸簼閻撴洟鏌熼弶鍨倎缂併劌鐡ㄦ穱濠囧箵閹烘柨鈪辩紓浣介哺閹稿骞忛崨鏉戜紶闁告洘鍨崕宕囨閹烘鏁嬮柛娑卞幘娴犲憡绻濈喊澶岀？闁轰浇顕ч悾鐑芥偄绾拌鲸鏅┑顔斤耿绾悂宕€ｎ喗鈷戦柤濮愬€曢瀷濠电偛鎷戠紞浣哥暦閺囥垹围濠㈣泛顑呴埀顒勬涧铻栭柨婵嗘噹閺嗙偤鏌嶉柨瀣伌闁哄本绋戦埞鎴﹀幢濡ゅ﹣绱濇繝纰樷偓鍐茬骇婵＄偘绮欏濠氭晲婢跺娅滈柟鑲╄ˉ閳ь剚鏋奸幏顐ｇ節濞堝灝鏋涢柨鏇閸掓帡顢涢悙鑼唵闂佸憡绋戦悺銊╁磹缂佹ü绻嗘い鏍ㄧ矊閸斿鏌ｉ敐搴″⒋婵﹦绮幏鍛村礈閹绘帗鍋勯梻浣告惈椤︻垶鎮樺┑瀣剁稏闁搞儺鍓氶崐鐢告偡濞嗗繐顏紒鈧埀顒傜磽閸屾氨孝闁挎洦浜悰顕€宕橀钘変患閻庡厜鍋撻柍褜鍓熼幆灞解枎閹炬潙浠繛鎾村嚬閸ㄦ娊宕㈠☉娆庣箚闁哄被鍎伴幉鐐叏婵犲嫮甯涢柟宄版嚇閹崇偤濡疯閳ь剙锕娲传閵夈儛锝夋煙缁嬫鐓兼鐐茬墦婵℃悂鍩￠崒姘紦缂傚倷绀侀鍫濃枖閺囥垺鏅柣鏂垮悑閳锋垹鐥鐐村櫤鐟滄妸鍥ㄢ拻闁告洦鍋勯顓犫偓瑙勬礃閸旀瑩骞冩禒瀣窛濠电姴瀚铏節閻㈤潧鈻堟繛浣冲吘娑樷槈閵忕姷顦╅梺闈╁瘜閸樺墽澹曟總鍛婄厪濠电偛鐏濋埀顒侇殜閹苯鈻庨幘瀵稿幐閻庡厜鍋撻悗锝庡墰閻﹀牓鎮楃憴鍕鐎规洦鍓濋悘鎺旂磼閻愵剙顎滃瀵割焾閳绘挾鎲撮崟顏嗙畾闂佺粯鍔︽禍婊堝焵椤掍礁鐏寸€规洘绻冪换婵嬪炊瑜忛敍鐔兼⒑濮瑰洤鐏い顓炵墢缁寮介妸褏顔曢梺绯曞墲钃遍悘蹇庡嵆閺屾盯濡堕崱妤冧桓闂侀潧娲ょ€氫即鐛€ｎ喗鏅查柛娑卞幖鍟稿┑鐘殿暜缁辨洟宕戦幘璇茬畺闁稿本鍑瑰鏍磽娴ｈ偂鎴炲垔閹绢喗鐓熼柟瀵镐紳椤忓嫧鏋旈悘鐐缎掗弨浠嬫煃閽樺顥滈柣蹇曞█閺屻劑寮撮妸銈囩泿濡炪倖娲╃紞浣逛繆閹间礁鐓樼憸宥吤洪妶澶嗏偓鏍ㄧ節閸屻倕娈樼紓浣稿綁缁ㄧ嚲lose/i.test(label)){
                             try{ item.click(); }catch(e){}
                           }
                         }
@@ -2270,7 +2623,8 @@ public class NativePlayerActivity extends Activity {
             return;
         }
         if (playState == VideoView.STATE_PLAYBACK_COMPLETED) {
-            playbackPosition = 0L;
+            clearSavedPlaybackProgress();
+            recordWatchHistory();
             showState("\u64ad\u653e\u5b8c\u6210", false, 0.95f);
         }
     }
@@ -2688,6 +3042,21 @@ public class NativePlayerActivity extends Activity {
     }
 
     private void showReadyState() {
+        long resumeTarget = pendingResumeNoticeMs;
+        if (resumeTarget > 0L) {
+            pendingResumeNoticeMs = 0L;
+            long duration = Math.max(0L, currentPlayerDuration());
+            long target = duration > 0L
+                    ? clamp(resumeTarget, 0L, Math.max(0L, duration - 1000L))
+                    : Math.max(0L, resumeTarget);
+            if (target > 0L) {
+                seekCurrentPlayerTo(target);
+                showState("\u5df2\u4e3a\u4f60\u7eed\u64ad\u81f3 " + formatTime(target), false, 1f);
+                handler.removeCallbacks(hideState);
+                handler.postDelayed(hideState, 1500L);
+                return;
+            }
+        }
         showState("\u5f00\u59cb\u64ad\u653e", false, 1f);
         handler.removeCallbacks(hideState);
         handler.postDelayed(hideState, 1200);
@@ -3101,6 +3470,8 @@ public class NativePlayerActivity extends Activity {
     }
 
     private void returnToMainPage() {
+        persistPlaybackProgress();
+        recordWatchHistory();
         releaseSniffer();
         releaseDkPlayer();
         releaseMediaPlayer();
@@ -3114,6 +3485,7 @@ public class NativePlayerActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        applyImmersiveMode();
         if (artPlayerWebView != null) artPlayerWebView.onResume();
         if (dkPlayerView != null && playWhenReady) {
             dkPlayerView.resume();
@@ -3138,7 +3510,17 @@ public class NativePlayerActivity extends Activity {
             playWhenReady = mediaPlayer.getPlayWhenReady();
             mediaPlayer.pause();
         }
+        persistPlaybackProgress();
+        recordWatchHistory();
         super.onPause();
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus) {
+            applyImmersiveMode();
+        }
     }
 
     @Override
@@ -3146,6 +3528,8 @@ public class NativePlayerActivity extends Activity {
         getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         getWindow().clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
         handler.removeCallbacksAndMessages(null);
+        persistPlaybackProgress();
+        recordWatchHistory();
         releaseSniffer();
         releaseDkPlayer();
         releaseMediaPlayer();
@@ -3367,6 +3751,38 @@ public class NativePlayerActivity extends Activity {
         return (int) (value * getResources().getDisplayMetrics().density + 0.5f);
     }
 
+    private long clamp(long value, long min, long max) {
+        if (max < min) {
+            return min;
+        }
+        return Math.max(min, Math.min(max, value));
+    }
+
+    private int clamp(int value, int min, int max) {
+        if (max < min) {
+            return min;
+        }
+        return Math.max(min, Math.min(max, value));
+    }
+
+    private float clamp(float value, float min, float max) {
+        if (max < min) {
+            return min;
+        }
+        return Math.max(min, Math.min(max, value));
+    }
+
+    private String formatTime(long positionMs) {
+        long totalSeconds = Math.max(0L, positionMs) / 1000L;
+        long seconds = totalSeconds % 60L;
+        long minutes = (totalSeconds / 60L) % 60L;
+        long hours = totalSeconds / 3600L;
+        if (hours > 0L) {
+            return String.format(Locale.ROOT, "%d:%02d:%02d", hours, minutes, seconds);
+        }
+        return String.format(Locale.ROOT, "%02d:%02d", minutes, seconds);
+    }
+
     private String safe(String value) {
         return value == null ? "" : value.trim();
     }
@@ -3504,5 +3920,6 @@ public class NativePlayerActivity extends Activity {
         }
     }
 }
+
 
 

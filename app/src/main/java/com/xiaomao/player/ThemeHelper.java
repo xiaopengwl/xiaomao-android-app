@@ -9,9 +9,14 @@ public final class ThemeHelper {
     }
 
     public static void apply(Context context) {
-        int expectedMode = SettingsStore.nightModeEnabled(context)
-                ? AppCompatDelegate.MODE_NIGHT_YES
-                : AppCompatDelegate.MODE_NIGHT_NO;
+        int expectedMode;
+        if (SettingsStore.followSystemTheme(context)) {
+            expectedMode = AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM;
+        } else {
+            expectedMode = SettingsStore.nightModeEnabled(context)
+                    ? AppCompatDelegate.MODE_NIGHT_YES
+                    : AppCompatDelegate.MODE_NIGHT_NO;
+        }
         if (AppCompatDelegate.getDefaultNightMode() != expectedMode) {
             AppCompatDelegate.setDefaultNightMode(expectedMode);
         }

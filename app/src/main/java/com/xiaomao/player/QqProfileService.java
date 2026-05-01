@@ -1,4 +1,4 @@
-package com.xiaomao.player;
+﻿package com.xiaomao.player;
 
 import org.json.JSONObject;
 
@@ -91,9 +91,9 @@ public final class QqProfileService {
             data = root;
         }
         String avatar = first(data,
+                "avatar_url",
                 "avatar",
                 "avatarUrl",
-                "avatar_url",
                 "qlogo",
                 "head",
                 "logo",
@@ -104,6 +104,7 @@ public final class QqProfileService {
                 "name",
                 "qq_name");
         String signature = first(data,
+                "long_nick",
                 "signature",
                 "sign",
                 "desc",

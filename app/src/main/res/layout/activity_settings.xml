@@ -64,14 +64,14 @@
                 android:layout_height="wrap_content"
                 android:text="@string/settings_summary"
                 android:textColor="@color/xm_text_secondary"
-                android:textSize="13sp" />
+                android:textSize="12sp" />
 
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="14dp"
                 app:cardBackgroundColor="@color/xm_surface"
-                app:cardCornerRadius="16dp"
+                app:cardCornerRadius="12dp"
                 app:strokeColor="@color/xm_stroke_soft"
                 app:strokeWidth="1dp">
 
@@ -111,7 +111,7 @@
                                 android:layout_marginTop="4dp"
                                 android:text="@string/settings_auto_play_desc"
                                 android:textColor="@color/xm_text_secondary"
-                                android:textSize="13sp" />
+                                android:textSize="12sp" />
                         </LinearLayout>
 
                         <com.google.android.material.switchmaterial.SwitchMaterial
@@ -158,11 +158,58 @@
                                 android:layout_marginTop="4dp"
                                 android:text="@string/settings_night_mode_desc"
                                 android:textColor="@color/xm_text_secondary"
-                                android:textSize="13sp" />
+                                android:textSize="12sp" />
                         </LinearLayout>
 
                         <com.google.android.material.switchmaterial.SwitchMaterial
                             android:id="@+id/settings_night_mode_switch"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text=""
+                            app:useMaterialThemeColors="true" />
+                    </LinearLayout>
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:background="@color/xm_stroke" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:minHeight="78dp"
+                        android:orientation="horizontal"
+                        android:paddingStart="16dp"
+                        android:paddingTop="14dp"
+                        android:paddingEnd="16dp"
+                        android:paddingBottom="14dp">
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="&#x8DDF;&#x968F;&#x7CFB;&#x7EDF;&#x4E3B;&#x9898;"
+                                android:textColor="@color/xm_text_primary"
+                                android:textSize="16sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="4dp"
+                                android:text="&#x5F00;&#x542F;&#x540E;&#x81EA;&#x52A8;&#x8DDF;&#x968F;&#x624B;&#x673A;&#x6DF1;&#x8272;/&#x6D45;&#x8272;&#x6A21;&#x5F0F;&#xFF0C;&#x65E0;&#x9700;&#x624B;&#x52A8;&#x5207;&#x6362;&#x3002;"
+                                android:textColor="@color/xm_text_secondary"
+                                android:textSize="12sp" />
+                        </LinearLayout>
+
+                        <com.google.android.material.switchmaterial.SwitchMaterial
+                            android:id="@+id/settings_follow_system_switch"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text=""
@@ -205,7 +252,7 @@
                                 android:layout_marginTop="4dp"
                                 android:text="@string/settings_remember_source_desc"
                                 android:textColor="@color/xm_text_secondary"
-                                android:textSize="13sp" />
+                                android:textSize="12sp" />
                         </LinearLayout>
 
                         <com.google.android.material.switchmaterial.SwitchMaterial
@@ -223,7 +270,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
                 app:cardBackgroundColor="@color/xm_surface"
-                app:cardCornerRadius="16dp"
+                app:cardCornerRadius="12dp"
                 app:strokeColor="@color/xm_stroke_soft"
                 app:strokeWidth="1dp">
 
@@ -263,7 +310,7 @@
                                 android:layout_marginTop="4dp"
                                 android:text="@string/settings_default_library_desc"
                                 android:textColor="@color/xm_text_secondary"
-                                android:textSize="13sp" />
+                                android:textSize="12sp" />
                         </LinearLayout>
 
                         <com.google.android.material.switchmaterial.SwitchMaterial
@@ -328,7 +375,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
                 app:cardBackgroundColor="@color/xm_surface"
-                app:cardCornerRadius="16dp"
+                app:cardCornerRadius="12dp"
                 app:strokeColor="@color/xm_stroke_soft"
                 app:strokeWidth="1dp">
 
@@ -336,14 +383,14 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="vertical"
-                        android:padding="18dp">
+                        android:padding="16dp">
 
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="@string/settings_player_memory_title"
                         android:textColor="@color/xm_text_primary"
-                        android:textSize="16sp"
+                        android:textSize="17sp"
                         android:textStyle="bold" />
 
                     <TextView
@@ -352,7 +399,7 @@
                         android:layout_marginTop="6dp"
                         android:text="@string/settings_player_memory_desc"
                         android:textColor="@color/xm_text_secondary"
-                        android:textSize="13sp" />
+                        android:textSize="12sp" />
 
                     <TextView
                         android:id="@+id/settings_player_memory_value"
@@ -370,7 +417,7 @@
                         android:layout_marginTop="12dp"
                         android:text="@string/settings_player_memory_action"
                         android:textAllCaps="false"
-                        android:textColor="@color/xm_text_primary"
+                        android:textColor="@color/xm_accent"
                         app:backgroundTint="@color/xm_surface_alt"
                         app:cornerRadius="12dp"
                         app:strokeColor="@color/xm_stroke_soft"
@@ -383,7 +430,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
                 app:cardBackgroundColor="@color/xm_surface"
-                app:cardCornerRadius="16dp"
+                app:cardCornerRadius="12dp"
                 app:strokeColor="@color/xm_stroke_soft"
                 app:strokeWidth="1dp">
 
@@ -391,14 +438,14 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="vertical"
-                        android:padding="18dp">
+                        android:padding="16dp">
 
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="@string/settings_about_title"
                         android:textColor="@color/xm_text_primary"
-                        android:textSize="16sp"
+                        android:textSize="17sp"
                         android:textStyle="bold" />
 
                     <TextView
@@ -415,7 +462,7 @@
                         android:layout_height="wrap_content"
                         android:layout_marginTop="6dp"
                         android:textColor="@color/xm_text_secondary"
-                        android:textSize="13sp" />
+                        android:textSize="12sp" />
 
                     <TextView
                         android:id="@+id/settings_app_support"
@@ -423,7 +470,7 @@
                         android:layout_height="wrap_content"
                         android:layout_marginTop="6dp"
                         android:textColor="@color/xm_text_secondary"
-                        android:textSize="13sp" />
+                        android:textSize="12sp" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
         </LinearLayout>

@@ -2,14 +2,14 @@
 <resources>
     <color name="xm_bg">#F5F7FA</color>
     <color name="xm_surface">#FFFFFF</color>
-    <color name="xm_surface_alt">#EEF2F5</color>
-    <color name="xm_surface_soft">#E4EAEF</color>
-    <color name="xm_surface_elevated">#FAFCFD</color>
-    <color name="xm_stroke">#D9E1E8</color>
-    <color name="xm_stroke_soft">#CBD5DD</color>
+    <color name="xm_surface_alt">#F0F3F6</color>
+    <color name="xm_surface_soft">#E8EDF2</color>
+    <color name="xm_surface_elevated">#FCFDFE</color>
+    <color name="xm_stroke">#DAE2E9</color>
+    <color name="xm_stroke_soft">#CFD8E0</color>
     <color name="xm_text_primary">#141A1F</color>
-    <color name="xm_text_secondary">#596675</color>
-    <color name="xm_text_muted">#8793A1</color>
+    <color name="xm_text_secondary">#65717D</color>
+    <color name="xm_text_muted">#8C98A5</color>
     <color name="xm_accent">#1F7A46</color>
     <color name="xm_accent_dark">#FFFFFF</color>
     <color name="xm_badge">#E6F5EC</color>
@@ -18,9 +18,9 @@
     <color name="xm_info_text">#2D6B48</color>
     <color name="xm_danger">#C85B5B</color>
     <color name="xm_danger_soft">#F1DFDF</color>
-    <color name="xm_bar_surface">#F3F5F7</color>
+    <color name="xm_bar_surface">#F6F8FA</color>
     <color name="xm_panel_surface">#FFFFFF</color>
-    <color name="xm_panel_surface_alt">#F0F3F5</color>
+    <color name="xm_panel_surface_alt">#F3F6F8</color>
     <color name="xm_avatar_border">#1F7A46</color>
     <color name="xm_heat">#FF8E2B</color>
     <color name="xm_rank_1">#F45C4C</color>
@@ -29,7 +29,7 @@
     <color name="xm_rank_other">#A4AFBB</color>
     <color name="xm_skeleton">#E4E9EE</color>
     <color name="xm_skeleton_shine">#F3F6F9</color>
-    <color name="xm_overlay_card">#E9FFFFFF</color>
+    <color name="xm_overlay_card">#F0FFFFFF</color>
     <color name="xm_player_bg">#0F1412</color>
     <color name="xm_player_nav">#121915</color>
     <color name="xm_player_panel">#171F1A</color>

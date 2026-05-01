@@ -1,9 +1,9 @@
-package com.xiaomao.player;
+﻿package com.xiaomao.player;
 
+import android.graphics.drawable.GradientDrawable;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.graphics.drawable.GradientDrawable;
 import android.widget.ImageView;
 import android.widget.TextView;
 
@@ -20,11 +20,20 @@ public class RankListAdapter extends RecyclerView.Adapter<RankListAdapter.RankVi
         void onClick(NativeDrpyEngine.MediaItem item);
     }
 
+    public interface OnItemLongClickListener {
+        void onLongClick(NativeDrpyEngine.MediaItem item, View anchor);
+    }
+
     private final ArrayList<NativeDrpyEngine.MediaItem> items = new ArrayList<>();
     private OnItemClickListener listener;
+    private OnItemLongClickListener longClickListener;
 
     public void setOnItemClickListener(OnItemClickListener listener) {
         this.listener = listener;
+    }
+
+    public void setOnItemLongClickListener(OnItemLongClickListener listener) {
+        this.longClickListener = listener;
     }
 
     public void submitList(List<NativeDrpyEngine.MediaItem> nextItems) {
@@ -47,6 +56,7 @@ public class RankListAdapter extends RecyclerView.Adapter<RankListAdapter.RankVi
     @Override
     public RankViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_rank_card, parent, false);
+        UiEffects.bindPressScale(view);
         return new RankViewHolder(view);
     }
 
@@ -63,6 +73,13 @@ public class RankListAdapter extends RecyclerView.Adapter<RankListAdapter.RankVi
             if (listener != null) {
                 listener.onClick(item);
             }
+        });
+        holder.itemView.setOnLongClickListener(v -> {
+            if (longClickListener != null) {
+                longClickListener.onLongClick(item, holder.itemView);
+                return true;
+            }
+            return false;
         });
     }
 
@@ -102,9 +119,9 @@ public class RankListAdapter extends RecyclerView.Adapter<RankListAdapter.RankVi
         GradientDrawable drawable = new GradientDrawable();
         drawable.setColor(ContextCompat.getColor(view.getContext(), colorRes));
         drawable.setCornerRadii(new float[]{
-                dp(view, 10), dp(view, 10),
+                dp(view, 12), dp(view, 12),
                 dp(view, 0), dp(view, 0),
-                dp(view, 10), dp(view, 10),
+                dp(view, 12), dp(view, 12),
                 dp(view, 0), dp(view, 0)
         });
         return drawable;

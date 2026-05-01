@@ -2,12 +2,13 @@
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginBottom="8dp"
-    android:background="@drawable/xm_bottom_nav_item_bg"
-    android:paddingStart="10dp"
-    android:paddingTop="12dp"
-    android:paddingEnd="10dp"
-    android:paddingBottom="12dp">
+    android:layout_marginBottom="10dp"
+    android:background="@android:color/transparent"
+    android:minHeight="56dp"
+    android:paddingStart="12dp"
+    android:paddingTop="14dp"
+    android:paddingEnd="12dp"
+    android:paddingBottom="14dp">
 
     <TextView
         android:id="@+id/sidebar_label"

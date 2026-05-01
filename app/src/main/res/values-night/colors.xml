@@ -1,15 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="xm_bg">#1A1A1A</color>
-    <color name="xm_surface">#232323</color>
-    <color name="xm_surface_alt">#292929</color>
-    <color name="xm_surface_soft">#313131</color>
-    <color name="xm_surface_elevated">#2A2A2A</color>
-    <color name="xm_stroke">#343434</color>
-    <color name="xm_stroke_soft">#404040</color>
+    <color name="xm_surface">#232524</color>
+    <color name="xm_surface_alt">#2A2D2B</color>
+    <color name="xm_surface_soft">#343735</color>
+    <color name="xm_surface_elevated">#2C2F2D</color>
+    <color name="xm_stroke">#373B38</color>
+    <color name="xm_stroke_soft">#434844</color>
     <color name="xm_text_primary">#F4F6F4</color>
-    <color name="xm_text_secondary">#B6BDB7</color>
-    <color name="xm_text_muted">#8C948D</color>
+    <color name="xm_text_secondary">#BDC5BE</color>
+    <color name="xm_text_muted">#959D96</color>
     <color name="xm_accent">#48C96D</color>
     <color name="xm_accent_dark">#07130B</color>
     <color name="xm_badge">#183122</color>
@@ -18,9 +18,9 @@
     <color name="xm_info_text">#C4EDD0</color>
     <color name="xm_danger">#E07A7A</color>
     <color name="xm_danger_soft">#5B3636</color>
-    <color name="xm_bar_surface">#171717</color>
-    <color name="xm_panel_surface">#222222</color>
-    <color name="xm_panel_surface_alt">#272727</color>
+    <color name="xm_bar_surface">#181B19</color>
+    <color name="xm_panel_surface">#232624</color>
+    <color name="xm_panel_surface_alt">#2A2D2B</color>
     <color name="xm_avatar_border">#6DDD8F</color>
     <color name="xm_heat">#FF9A3C</color>
     <color name="xm_rank_1">#F45C4C</color>
@@ -29,7 +29,7 @@
     <color name="xm_rank_other">#788089</color>
     <color name="xm_skeleton">#2D3134</color>
     <color name="xm_skeleton_shine">#3A3E42</color>
-    <color name="xm_overlay_card">#E6292929</color>
+    <color name="xm_overlay_card">#EB232725</color>
     <color name="xm_player_bg">#0F1412</color>
     <color name="xm_player_nav">#121915</color>
     <color name="xm_player_panel">#171F1A</color>

@@ -1,4 +1,4 @@
-package com.xiaomao.player;
+﻿package com.xiaomao.player;
 
 import android.app.Activity;
 import android.content.Intent;
@@ -325,9 +325,9 @@ public class SourceManagementActivity extends AppCompatActivity {
                     fail(R.string.source_manage_test_recommend, getString(R.string.source_manage_test_result_empty));
                 } else {
                     NativeDrpyEngine.MediaItem first = state.recommendItems.get(0);
-                    pass(R.string.source_manage_test_recommend,
-                            getString(R.string.source_manage_test_result_count, state.recommendItems.size())
-                                    + "，" + getString(R.string.source_manage_test_result_item, first.title));
+                    String summary = getString(R.string.source_manage_test_result_count, state.recommendItems.size())
+                            + " - " + getString(R.string.source_manage_test_result_item, first.title);
+                    pass(R.string.source_manage_test_recommend, summary);
                 }
                 testSearch();
             });
@@ -418,7 +418,7 @@ public class SourceManagementActivity extends AppCompatActivity {
                 } else {
                     String detail = getString(R.string.source_manage_test_result_url, summarizeUrl(url));
                     if (result != null && result.parse != 0) {
-                        detail += "，parse=" + result.parse;
+                        detail += ", parse=" + result.parse;
                     }
                     pass(R.string.source_manage_test_lazy, detail);
                 }
