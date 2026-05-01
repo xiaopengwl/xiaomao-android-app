@@ -530,6 +530,9 @@ public class NativeDrpyEngine {
         result.parse = 0;
         result.jx = 0;
         result.headers.put("X-XM-Stream-Type", "hls");
+        result.headers.put("X-XM-Skip-Referer", "1");
+        result.headers.put("X-XM-Skip-Origin", "1");
+        result.headers.put("X-XM-Skip-Cookie", "1");
         if (!TextUtils.isEmpty(resolved.backupHosts)) {
             result.headers.put("X-XM-Backup-Hosts", resolved.backupHosts);
         }

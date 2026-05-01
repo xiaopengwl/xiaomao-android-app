@@ -358,7 +358,13 @@
                     }
                     const nextUrl = nextBackupUrl(url, backupHosts, attemptedHosts);
                     if (!nextUrl) {
-                      hlsInstance.startLoad();
+                      const detail = [
+                        data.details || '',
+                        data.reason || '',
+                        data.error && data.error.message ? data.error.message : '',
+                        data.response && data.response.code ? `HTTP ${data.response.code}` : '',
+                      ].filter(Boolean).join(' | ');
+                      notify('onPlayerError', detail ? `HLS network error: ${detail}` : 'HLS network error');
                       return;
                     }
                     if (art && art.notice) {

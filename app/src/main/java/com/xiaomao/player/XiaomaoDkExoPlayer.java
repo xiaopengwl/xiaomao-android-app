@@ -268,6 +268,7 @@ public class XiaomaoDkExoPlayer extends AbstractPlayer {
     }
 
     private DataSource.Factory buildDataSourceFactory(Map<String, String> headers) {
+        boolean wrappedSegmentFixEnabled = shouldEnableWrappedSegmentFix(dataSource, forcedStreamType, requestHeaders);
         DefaultHttpDataSource.Factory httpFactory = new DefaultHttpDataSource.Factory()
                 .setAllowCrossProtocolRedirects(true)
                 .setConnectTimeoutMs(30000)
@@ -285,6 +286,12 @@ public class XiaomaoDkExoPlayer extends AbstractPlayer {
                         || key.regionMatches(true, 0, INTERNAL_HEADER_PREFIX, 0, INTERNAL_HEADER_PREFIX.length())) {
                     continue;
                 }
+                if (wrappedSegmentFixEnabled
+                        && ("Referer".equalsIgnoreCase(key)
+                        || "Origin".equalsIgnoreCase(key)
+                        || "Cookie".equalsIgnoreCase(key))) {
+                    continue;
+                }
                 requestProps.put(key, value);
             }
         }
@@ -294,7 +301,7 @@ public class XiaomaoDkExoPlayer extends AbstractPlayer {
         DataSource.Factory upstreamFactory = new DefaultDataSource.Factory(appContext, httpFactory);
         return new WrappedSegmentDataSource.Factory(
                 upstreamFactory,
-                shouldEnableWrappedSegmentFix(dataSource, forcedStreamType, requestHeaders)
+                wrappedSegmentFixEnabled
         );
     }
 

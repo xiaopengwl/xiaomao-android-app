@@ -8,6 +8,7 @@ import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
+import android.net.http.SslError;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -25,6 +26,7 @@ import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
+import android.webkit.SslErrorHandler;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.FrameLayout;
@@ -54,6 +56,9 @@ import androidx.media3.exoplayer.source.ProgressiveMediaSource;
 import androidx.media3.extractor.DefaultExtractorsFactory;
 import androidx.media3.ui.AspectRatioFrameLayout;
 import androidx.media3.ui.PlayerView;
+import androidx.webkit.ScriptHandler;
+import androidx.webkit.WebViewCompat;
+import androidx.webkit.WebViewFeature;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -81,6 +86,9 @@ public class NativePlayerActivity extends Activity {
     private static final String PLAYER_MEMORY_PREFS = "xiaomao_player_memory";
     private static final String KEY_PREFER_IJK_PREFIX = "prefer_ijk_";
     private static final String INTERNAL_BACKUP_HOSTS_HEADER = "X-XM-Backup-Hosts";
+    private static final String INTERNAL_SKIP_REFERER_HEADER = "X-XM-Skip-Referer";
+    private static final String INTERNAL_SKIP_ORIGIN_HEADER = "X-XM-Skip-Origin";
+    private static final String INTERNAL_SKIP_COOKIE_HEADER = "X-XM-Skip-Cookie";
 
     private PlayerView playerView;
     private ExoPlayer mediaPlayer;
@@ -91,6 +99,7 @@ public class NativePlayerActivity extends Activity {
     private LinearLayout.LayoutParams playerBoxLayoutParams;
     private ScrollView contentScrollView;
     private WebView sniffWeb;
+    private ScriptHandler sniffDocumentStartScriptHandler;
     private View playerOverlay;
     private ProgressBar loading;
     private TextView titleView;
@@ -1028,8 +1037,19 @@ public class NativePlayerActivity extends Activity {
         }
         settings.setUserAgentString("Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36");
         web.addJavascriptInterface(new PlayerBridge(), "HermesPlayer");
+        installSnifferDocumentStartScript(web);
         web.setWebChromeClient(new WebChromeClient());
         web.setWebViewClient(new WebViewClient() {
+            @Override
+            public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
+                super.onPageStarted(view, url, favicon);
+                if (!sniffing) {
+                    return;
+                }
+                captureSniff(url, sniffCurrentDepth, false, "page-start");
+                showLoadingState("\u6b63\u5728\u8fde\u63a5\u55c5\u63a2\u9875\u9762\u2026");
+            }
+
             @Override
             public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
                 if (request != null && request.getUrl() != null) captureSniff(request.getUrl().toString(), sniffCurrentDepth, false);
@@ -1043,6 +1063,15 @@ public class NativePlayerActivity extends Activity {
             }
 
             @Override
+            public void onReceivedSslError(WebView view, SslErrorHandler handler, SslError error) {
+                if (shouldBypassSnifferSslError(error)) {
+                    handler.proceed();
+                    return;
+                }
+                super.onReceivedSslError(view, handler, error);
+            }
+
+            @Override
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
                 if (!sniffing) return;
@@ -1052,6 +1081,211 @@ public class NativePlayerActivity extends Activity {
             }
         });
         return web;
+    }
+
+    private void installSnifferDocumentStartScript(WebView web) {
+        sniffDocumentStartScriptHandler = null;
+        if (web == null) {
+            return;
+        }
+        try {
+            if (!WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
+                return;
+            }
+            sniffDocumentStartScriptHandler = WebViewCompat.addDocumentStartJavaScript(
+                    web,
+                    buildDocumentStartSniffScript(),
+                    java.util.Collections.singleton("*")
+            );
+        } catch (Throwable ignored) {
+            sniffDocumentStartScriptHandler = null;
+        }
+    }
+
+    private String buildDocumentStartSniffScript() {
+        return """
+                (function(){
+                  try{
+                    if(window.__xmEarlySniffInstalled){ return; }
+                    window.__xmEarlySniffInstalled = 1;
+                    function emitOne(url, type, page){
+                      try{
+                        url = String(url || '').trim();
+                        if(!url || /^(javascript:|about:blank|blob:|data:)/i.test(url)) return;
+                        if(window.HermesPlayer && typeof window.HermesPlayer.onSniffResult === 'function'){
+                          window.HermesPlayer.onSniffResult(JSON.stringify([{url:url, type:type || 'early'}]), -1, page || location.href || url);
+                        }
+                      }catch(e){}
+                    }
+                    function collectText(text, tag){
+                      try{
+                        text = String(text || '');
+                        if(!text) return;
+                        if(text.length > 300000) text = text.slice(0, 300000);
+                        var regs = [
+                          /https?:\\/\\/[^\\s"'<>\\\\]+/ig,
+                          /(?:url|src|video|play|file|hls|stream)\\s*[:=]\\s*["']([^"'<>]+)["']/ig,
+                          /["']((?:\\\\\\/|\\/|https?:\\/\\/)?[^"'\\s<>]+\\.(?:m3u8|mp4|flv|mpd)(?:\\?[^"'<>]*)?)["']/ig,
+                          /["'](%[0-9a-f]{2}[^"']*(?:%6d%33%75%38|%6d%70%34|%66%6c%76|%6d%70%64)[^"']*)["']/ig
+                        ];
+                        for(var i = 0; i < regs.length; i++){
+                          var match;
+                          while((match = regs[i].exec(text))){
+                            emitOne(match[1] || match[0], tag, location.href || '');
+                          }
+                        }
+                      }catch(e){}
+                    }
+                    try{
+                      var rawFetch = window.fetch;
+                      if(rawFetch){
+                        window.fetch = function(){
+                          var requestUrl = '';
+                          try{
+                            var target = arguments[0];
+                            requestUrl = typeof target === 'string' ? target : ((target && target.url) || '');
+                            emitOne(requestUrl, 'fetch-call', location.href || requestUrl);
+                          }catch(e){}
+                          return rawFetch.apply(this, arguments).then(function(resp){
+                            try{
+                              var finalUrl = (resp && resp.url) || requestUrl || '';
+                              emitOne(finalUrl, 'fetch', location.href || finalUrl);
+                              var contentType = '';
+                              try{ contentType = (resp && resp.headers && resp.headers.get && resp.headers.get('content-type')) || ''; }catch(e){}
+                              if(resp && resp.clone && /json|text|javascript|html|xml|mpegurl/i.test(contentType)){
+                                resp.clone().text().then(function(text){
+                                  collectText(text, 'fetch-body');
+                                }).catch(function(){});
+                              }
+                            }catch(e){}
+                            return resp;
+                          });
+                        };
+                      }
+                    }catch(e){}
+                    try{
+                      var xhrOpen = XMLHttpRequest.prototype.open;
+                      XMLHttpRequest.prototype.open = function(method, url){
+                        this.__xmUrl = url;
+                        return xhrOpen.apply(this, arguments);
+                      };
+                      var xhrSend = XMLHttpRequest.prototype.send;
+                      XMLHttpRequest.prototype.send = function(){
+                        var xhr = this;
+                        function done(){
+                          try{
+                            var finalUrl = xhr.responseURL || xhr.__xmUrl || '';
+                            emitOne(finalUrl, 'xhr', location.href || finalUrl);
+                            var contentType = '';
+                            try{ contentType = xhr.getResponseHeader('content-type') || ''; }catch(e){}
+                            if(!xhr.responseType || xhr.responseType === 'text' || xhr.responseType === 'json' || /json|text|javascript|html|xml|mpegurl/i.test(contentType)){
+                              var body = '';
+                              try{
+                                if(xhr.responseType === 'json' && xhr.response){
+                                  body = JSON.stringify(xhr.response);
+                                }else if(typeof xhr.responseText === 'string'){
+                                  body = xhr.responseText;
+                                }else if(typeof xhr.response === 'string'){
+                                  body = xhr.response;
+                                }
+                              }catch(e){}
+                              if(body){
+                                collectText(body, 'xhr-body');
+                              }
+                            }
+                          }catch(e){}
+                        }
+                        xhr.addEventListener('load', done);
+                        return xhrSend.apply(this, arguments);
+                      };
+                    }catch(e){}
+                    try{
+                      var mediaDescriptor = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'src');
+                      if(mediaDescriptor && mediaDescriptor.set){
+                        Object.defineProperty(HTMLMediaElement.prototype, 'src', {
+                          configurable: true,
+                          enumerable: mediaDescriptor.enumerable,
+                          get: function(){
+                            return mediaDescriptor.get ? mediaDescriptor.get.call(this) : '';
+                          },
+                          set: function(value){
+                            emitOne(value, 'media-src-set', location.href || value);
+                            return mediaDescriptor.set.call(this, value);
+                          }
+                        });
+                      }
+                    }catch(e){}
+                    try{
+                      var originalSetAttribute = Element.prototype.setAttribute;
+                      Element.prototype.setAttribute = function(name, value){
+                        try{
+                          var lower = String(name || '').toLowerCase();
+                          if(lower === 'src' || lower === 'href' || lower === 'data-src' || lower === 'data-url' || lower === 'data-play' || lower === 'data-player'){
+                            emitOne(value, 'attr-' + lower, location.href || value);
+                          }
+                        }catch(e){}
+                        return originalSetAttribute.apply(this, arguments);
+                      };
+                    }catch(e){}
+                    try{
+                      var observer = new MutationObserver(function(records){
+                        try{
+                          records.forEach(function(record){
+                            if(record.type === 'attributes' && record.target){
+                              emitOne(record.target.getAttribute(record.attributeName), 'mut-' + String(record.attributeName || '').toLowerCase(), location.href || '');
+                            }
+                            if(record.addedNodes){
+                              for(var i = 0; i < record.addedNodes.length; i++){
+                                var node = record.addedNodes[i];
+                                if(!node || node.nodeType !== 1) continue;
+                                try{
+                                  emitOne(node.getAttribute && (node.getAttribute('src') || node.getAttribute('href') || node.getAttribute('data-src') || node.getAttribute('data-url')), 'node', location.href || '');
+                                  if(node.tagName === 'SCRIPT' && node.textContent){
+                                    collectText(node.textContent, 'script');
+                                  }
+                                }catch(e){}
+                              }
+                            }
+                          });
+                        }catch(e){}
+                      });
+                      var startObserve = function(){
+                        try{
+                          if(document.documentElement){
+                            observer.observe(document.documentElement, {subtree:true, childList:true, attributes:true, attributeFilter:['src','href','data-src','data-url','data-play','data-player']});
+                          }
+                        }catch(e){}
+                      };
+                      startObserve();
+                      document.addEventListener('DOMContentLoaded', startObserve, {once:true});
+                    }catch(e){}
+                    try{
+                      document.addEventListener('DOMContentLoaded', function(){
+                        try{
+                          collectText(document.documentElement ? document.documentElement.outerHTML : '', 'early-html');
+                        }catch(e){}
+                      }, {once:true});
+                    }catch(e){}
+                  }catch(e){}
+                })();
+                """;
+    }
+
+    private boolean shouldBypassSnifferSslError(SslError error) {
+        if (!sniffing) {
+            return false;
+        }
+        String url = error == null ? "" : safe(error.getUrl());
+        if (url.isEmpty()) {
+            url = sniffCurrentUrl;
+        }
+        String lower = url.toLowerCase(Locale.ROOT);
+        if (!lower.contains("555k7.com")) {
+            return false;
+        }
+        String marker = (source == null ? "" : safe(source.title) + " " + safe(source.host) + " " + safe(source.raw))
+                .toLowerCase(Locale.ROOT);
+        return marker.contains("555k7.com") || marker.contains("555");
     }
 
     private void autoDismissAgeAndAdLayers(WebView view) {
@@ -1917,6 +2151,9 @@ public class NativePlayerActivity extends Activity {
     private Map<String, String> buildPlayerHeaders() {
         Map<String, String> raw = parseHeaders(buildHeadersJson());
         HashMap<String, String> headers = new HashMap<>();
+        boolean suppressReferer = hasInternalPlaybackFlag(INTERNAL_SKIP_REFERER_HEADER);
+        boolean suppressOrigin = hasInternalPlaybackFlag(INTERNAL_SKIP_ORIGIN_HEADER);
+        boolean suppressCookie = hasInternalPlaybackFlag(INTERNAL_SKIP_COOKIE_HEADER);
         for (Map.Entry<String, String> entry : raw.entrySet()) {
             String key = normalizeHeaderName(entry.getKey());
             String value = safe(entry.getValue());
@@ -1924,16 +2161,25 @@ public class NativePlayerActivity extends Activity {
                 headers.put(key, value);
             }
         }
+        if (suppressReferer) {
+            removeHeaderIgnoreCase(headers, "Referer");
+        }
+        if (suppressOrigin) {
+            removeHeaderIgnoreCase(headers, "Origin");
+        }
+        if (suppressCookie) {
+            removeHeaderIgnoreCase(headers, "Cookie");
+        }
         if (!headers.containsKey("Accept")) {
             headers.put("Accept", "*/*");
         }
         if (!headers.containsKey("Accept-Language")) {
             headers.put("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8");
         }
-        if (!headers.containsKey("Referer") && !safe(currentPlaybackPageUrl).isEmpty()) {
+        if (!suppressReferer && !headers.containsKey("Referer") && !safe(currentPlaybackPageUrl).isEmpty()) {
             headers.put("Referer", currentPlaybackPageUrl);
         }
-        if (!headers.containsKey("Origin")) {
+        if (!suppressOrigin && !headers.containsKey("Origin")) {
             String origin = buildOriginFromUrl(headers.get("Referer"));
             if (origin.isEmpty()) {
                 origin = buildOriginFromUrl(currentPlaybackPageUrl);
@@ -2452,6 +2698,13 @@ public class NativePlayerActivity extends Activity {
         sniffVisited.clear();
         handler.removeCallbacks(playBestSniffCandidate);
         handler.removeCallbacks(advanceSniffQueueRunnable);
+        if (sniffDocumentStartScriptHandler != null) {
+            try {
+                sniffDocumentStartScriptHandler.remove();
+            } catch (Exception ignored) {
+            }
+            sniffDocumentStartScriptHandler = null;
+        }
         if (!keepCandidates) {
             sniffCandidates.clear();
         }
@@ -2918,14 +3171,26 @@ public class NativePlayerActivity extends Activity {
     private String buildHeadersJson() {
         try {
             JSONObject object = new JSONObject();
+            boolean suppressReferer = hasInternalPlaybackFlag(INTERNAL_SKIP_REFERER_HEADER);
+            boolean suppressOrigin = hasInternalPlaybackFlag(INTERNAL_SKIP_ORIGIN_HEADER);
+            boolean suppressCookie = hasInternalPlaybackFlag(INTERNAL_SKIP_COOKIE_HEADER);
             for (Map.Entry<String, String> entry : activeHeaders.entrySet()) {
                 if (entry.getKey() == null || safe(entry.getValue()).isEmpty()) continue;
                 object.put(entry.getKey(), entry.getValue());
             }
-            if (!object.has("Referer") && source != null && !safe(source.host).isEmpty()) {
+            if (suppressReferer) {
+                object.remove("Referer");
+            }
+            if (suppressOrigin) {
+                object.remove("Origin");
+            }
+            if (suppressCookie) {
+                object.remove("Cookie");
+            }
+            if (!suppressReferer && !object.has("Referer") && source != null && !safe(source.host).isEmpty()) {
                 object.put("Referer", source.host + "/");
             }
-            if (!object.has("Origin")) {
+            if (!suppressOrigin && !object.has("Origin")) {
                 String origin = buildOriginFromUrl(object.optString("Referer", ""));
                 if (origin.isEmpty() && source != null) {
                     origin = buildOriginFromUrl(source.host);
@@ -2940,15 +3205,17 @@ public class NativePlayerActivity extends Activity {
             if (!object.has("Accept-Language")) {
                 object.put("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8");
             }
-            String cookies = mergeCookieStrings(
-                    object.optString("Cookie", ""),
-                    collectCookieHeader(playUrl),
-                    collectCookieHeader(currentPlaybackPageUrl),
-                    collectCookieHeader(sniffCurrentUrl),
-                    collectCookieHeader(source == null ? "" : source.host)
-            );
-            if (!cookies.isEmpty()) {
-                object.put("Cookie", cookies);
+            if (!suppressCookie) {
+                String cookies = mergeCookieStrings(
+                        object.optString("Cookie", ""),
+                        collectCookieHeader(playUrl),
+                        collectCookieHeader(currentPlaybackPageUrl),
+                        collectCookieHeader(sniffCurrentUrl),
+                        collectCookieHeader(source == null ? "" : source.host)
+                );
+                if (!cookies.isEmpty()) {
+                    object.put("Cookie", cookies);
+                }
             }
             if (!object.has("Accept")) {
                 object.put("Accept", "*/*");
@@ -3078,6 +3345,38 @@ public class NativePlayerActivity extends Activity {
         return value == null ? "" : value.trim();
     }
 
+    private boolean hasInternalPlaybackFlag(String headerName) {
+        if (safe(headerName).isEmpty()) {
+            return false;
+        }
+        for (Map.Entry<String, String> entry : activeHeaders.entrySet()) {
+            String key = safe(entry.getKey());
+            if (!headerName.equalsIgnoreCase(key)) {
+                continue;
+            }
+            String value = safe(entry.getValue()).toLowerCase(Locale.ROOT);
+            return "1".equals(value) || "true".equals(value) || "yes".equals(value) || "on".equals(value);
+        }
+        return false;
+    }
+
+    private void removeHeaderIgnoreCase(Map<String, String> headers, String headerName) {
+        if (headers == null || safe(headerName).isEmpty()) {
+            return;
+        }
+        String target = headerName.toLowerCase(Locale.ROOT);
+        String matched = null;
+        for (String key : headers.keySet()) {
+            if (key != null && key.trim().toLowerCase(Locale.ROOT).equals(target)) {
+                matched = key;
+                break;
+            }
+        }
+        if (matched != null) {
+            headers.remove(matched);
+        }
+    }
+
     private final class ArtPlayerBridge {
 
         @JavascriptInterface
@@ -3121,6 +3420,11 @@ public class NativePlayerActivity extends Activity {
         @JavascriptInterface
         public void onSniffResult(String payload, int depth, String pageUrl) {
             if (!sniffing) return;
+            int effectiveDepth = depth < 0 ? sniffCurrentDepth : depth;
+            String effectivePageUrl = safe(pageUrl);
+            if (effectivePageUrl.isEmpty()) {
+                effectivePageUrl = sniffCurrentUrl;
+            }
             ArrayList<String> nested = new ArrayList<>();
             boolean foundMedia = false;
             try {
@@ -3130,7 +3434,7 @@ public class NativePlayerActivity extends Activity {
                     String url = object == null ? array.optString(i) : object.optString("url");
                     String type = object == null ? "" : object.optString("type");
                     if (looksLikeMedia(url) && shouldSniffUrl(url)) {
-                        captureSniff(url, depth, true, type);
+                        captureSniff(url, effectiveDepth, true, type);
                         foundMedia = true;
                         continue;
                     }
@@ -3141,7 +3445,7 @@ public class NativePlayerActivity extends Activity {
             } catch (Exception ignored) {
             }
             for (String next : nested) {
-                if (shouldSniffUrl(next)) enqueueSniffFrame(next, depth + 1);
+                if (shouldSniffUrl(next)) enqueueSniffFrame(normalizeSniffUrl(next, effectivePageUrl), effectiveDepth + 1);
             }
             final boolean hasMedia = foundMedia;
             runOnUiThread(() -> scheduleNextSniffTask(hasMedia ? 1500L : 120L));
