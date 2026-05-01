@@ -526,15 +526,28 @@ public class NativeDrpyEngine {
         LazyResult result = new LazyResult(input);
         String pageUrl = abs(input);
         Resolved4kvmPayload resolved = resolve4kvmPlayUrl(input);
-        result.url = TextUtils.isEmpty(resolved.url) ? input : resolved.url;
-        result.parse = 0;
+        String resolvedUrl = TextUtils.isEmpty(resolved.url) ? pageUrl : abs(resolved.url);
+        boolean directMediaResolved = looksLikeMediaUrl(resolvedUrl);
+        result.url = directMediaResolved ? resolvedUrl : pageUrl;
+        result.parse = directMediaResolved ? 0 : 1;
         result.jx = 0;
-        result.headers.put("X-XM-Stream-Type", "hls");
-        result.headers.put("X-XM-Skip-Referer", "1");
-        result.headers.put("X-XM-Skip-Origin", "1");
-        result.headers.put("X-XM-Skip-Cookie", "1");
-        if (!TextUtils.isEmpty(resolved.backupHosts)) {
-            result.headers.put("X-XM-Backup-Hosts", resolved.backupHosts);
+        if (directMediaResolved) {
+            String lowerResolved = resolvedUrl.toLowerCase(java.util.Locale.ROOT);
+            if (lowerResolved.contains(".m3u8") || lowerResolved.contains("/m3u8/")) {
+                result.headers.put("X-XM-Stream-Type", "hls");
+            }
+            result.headers.put("X-XM-Skip-Referer", "1");
+            result.headers.put("X-XM-Skip-Origin", "1");
+            result.headers.put("X-XM-Skip-Cookie", "1");
+            if (!TextUtils.isEmpty(resolved.backupHosts)) {
+                result.headers.put("X-XM-Backup-Hosts", resolved.backupHosts);
+            }
+        } else {
+            result.headers.put("Referer", pageUrl);
+            String origin = originOf(pageUrl);
+            if (!TextUtils.isEmpty(origin)) {
+                result.headers.put("Origin", origin);
+            }
         }
         result.headers.put("User-Agent", PC_USER_AGENT);
         result.headers.put("Accept", "*/*");
@@ -586,7 +599,7 @@ public class NativeDrpyEngine {
             headers.put("User-Agent", PC_USER_AGENT);
             capture.loadUrl(pageUrl, headers);
         });
-        latch.await(20, TimeUnit.SECONDS);
+        latch.await(10, TimeUnit.SECONDS);
         activity.runOnUiThread(() -> {
             try {
                 if (holder[0] != null) {
@@ -613,9 +626,9 @@ public class NativeDrpyEngine {
     private String build4kvmResolverScript() {
         return "(function(){try{" +
                 "if(window.__xm4kvmResolverInstalled){return;}window.__xm4kvmResolverInstalled=1;" +
-                "function emit(detail){try{detail=detail||{};if(window._pdf&&!detail.__xm_backup_hosts){detail.__xm_backup_hosts=window._pdf;}AndroidCapture.onPayload(JSON.stringify(detail||{}));}catch(e){}}" +
+                "function emit(detail){try{detail=detail||{};if(!detail.quality_urls||!detail.quality_urls.length){return;}if(window._pdf&&!detail.__xm_backup_hosts){detail.__xm_backup_hosts=window._pdf;}AndroidCapture.onPayload(JSON.stringify(detail||{}));}catch(e){}}" +
                 "window.addEventListener('player:update',function(event){try{var detail=event&&event.detail?event.detail:{};if(detail&&detail.quality_urls&&detail.quality_urls.length){emit(detail);}}catch(e){}},true);" +
-                "function trigger(){try{var manager=window.episodeManagerInstance;var target=null;if(manager){var selector='a[data-line=\"'+(manager.currentLine||1)+'\"][data-episode=\"'+(manager.currentEpisode||1)+'\"][dataid]';target=document.querySelector(selector);}if(!target){target=document.querySelector('a.episode-link[dataid][data-line][data-episode]');}if(!target){setTimeout(trigger,500);return;}var dataid=(target.getAttribute('dataid')||'').trim();if(!dataid){setTimeout(trigger,500);return;}var href=target.getAttribute('href')||location.href;var secret='';if(href.indexOf('/play/')>=0){secret=href.split('/play/')[1]||'';}if(manager&&typeof manager.loadPlayUrl==='function'){manager.loadPlayUrl(dataid,secret,'1080',false,true).catch(function(){});return;}AndroidCapture.onError('episodeManager.loadPlayUrl unavailable');}catch(err){try{AndroidCapture.onError(String(err));}catch(e){}}}" +
+                "function trigger(){try{var manager=window.episodeManagerInstance;if(!manager){var root=document.querySelector('[x-data^=\"episodeManager(\"]');if(root&&root._x_dataStack&&root._x_dataStack.length){manager=root._x_dataStack[0];}}var target=null;if(manager){var selector='a[data-line=\"'+(manager.currentLine||1)+'\"][data-episode=\"'+(manager.currentEpisode||1)+'\"][dataid]';target=document.querySelector(selector);}if(!target){target=document.querySelector('a.episode-link[dataid][data-line][data-episode]');}if(!target){setTimeout(trigger,500);return;}var dataid=(target.getAttribute('dataid')||'').trim();if(!dataid){setTimeout(trigger,500);return;}var href=target.getAttribute('href')||location.href;var secret='';if(href.indexOf('/play/')>=0){secret=href.split('/play/')[1]||'';}if(manager&&typeof manager.loadPlayUrl==='function'){manager.loadPlayUrl(dataid,secret,'1080',false,true).then(function(res){try{if(res&&res.data){emit(res.data);}}catch(e){}}).catch(function(err){try{AndroidCapture.onError(String(err&&err.message?err.message:err||''));}catch(e){}});return;}AndroidCapture.onError('episodeManager.loadPlayUrl unavailable');}catch(err){try{AndroidCapture.onError(String(err));}catch(e){}}}" +
                 "trigger();setTimeout(trigger,1200);setTimeout(trigger,2800);setTimeout(trigger,5200);" +
                 "}catch(e){try{AndroidCapture.onError(String(e));}catch(err){}}})();";
     }
