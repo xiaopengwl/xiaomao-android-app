@@ -11,7 +11,7 @@ headers: {
 'Referer': 'https://www.4kvm.me/',
 },
 timeout: 60000,
-class_name: '电影&电视剧&动漫',
+class_name: '\u7535\u5f71&\u7535\u89c6\u5267&\u52a8\u6f2b',
 class_url: '1&2&3',
 play_parse: false,
 sniffer: 1,
@@ -21,9 +21,9 @@ play_headers: {
 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
 },
 class_parse: 'div.movie-card;h3&&Text;img&&data-src;img&&alt;a.block&&href',
-推荐: 'div.movie-card;h3&&Text;img&&data-src;img&&alt;a.block&&href',
-一级: 'div.movie-card;h3&&Text;img&&data-src;img&&alt;a.block&&href',
-二级: {
+"\u63a8\u8350": '.movie-card;h3&&Text;img&&data-src;img&&alt;a.block&&href',
+"\u4e00\u7ea7": '.movie-card;h3&&Text;img&&data-src;img&&alt;a.block&&href',
+"\u4e8c\u7ea7": {
 title: '.movie-poster h1&&Text',
 img: '.movie-poster img&&src',
 desc: '.bg-dark-800 .col-span-2.text-gray-300',
@@ -33,5 +33,5 @@ lists: 'a.episode-link',
 list_text: 'span&&Text',
 list_url: 'a&&href'
 },
-搜索: 'div.group.relative;h3&&Text;img&&data-src;.text-xs&&Text;a&&href',
+"\u641c\u7d22": 'div.group.relative;h3&&Text;img&&data-src;.text-xs&&Text;a&&href',
 };

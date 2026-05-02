@@ -263,7 +263,7 @@ public class NativeDrpyEngine {
                 + "var page=" + targetPage + ";"
                 + "MY_PAGE=page;"
                 + "__xmRunPreprocess();"
-                + "var cfg=__xmGetRuleValue(rule,__xmRuleKeys.recommend);"
+                + "var cfg=__xmGetRuleValue(rule,__xmRuleKeys.recommend)||__xmGetRuleValue(rule,__xmRuleKeys.first);"
                 + "var page1=__xmBuildRecommendUrl(rule,1);"
                 + "var target=__xmBuildRecommendUrl(rule,page);"
                 + "if(page>1&&target===page1){target=__xmResolvePaginationUrl(page1,page,rule.host||HOST,(rule.headers||{}));}"
@@ -309,7 +309,7 @@ public class NativeDrpyEngine {
                 + "var page=" + targetPage + ";"
                 + "MY_PAGE=page;"
                 + "__xmRunPreprocess();"
-                + "var cfg=__xmGetRuleValue(rule,__xmRuleKeys.first);"
+                + "var cfg=__xmGetRuleValue(rule,__xmRuleKeys.first)||__xmGetRuleValue(rule,__xmRuleKeys.recommend);"
                 + "var page1=__xmBuildCategoryUrl(rule," + quote(safeCategory) + ",1);"
                 + "var target=__xmBuildCategoryUrl(rule," + quote(safeCategory) + ",page);"
                 + "if(page>1&&target===page1){target=__xmResolvePaginationUrl(page1,page,rule.host||HOST,(rule.headers||{}));}"
@@ -438,7 +438,7 @@ public class NativeDrpyEngine {
 
     public void runLazy(String input, Callback<LazyResult> callback) {
         String fallbackInput = input == null ? "" : input;
-        if (is4kvmSource()) {
+        if (is4kvmSource() || isLianggeBtSource()) {
             runBackground(() -> resolve4kvmLazy(fallbackInput), new LazyResult(fallbackInput), callback);
             return;
         }
@@ -507,6 +507,12 @@ public class NativeDrpyEngine {
         String marker = (source == null ? "" : source.title + " " + source.host + " " + source.raw).toLowerCase();
         return marker.contains("4kvm.me") || marker.contains("4k影视");
     }
+
+    private boolean isLianggeBtSource() {
+        String marker = (source == null ? "" : source.title + " " + source.host + " " + source.raw).toLowerCase();
+        return marker.contains("bttwo.me") || marker.contains("两个bt");
+    }
+
     private boolean is555Source() {
         String marker = (source == null ? "" : source.title + " " + source.host + " " + source.raw).toLowerCase();
         return marker.contains("555k7.com")
@@ -1830,3 +1836,4 @@ public class NativeDrpyEngine {
         LinkedHashMap<String, String> headers = new LinkedHashMap<>();
     }
 }
+

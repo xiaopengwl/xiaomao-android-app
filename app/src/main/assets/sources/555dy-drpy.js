@@ -11,7 +11,7 @@ var rule = {
     'Referer': 'https://www.555k7.com/'
   },
   timeout: 60000,
-  class_name: '电影&连续剧&综艺纪录&动漫&福利&擦边短剧',
+  class_name: '\u7535\u5f71&\u8fde\u7eed\u5267&\u7efc\u827a\u7eaa\u5f55&\u52a8\u6f2b&\u798f\u5229&\u64e6\u8fb9\u77ed\u5267',
   class_url: '1&2&3&4&124&126',
 
   play_parse: true,
@@ -38,11 +38,11 @@ if(m){
 }
 `,
 
-  "推荐": 'a.module-poster-item.module-item;.module-poster-item-title&&Text;img&&data-original;.module-item-note&&Text;a&&href',
-  "一级": 'a.module-poster-item.module-item;.module-poster-item-title&&Text;img&&data-original;.module-item-note&&Text;a&&href',
-  "搜索": 'a.module-poster-item.module-item;.module-poster-item-title&&Text;img&&data-original;.module-item-note&&Text;a&&href',
+  "\u63a8\u8350": 'a.module-poster-item.module-item;.module-poster-item-title&&Text;img&&data-original;.module-item-note&&Text;a&&href',
+  "\u4e00\u7ea7": 'a.module-poster-item.module-item;.module-poster-item-title&&Text;img&&data-original;.module-item-note&&Text;a&&href',
+  "\u641c\u7d22": 'a.module-poster-item.module-item;.module-poster-item-title&&Text;img&&data-original;.module-item-note&&Text;a&&href',
 
-  "二级": {
+  "\u4e8c\u7ea7": {
     title: 'h1&&Text',
     img: '.module-item-pic img&&data-original',
     desc: '.module-info-tag&&Text',

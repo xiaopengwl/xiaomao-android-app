@@ -31,6 +31,12 @@ public final class SourceStore {
     private static final String PC_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36";
     private static final Pattern TITLE_PATTERN = Pattern.compile("title\\s*:\\s*['\"]([^'\"]+)['\"]");
     private static final Pattern HOST_PATTERN = Pattern.compile("host\\s*:\\s*['\"]([^'\"]+)['\"]");
+    private static final Pattern DANGLING_SINGLE_QUOTED_VALUE_PATTERN = Pattern.compile(
+            "(?m)^(\\s*(?:['\"][^'\"]+['\"]|[A-Za-z_\\u4e00-\\u9fa5][\\w\\u4e00-\\u9fa5]*)\\s*:\\s*')([^'\\r\\n]*),(\\s*)$"
+    );
+    private static final Pattern DANGLING_DOUBLE_QUOTED_VALUE_PATTERN = Pattern.compile(
+            "(?m)^(\\s*(?:['\"][^'\"]+['\"]|[A-Za-z_\\u4e00-\\u9fa5][\\w\\u4e00-\\u9fa5]*)\\s*:\\s*\")([^\"\\r\\n]*),(\\s*)$"
+    );
     private static final Pattern BARE_JS_FIELD_PATTERN = Pattern.compile(
             "(?m)^(\\s*(?:['\"][^'\"]+['\"]|[A-Za-z_\\u4e00-\\u9fa5][\\w\\u4e00-\\u9fa5]*)\\s*:\\s*)js\\s*:"
     );
@@ -45,7 +51,7 @@ public final class SourceStore {
 
         SourceItem(String id, String title, String host, String raw, boolean custom) {
             this.id = id == null ? "" : id;
-            this.title = title == null || title.trim().isEmpty() ? "未命名片源" : title.trim();
+            this.title = title == null || title.trim().isEmpty() ? "\u672a\u547d\u540d\u7247\u6e90" : title.trim();
             this.host = host == null ? "" : host.trim();
             this.raw = raw == null ? "" : raw;
             this.custom = custom;
@@ -105,7 +111,7 @@ public final class SourceStore {
         String parsedTitle = title == null || title.trim().isEmpty() ? matchFirst(safeRaw, TITLE_PATTERN) : title.trim();
         String parsedHost = host == null || host.trim().isEmpty() ? matchFirst(safeRaw, HOST_PATTERN) : host.trim();
         if (parsedTitle.isEmpty()) {
-            parsedTitle = "自定义片源";
+            parsedTitle = "\u81ea\u5b9a\u4e49\u7247\u6e90";
         }
         String id = "custom:" + System.currentTimeMillis();
         JSONObject object = new JSONObject();
@@ -243,7 +249,7 @@ public final class SourceStore {
             if (resolvedTitle.isEmpty()) {
                 resolvedTitle = matchFirst(normalizedRaw, TITLE_PATTERN);
                 if (resolvedTitle.isEmpty()) {
-                    resolvedTitle = "自定义片源";
+                    resolvedTitle = "\u81ea\u5b9a\u4e49\u7247\u6e90";
                 }
             }
             if (!TextUtils.equals(storedTitle, resolvedTitle)) {
@@ -268,7 +274,7 @@ public final class SourceStore {
             migrated.put(object);
             list.add(new SourceItem(
                     object.optString("id", "custom:" + i),
-                    object.optString("title", "自定义片源"),
+                    object.optString("title", "\u81ea\u5b9a\u4e49\u7247\u6e90"),
                     object.optString("host", ""),
                     normalizedRaw,
                     true
@@ -348,12 +354,12 @@ public final class SourceStore {
         }
         String trimmed = title.trim();
         return trimmed.isEmpty()
-                || "自定义片源".equals(trimmed)
-                || "未命名片源".equals(trimmed);
+                || "\u81ea\u5b9a\u4e49\u7247\u6e90".equals(trimmed)
+                || "\u672a\u547d\u540d\u7247\u6e90".equals(trimmed);
     }
 
     public static String normalizeRuleRaw(String raw) {
-        String safeRaw = raw == null ? "" : raw;
+        String safeRaw = repairBrokenRuleSyntax(raw == null ? "" : raw);
         if (safeRaw.isEmpty() || !safeRaw.contains("js:")) {
             return safeRaw;
         }
@@ -379,7 +385,17 @@ public final class SourceStore {
             return safeRaw;
         }
         builder.append(safeRaw.substring(cursor));
-        return builder.toString();
+        return repairBrokenRuleSyntax(builder.toString());
+    }
+
+    private static String repairBrokenRuleSyntax(String raw) {
+        String text = raw == null ? "" : raw;
+        if (text.isEmpty()) {
+            return text;
+        }
+        text = DANGLING_SINGLE_QUOTED_VALUE_PATTERN.matcher(text).replaceAll("$1$2',$3");
+        text = DANGLING_DOUBLE_QUOTED_VALUE_PATTERN.matcher(text).replaceAll("$1$2\",$3");
+        return text;
     }
 
     private static boolean looksLikeRuleContent(String raw) {

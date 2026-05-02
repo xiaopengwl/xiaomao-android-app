@@ -11,14 +11,14 @@ var rule = {
         'Referer': 'http://gqck32.cc'
     },
 
-    class_name: '日韩AV&国产系列&欧美&动漫&无码中文&有码中文&日本无码&日本有码&吃瓜爆料&欧美高清',
+    class_name: '\u65e5\u97e9AV&\u56fd\u4ea7\u7cfb\u5217&\u6b27\u7f8e&\u52a8\u6f2b&\u65e0\u7801\u4e2d\u6587&\u6709\u7801\u4e2d\u6587&\u65e5\u672c\u65e0\u7801&\u65e5\u672c\u6709\u7801&\u5403\u74dc\u7206\u6599&\u6b27\u7f8e\u9ad8\u6e05',
     class_url: '1&2&3&4&8&9&10&7&25&21',
 
-    推荐: 'a.stui-vodlist__thumb;a&&title;a.stui-vodlist__thumb&&data-original;.pic-text&&Text;a.stui-vodlist__thumb&&href',
-    一级: 'a.stui-vodlist__thumb;a&&title;a.stui-vodlist__thumb&&data-original;.pic-text&&Text;a.stui-vodlist__thumb&&href',
-    搜索: 'a.stui-vodlist__thumb;a&&title;a.stui-vodlist__thumb&&data-original;.pic-text&&Text;a.stui-vodlist__thumb&&href',
+    "\u63a8\u8350": 'a.stui-vodlist__thumb;a&&title;a.stui-vodlist__thumb&&data-original;.pic-text&&Text;a.stui-vodlist__thumb&&href',
+    "\u4e00\u7ea7": 'a.stui-vodlist__thumb;a&&title;a.stui-vodlist__thumb&&data-original;.pic-text&&Text;a.stui-vodlist__thumb&&href',
+    "\u641c\u7d22": 'a.stui-vodlist__thumb;a&&title;a.stui-vodlist__thumb&&data-original;.pic-text&&Text;a.stui-vodlist__thumb&&href',
 
-    二级: {
+    "\u4e8c\u7ea7": {
         title: 'h3.title:eq(1)&&Text',
         img: '',
         desc: '',
@@ -30,11 +30,11 @@ var rule = {
         tabs: '',
         lists: '.stui-player__video',
         tab_text: '',
-        list_text: '正文',
+        list_text: '姝ｆ枃',
         list_url: 'body&&Text'
     },
 
-    过滤: '',
+    杩囨护: '',
 
     play_parse: true,
     sniffer: 0,
