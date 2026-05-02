@@ -1,4 +1,4 @@
-package com.xiaomao.player;
+﻿package com.xiaomao.player;
 
 import android.app.Activity;
 import android.content.Intent;
@@ -59,7 +59,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private static final String[] RANK_FILTERS = new String[]{
-            "总榜", "剧集", "电影", "综艺", "动漫", "飙升", "院线"
+            "鎬绘", "鍓ч泦", "鐢靛奖", "缁艰壓", "鍔ㄦ极", "椋欏崌", "闄㈢嚎"
     };
     private static final long SOURCE_MIGRATION_INTERVAL_MS = 30L * 60L * 1000L;
 
@@ -180,11 +180,7 @@ public class MainActivity extends AppCompatActivity {
         setupRecycler();
         setupEvents();
         bindQuickActions();
-        if (SettingsStore.keepLastSearch(this)) {
-            searchInput.setText(SettingsStore.lastSearch(this));
-        }
         renderRankFilters();
-        renderSearchHistory();
         refreshMineSettings();
         refreshMineProfile();
         refreshMineShelves();
@@ -201,7 +197,6 @@ public class MainActivity extends AppCompatActivity {
         refreshMineSettings();
         refreshMineProfile();
         refreshMineShelves();
-        renderSearchHistory();
         scheduleRemoteSourceMigration();
     }
 
@@ -357,7 +352,9 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void setupEvents() {
-        UiEffects.bindPressScale(searchButton);
+        if (searchButton != null) {
+            UiEffects.bindPressScale(searchButton);
+        }
         UiEffects.bindPressScale(featuredActionButton);
         UiEffects.bindPressScale(homeButton);
         UiEffects.bindPressScale(prevButton);
@@ -369,7 +366,9 @@ public class MainActivity extends AppCompatActivity {
         UiEffects.bindPressScale(mineClearProfileButton);
         UiEffects.bindPressScale(headerSearchAction);
         UiEffects.bindPressScale(headerMoreAction);
-        searchButton.setOnClickListener(v -> performSearch(1));
+        if (searchButton != null) {
+            searchButton.setOnClickListener(v -> performSearch(1));
+        }
         homeButton.setOnClickListener(v -> jumpToFirstPage());
         prevButton.setOnClickListener(v -> changePage(-1));
         nextButton.setOnClickListener(v -> changePage(1));
@@ -384,7 +383,7 @@ public class MainActivity extends AppCompatActivity {
         mineSourceManageButton.setOnClickListener(v -> openNativePage(SourceManagementActivity.class));
         mineQueryButton.setOnClickListener(v -> queryQqProfile());
         mineClearProfileButton.setOnClickListener(v -> clearQqProfile());
-        headerSearchAction.setOnClickListener(v -> focusSearchField());
+        headerSearchAction.setOnClickListener(v -> openSearchPage(""));
         headerMoreAction.setOnClickListener(v -> openNativePage(SettingsActivity.class));
         if (searchHistoryClearButton != null) {
             UiEffects.bindPressScale(searchHistoryClearButton);
@@ -395,30 +394,32 @@ public class MainActivity extends AppCompatActivity {
             });
         }
         swipeRefreshLayout.setOnRefreshListener(() -> reloadCurrentPage(true));
-        searchInput.setOnEditorActionListener((v, actionId, event) -> {
-            boolean enterPressed = event != null
-                    && event.getAction() == KeyEvent.ACTION_DOWN
-                    && event.getKeyCode() == KeyEvent.KEYCODE_ENTER;
-            if (actionId == EditorInfo.IME_ACTION_SEARCH || enterPressed) {
-                performSearch(1);
-                return true;
-            }
-            return false;
-        });
-        searchInput.addTextChangedListener(new TextWatcher() {
-            @Override
-            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
-            }
+        if (searchInput != null) {
+            searchInput.setOnEditorActionListener((v, actionId, event) -> {
+                boolean enterPressed = event != null
+                        && event.getAction() == KeyEvent.ACTION_DOWN
+                        && event.getKeyCode() == KeyEvent.KEYCODE_ENTER;
+                if (actionId == EditorInfo.IME_ACTION_SEARCH || enterPressed) {
+                    performSearch(1);
+                    return true;
+                }
+                return false;
+            });
+            searchInput.addTextChangedListener(new TextWatcher() {
+                @Override
+                public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+                }
 
-            @Override
-            public void onTextChanged(CharSequence s, int start, int before, int count) {
-            }
+                @Override
+                public void onTextChanged(CharSequence s, int start, int before, int count) {
+                }
 
-            @Override
-            public void afterTextChanged(Editable s) {
-                renderSearchHistory();
-            }
-        });
+                @Override
+                public void afterTextChanged(Editable s) {
+                    renderSearchHistory();
+                }
+            });
+        }
         bottomNavigationView.setOnItemSelectedListener(this::onBottomNavigationSelected);
         mineAvatarView.setOnTouchListener((v, event) -> {
             if (event == null) {
@@ -462,7 +463,7 @@ public class MainActivity extends AppCompatActivity {
                 return;
             }
             SettingsStore.setKeepLastSearch(this, isChecked);
-            if (!isChecked) {
+            if (!isChecked && searchInput != null) {
                 searchInput.setText("");
             }
             renderSearchHistory();
@@ -482,10 +483,7 @@ public class MainActivity extends AppCompatActivity {
         UiEffects.bindPressScale(homeActionLive);
         homeActionCategory.setOnClickListener(v -> openLibraryTab(true));
         homeActionFeatured.setOnClickListener(v -> openHomeTab(true));
-        homeActionShort.setOnClickListener(v -> {
-            searchInput.setText("鐭墽");
-            performSearch(1);
-        });
+        homeActionShort.setOnClickListener(v -> openSearchPage(getString(R.string.home_action_short)));
         homeActionSchedule.setOnClickListener(v -> openRankTab(true));
         homeActionLive.setOnClickListener(v -> openNativePage(SourceManagementActivity.class));
     }
@@ -577,11 +575,22 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void focusSearchField() {
-        if (currentTab == MainTab.MINE) {
-            openLibraryTab(false);
+        openSearchPage("");
+    }
+
+    private void openSearchPage(String keyword) {
+        Intent intent = new Intent(this, SearchActivity.class);
+        SourceStore.SourceItem source = currentSource != null ? currentSource : (sources.isEmpty() ? null : sources.get(0));
+        if (source != null) {
+            intent.putExtra(SearchActivity.EXTRA_SOURCE_TITLE, source.title == null ? "" : source.title.trim());
+            intent.putExtra(SearchActivity.EXTRA_SOURCE_HOST, source.host == null ? "" : source.host.trim());
+            intent.putExtra(SearchActivity.EXTRA_SOURCE_RAW, source.raw == null ? "" : source.raw.trim());
         }
-        searchInput.requestFocus();
-        searchInput.post(this::renderSearchHistory);
+        if (!TextUtils.isEmpty(keyword)) {
+            intent.putExtra(SearchActivity.EXTRA_SEARCH_KEYWORD, keyword.trim());
+        }
+        startActivity(intent);
+        overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
     }
 
     private void openNativePage(Class<?> cls) {
@@ -683,11 +692,6 @@ public class MainActivity extends AppCompatActivity {
         renderRankFilters();
         syncSourceLabels();
         refreshMineProfile();
-        if (!SettingsStore.keepLastSearch(this)) {
-            searchInput.setText("");
-        } else {
-            searchInput.setText(SettingsStore.lastSearch(this));
-        }
         renderSearchHistory();
         applyTabState();
         if (SettingsStore.defaultLibrary(this)) {
@@ -958,7 +962,7 @@ public class MainActivity extends AppCompatActivity {
             reachedEnd = result == null || !result.hasMore || items.isEmpty();
             showLoading(false, rankItems.isEmpty() ? getString(R.string.main_msg_rank_empty) : "");
             setBrowseStatus(RANK_FILTERS[Math.max(0, Math.min(selectedRankFilterIndex, RANK_FILTERS.length - 1))]
-                    + " 路 "
+                    + " 璺?"
                     + getString(R.string.main_msg_rank_status, currentPage));
             syncFeaturedContent();
             if (!append) {
@@ -1175,7 +1179,9 @@ public class MainActivity extends AppCompatActivity {
         libraryContainer.setVisibility(showLibrary ? View.VISIBLE : View.GONE);
         rankContainer.setVisibility(showRank ? View.VISIBLE : View.GONE);
         pageControlsView.setVisibility(View.GONE);
-        searchPanel.setVisibility(showMine ? View.GONE : View.VISIBLE);
+        if (searchPanel != null) {
+            searchPanel.setVisibility(View.GONE);
+        }
         if (categoryScrollView != null) {
             categoryScrollView.setVisibility(View.GONE);
         }
@@ -1203,7 +1209,7 @@ public class MainActivity extends AppCompatActivity {
         if (currentTab == MainTab.RANK) {
             headerTitleView.setText(getString(R.string.nav_rank));
             headerSubtitleView.setText(RANK_FILTERS[Math.max(0, Math.min(selectedRankFilterIndex, RANK_FILTERS.length - 1))]
-                    + " 路 "
+                    + " 璺?"
                     + getString(R.string.main_header_subtitle_rank));
             return;
         }
@@ -1215,7 +1221,7 @@ public class MainActivity extends AppCompatActivity {
                         ? getString(R.string.main_header_subtitle_library)
                         : getString(R.string.main_msg_search_title, keyword));
             } else if (activeCategory != null && !activeCategory.name.isEmpty()) {
-                headerSubtitleView.setText(activeCategory.name + " 路 " + getString(R.string.main_header_subtitle_library));
+                headerSubtitleView.setText(activeCategory.name + " 璺?" + getString(R.string.main_header_subtitle_library));
             } else {
                 headerSubtitleView.setText(getString(R.string.main_header_subtitle_library));
             }
@@ -1629,7 +1635,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void renderSearchHistory() {
-        if (searchHistoryRow == null || searchHistoryContent == null) {
+        if (searchHistoryRow == null || searchHistoryContent == null || searchInput == null) {
             return;
         }
         ArrayList<String> histories = SearchHistoryStore.list(this);
