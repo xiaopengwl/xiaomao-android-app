@@ -1,4 +1,4 @@
-﻿package com.xiaomao.player;
+package com.xiaomao.player;
 
 import android.app.Activity;
 import android.content.Intent;
