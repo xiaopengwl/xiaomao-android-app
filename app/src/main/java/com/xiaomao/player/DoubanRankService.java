@@ -120,14 +120,7 @@ public final class DoubanRankService {
         if (title.isEmpty()) {
             return null;
         }
-        String poster = "";
-        JSONObject cover = object.optJSONObject("cover");
-        if (cover != null) {
-            poster = safe(cover.optString("url", ""));
-        }
-        if (poster.isEmpty()) {
-            poster = safe(object.optString("cover_url", ""));
-        }
+        String poster = resolvePoster(object);
         String rating = "";
         JSONObject ratingObject = object.optJSONObject("rating");
         if (ratingObject != null) {
@@ -143,6 +136,40 @@ public final class DoubanRankService {
         String remark = buildRemark(rating, subtitle);
         String subjectUrl = buildSubjectUrl(id);
         return new NativeDrpyEngine.MediaItem(id, id, title, poster, remark, subjectUrl);
+    }
+
+    private static String resolvePoster(JSONObject object) {
+        if (object == null) {
+            return "";
+        }
+        JSONObject cover = object.optJSONObject("cover");
+        if (cover != null) {
+            String poster = first(cover, "url", "large", "normal");
+            if (!poster.isEmpty()) {
+                return poster;
+            }
+        }
+        String poster = first(object, "cover_url", "cover");
+        if (!poster.isEmpty()) {
+            return poster;
+        }
+        JSONObject pic = object.optJSONObject("pic");
+        if (pic != null) {
+            poster = first(pic, "large", "normal");
+            if (!poster.isEmpty()) {
+                return poster;
+            }
+        }
+        JSONArray photos = object.optJSONArray("photos");
+        if (photos != null) {
+            for (int i = 0; i < photos.length(); i++) {
+                poster = safe(photos.optString(i, ""));
+                if (!poster.isEmpty()) {
+                    return poster;
+                }
+            }
+        }
+        return "";
     }
 
     private static String buildRemark(String rating, String subtitle) {
