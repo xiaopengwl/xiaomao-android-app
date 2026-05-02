@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.content.Intent;
 import android.content.res.ColorStateList;
 import android.content.res.Configuration;
+import android.net.Uri;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextUtils;
@@ -293,12 +294,12 @@ public class MainActivity extends AppCompatActivity {
             currentTab = MainTab.LIBRARY;
             renderCategories();
             loadCategoryPage(category, 1);
-        });
+        }));
 
         rankRecyclerView.setLayoutManager(new LinearLayoutManager(this));
         rankRecyclerView.setAdapter(rankAdapter);
         rankAdapter.setOnItemClickListener(this::openDetail);
-        rankAdapter.setOnItemLongClickListener(this::showMediaActions);
+        rankAdapter.setOnItemLongClickListener(this::showRankActions);
 
         homeContinueRecyclerView.setLayoutManager(new LinearLayoutManager(this, RecyclerView.HORIZONTAL, false));
         homeContinueRecyclerView.setAdapter(continueAdapter);
@@ -532,7 +533,10 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void loadNextPageIfNeeded() {
-        if (engine == null || pageLoading || reachedEnd || swipeRefreshLayout.isRefreshing() || currentTab == MainTab.MINE) {
+        if (pageLoading || reachedEnd || swipeRefreshLayout.isRefreshing() || currentTab == MainTab.MINE) {
+            return;
+        }
+        if (engine == null && browseMode != BrowseMode.RANK) {
             return;
         }
         if (browseMode == BrowseMode.SEARCH) {
@@ -690,7 +694,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void loadCategories() {
-        if (engine == null) {
+        if (engine == null && currentTab != MainTab.RANK && browseMode != BrowseMode.RANK) {
             return;
         }
         final int token = sourceVersion;
@@ -900,9 +904,6 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void loadRankPage(int page) {
-        if (engine == null) {
-            return;
-        }
         final int targetPage = Math.max(1, page);
         if (pageLoading && targetPage > currentPage) {
             return;
@@ -917,22 +918,27 @@ public class MainActivity extends AppCompatActivity {
         currentTab = MainTab.RANK;
         browseMode = BrowseMode.RANK;
         currentPage = targetPage;
+        if (!append) {
+            rankItems.clear();
+            rankAdapter.submitList(new ArrayList<>());
+        }
         applyTabState();
         syncBottomSelection(R.id.menu_rank);
         if (!append) {
             showLoading(true, getString(R.string.main_msg_rank_loading));
         }
-        engine.loadRecommend(targetPage, (items, err) -> {
+        DoubanRankService.fetch(selectedRankFilterIndex, targetPage, (result, err) -> runOnUiThread(() -> {
             if (token != contentVersion || sourceToken != sourceVersion) {
                 return;
             }
             pageLoading = false;
             swipeRefreshLayout.setRefreshing(false);
-            if (!TextUtils.isEmpty(err) && (items == null || items.isEmpty())) {
+            ArrayList<NativeDrpyEngine.MediaItem> items = result == null ? new ArrayList<>() : result.items;
+            if (!TextUtils.isEmpty(err) && items.isEmpty()) {
                 showLoading(false, getString(R.string.main_msg_rank_failed, err));
                 return;
             }
-            if (append && (items == null || items.isEmpty())) {
+            if (append && items.isEmpty()) {
                 reachedEnd = true;
                 showLoading(false, rankItems.isEmpty() ? getString(R.string.main_msg_rank_last_page) : "");
                 return;
@@ -940,12 +946,10 @@ public class MainActivity extends AppCompatActivity {
             if (!append) {
                 rankItems.clear();
             }
-            if (items != null) {
-                rankItems.addAll(items);
-            }
+            rankItems.addAll(items);
             rankAdapter.submitList(new ArrayList<>(rankItems));
             currentPage = targetPage;
-            reachedEnd = items == null || items.isEmpty();
+            reachedEnd = result == null || !result.hasMore || items.isEmpty();
             showLoading(false, rankItems.isEmpty() ? getString(R.string.main_msg_rank_empty) : "");
             setBrowseStatus(RANK_FILTERS[Math.max(0, Math.min(selectedRankFilterIndex, RANK_FILTERS.length - 1))]
                     + " 路 "
@@ -954,7 +958,7 @@ public class MainActivity extends AppCompatActivity {
             if (!append) {
                 rankRecyclerView.scrollToPosition(0);
             }
-        });
+        }));
     }
 
     private void performSearch(int page) {
@@ -1025,7 +1029,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void reloadCurrentPage(boolean userInitiated) {
-        if (engine == null) {
+        if (engine == null && currentTab != MainTab.RANK && browseMode != BrowseMode.RANK) {
             return;
         }
         if (currentTab == MainTab.MINE) {
@@ -1047,7 +1051,10 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void changePage(int delta) {
-        if (engine == null || currentTab == MainTab.MINE) {
+        if (currentTab == MainTab.MINE) {
+            return;
+        }
+        if (engine == null && browseMode != BrowseMode.RANK) {
             return;
         }
         int targetPage = currentPage + delta;
@@ -1390,6 +1397,10 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void openDetail(NativeDrpyEngine.MediaItem item, boolean autoPlayFirst) {
+        if (isDoubanRankItem(item)) {
+            resolveDoubanRankItem(item, autoPlayFirst);
+            return;
+        }
         if (currentSource == null || item == null) {
             return;
         }
@@ -1404,6 +1415,144 @@ public class MainActivity extends AppCompatActivity {
         intent.putExtra("auto_play_first", autoPlayFirst);
         startActivity(intent);
         overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
+    }
+
+    private void showRankActions(NativeDrpyEngine.MediaItem item, View anchor) {
+        if (!isDoubanRankItem(item)) {
+            showMediaActions(item, anchor);
+            return;
+        }
+        if (item == null || anchor == null) {
+            return;
+        }
+        PopupMenu menu = new PopupMenu(this, anchor);
+        menu.getMenu().add(0, 1, 0, "\u5FEB\u901F\u64AD\u653E");
+        menu.getMenu().add(0, 2, 1, "\u5339\u914D\u7247\u6E90");
+        if (!TextUtils.isEmpty(item.url)) {
+            menu.getMenu().add(0, 3, 2, "\u6253\u5F00\u8C46\u74E3");
+        }
+        menu.setOnMenuItemClickListener(entry -> {
+            int id = entry.getItemId();
+            if (id == 1) {
+                resolveDoubanRankItem(item, true);
+                return true;
+            }
+            if (id == 2) {
+                resolveDoubanRankItem(item, false);
+                return true;
+            }
+            if (id == 3) {
+                openExternalUrl(item.url);
+                return true;
+            }
+            return false;
+        });
+        menu.show();
+    }
+
+    private void resolveDoubanRankItem(NativeDrpyEngine.MediaItem item, boolean autoPlayFirst) {
+        if (item == null) {
+            return;
+        }
+        if (engine == null || currentSource == null) {
+            if (!TextUtils.isEmpty(item.url)) {
+                openExternalUrl(item.url);
+            } else {
+                toast("\u5F53\u524D\u672A\u52A0\u8F7D\u7247\u6E90");
+            }
+            return;
+        }
+        final String keyword = buildRankSearchKeyword(item);
+        if (TextUtils.isEmpty(keyword)) {
+            if (!TextUtils.isEmpty(item.url)) {
+                openExternalUrl(item.url);
+            }
+            return;
+        }
+        final int sourceToken = sourceVersion;
+        final SourceStore.SourceItem sourceSnapshot = currentSource;
+        swipeRefreshLayout.setRefreshing(true);
+        engine.search(keyword, 1, (items, err) -> {
+            swipeRefreshLayout.setRefreshing(false);
+            if (sourceToken != sourceVersion || !sameSource(sourceSnapshot, currentSource)) {
+                return;
+            }
+            NativeDrpyEngine.MediaItem match = pickBestRankMatch(keyword, items);
+            if (match != null) {
+                openDetail(match, autoPlayFirst);
+                return;
+            }
+            if (!TextUtils.isEmpty(err)) {
+                toast(err);
+                return;
+            }
+            toast("\u5F53\u524D\u7247\u6E90\u672A\u627E\u5230\u300A" + keyword + "\u300B");
+        });
+    }
+
+    private boolean isDoubanRankItem(NativeDrpyEngine.MediaItem item) {
+        if (item == null) {
+            return false;
+        }
+        String url = item.url == null ? "" : item.url;
+        return url.startsWith("https://movie.douban.com/subject/");
+    }
+
+    private String buildRankSearchKeyword(NativeDrpyEngine.MediaItem item) {
+        if (item == null || item.title == null) {
+            return "";
+        }
+        return item.title.trim();
+    }
+
+    private NativeDrpyEngine.MediaItem pickBestRankMatch(String keyword, List<NativeDrpyEngine.MediaItem> items) {
+        if (items == null || items.isEmpty()) {
+            return null;
+        }
+        String target = normalizeTitle(keyword);
+        NativeDrpyEngine.MediaItem partial = null;
+        for (NativeDrpyEngine.MediaItem item : items) {
+            if (item == null || TextUtils.isEmpty(item.title)) {
+                continue;
+            }
+            String candidate = normalizeTitle(item.title);
+            if (candidate.isEmpty()) {
+                continue;
+            }
+            if (candidate.equals(target)) {
+                return item;
+            }
+            if (partial == null && (candidate.contains(target) || target.contains(candidate))) {
+                partial = item;
+            }
+        }
+        return partial != null ? partial : items.get(0);
+    }
+
+    private String normalizeTitle(String value) {
+        if (value == null) {
+            return "";
+        }
+        StringBuilder builder = new StringBuilder();
+        for (int i = 0; i < value.length(); i++) {
+            char ch = value.charAt(i);
+            if (Character.isLetterOrDigit(ch) || Character.UnicodeScript.of(ch) == Character.UnicodeScript.HAN) {
+                builder.append(Character.toLowerCase(ch));
+            }
+        }
+        return builder.toString();
+    }
+
+    private void openExternalUrl(String url) {
+        if (TextUtils.isEmpty(url)) {
+            return;
+        }
+        try {
+            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+            startActivity(intent);
+        } catch (Exception e) {
+            toast("\u65E0\u6CD5\u6253\u5F00\u5916\u90E8\u94FE\u63A5");
+        }
     }
 
     private boolean sameSource(SourceStore.SourceItem left, SourceStore.SourceItem right) {
