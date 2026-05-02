@@ -61,6 +61,7 @@ public class MainActivity extends AppCompatActivity {
     private static final String[] RANK_FILTERS = new String[]{
             "总榜", "剧集", "电影", "综艺", "动漫", "飙升", "院线"
     };
+    private static final long SOURCE_MIGRATION_INTERVAL_MS = 30L * 60L * 1000L;
 
     private SwipeRefreshLayout swipeRefreshLayout;
     private BottomNavigationView bottomNavigationView;
@@ -167,6 +168,7 @@ public class MainActivity extends AppCompatActivity {
     private boolean pageLoading = false;
     private boolean reachedEnd = false;
     private boolean mineSignatureExpanded = false;
+    private long lastSourceMigrationAt = 0L;
     private String lastMineSignatureText = "";
 
     @Override
@@ -632,6 +634,11 @@ public class MainActivity extends AppCompatActivity {
         if (sourceMigrationRunning) {
             return;
         }
+        long now = System.currentTimeMillis();
+        if (now - lastSourceMigrationAt < SOURCE_MIGRATION_INTERVAL_MS) {
+            return;
+        }
+        lastSourceMigrationAt = now;
         sourceMigrationRunning = true;
         SourceStore.migrateRemoteCustomSourcesAsync(getApplicationContext(), changed -> {
             sourceMigrationRunning = false;
@@ -683,7 +690,6 @@ public class MainActivity extends AppCompatActivity {
         }
         renderSearchHistory();
         applyTabState();
-        loadCategories();
         if (SettingsStore.defaultLibrary(this)) {
             syncBottomSelection(R.id.menu_library);
             openLibraryTab(true);
