@@ -1,4 +1,4 @@
-var rule = {
+﻿var rule = {
 title: '4k影视',
 host: 'https://www.4kvm.me',
 url: '/filter?classify=fyclass&page=fypage',

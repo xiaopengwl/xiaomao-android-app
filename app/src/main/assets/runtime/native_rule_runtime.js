@@ -1,9 +1,9 @@
 var __xmRuleKeys = {
-  preprocess: ["\u9884\u5904\u7406"],
-  recommend: ["\u63a8\u8350"],
-  first: ["\u4e00\u7ea7"],
-  second: ["\u4e8c\u7ea7"],
-  search: ["\u641c\u7d22"]
+  preprocess: ["预处理", "棰勫"],
+  recommend: ["推荐", "鎺ㄨ崘"],
+  first: ["一级", "涓€绾"],
+  second: ["二级", "浜岀骇"],
+  search: ["搜索", "鎼滅储"]
 };
 
 function __xmSafeArray(value) {
@@ -170,6 +170,26 @@ function __xmGetRuleValue(ruleObject, keys) {
   for (var i = 0; i < keys.length; i += 1) {
     if (Object.prototype.hasOwnProperty.call(ruleObject, keys[i])) {
       return ruleObject[keys[i]];
+    }
+  }
+  var aliasGroups = {
+    "预处理": ["预处理", "棰勫"],
+    "推荐": ["推荐", "鎺ㄨ崘"],
+    "一级": ["一级", "涓€绾"],
+    "二级": ["二级", "浜岀骇"],
+    "搜索": ["搜索", "鎼滅储"]
+  };
+  var ownKeys = Object.keys(ruleObject || {});
+  for (var j = 0; j < keys.length; j += 1) {
+    var key = keys[j];
+    var aliases = aliasGroups[key] || [key];
+    for (var k = 0; k < ownKeys.length; k += 1) {
+      var ownKey = String(ownKeys[k] || "");
+      for (var m = 0; m < aliases.length; m += 1) {
+        if (ownKey.indexOf(aliases[m]) >= 0) {
+          return ruleObject[ownKeys[k]];
+        }
+      }
     }
   }
   return undefined;

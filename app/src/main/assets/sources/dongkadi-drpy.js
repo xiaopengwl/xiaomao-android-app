@@ -1,4 +1,4 @@
-var rule = {
+﻿var rule = {
   title: 'dongkadi',
   host: 'https://www.dongkadi.com',
   url: '/sortlist/fyclass/time-fypage.html',
@@ -10,7 +10,7 @@ var rule = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
   },
   timeout: 15000,
-  class_name: '国产视频&日产视频&欧美视频&动漫视频&制服人类&自拍自售&群交颜射&写真诱惑',
+  class_name: '鍥戒骇瑙嗛&鏃ヤ骇瑙嗛&娆х編瑙嗛&鍔ㄦ极瑙嗛&鍒舵湇浜虹被&鑷媿鑷敭&缇や氦棰滃皠&鍐欑湡璇辨儜',
   class_url: '9858&9859&9860&9861&9862&9863&9864&9865',
   play_parse: true,
   lazy: `js:
@@ -25,9 +25,9 @@ if (m) {
 }
 input = { parse: 0, url: url };
 `,
-  推荐: '.stui-vodlist__box;a&&title;a&&data-original;.pic-text&&Text;a&&href',
-  一级: '.stui-vodlist__box;a&&title;a&&data-original;.pic-text&&Text;a&&href',
-  二级: {
+  "\u63a8\u8350": '.stui-vodlist__box;a&&title;a&&data-original;.pic-text&&Text;a&&href',
+  "\u4e00\u7ea7": '.stui-vodlist__box;a&&title;a&&data-original;.pic-text&&Text;a&&href',
+  "\u4e8c\u7ea7": {
     title: 'h1.title&&Text',
     img: '.stui-content__thumb img&&data-original',
     desc: '.stui-content__detail&&Text',
@@ -37,5 +37,5 @@ input = { parse: 0, url: url };
     list_text: 'a&&Text',
     list_url: 'a&&href'
   },
-  搜索: '.stui-vodlist__box;a&&title;a&&data-original;.pic-text&&Text;a&&href',
+  "\u641c\u7d22": '.stui-vodlist__box;a&&title;a&&data-original;.pic-text&&Text;a&&href',
 };

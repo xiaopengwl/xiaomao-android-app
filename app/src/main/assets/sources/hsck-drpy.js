@@ -1,4 +1,4 @@
-var rule = {
+﻿var rule = {
     title: '高清仓库',
     host: 'http://gqck32.cc',
     homeUrl: 'http://gqck32.cc/gqck.html',

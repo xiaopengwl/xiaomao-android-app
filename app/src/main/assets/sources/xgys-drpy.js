@@ -1,4 +1,4 @@
-var rule = {
+﻿var rule = {
   title: '西瓜影院',
   host: 'https://www.sszzyy.com',
   url: '/index.php/vod/type/id/fyclass.html?page=fypage',

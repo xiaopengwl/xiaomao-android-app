@@ -12,10 +12,10 @@
         android:background="@drawable/xm_top_bar_bg"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:paddingStart="18dp"
-        android:paddingTop="18dp"
-        android:paddingEnd="18dp"
-        android:paddingBottom="16dp">
+        android:paddingStart="20dp"
+        android:paddingTop="20dp"
+        android:paddingEnd="20dp"
+        android:paddingBottom="18dp">
 
         <ImageButton
             android:id="@+id/import_back_button"
@@ -40,7 +40,7 @@
         <com.google.android.material.button.MaterialButton
             android:id="@+id/import_save_button"
             android:layout_width="wrap_content"
-            android:layout_height="42dp"
+            android:layout_height="44dp"
             android:text="@string/import_save"
             android:textAllCaps="false"
             android:textColor="@color/xm_accent_dark"
@@ -57,7 +57,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="18dp">
+            android:padding="20dp">
 
             <TextView
                 android:layout_width="match_parent"
@@ -72,11 +72,11 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="16dp"
                 android:hint="@string/import_title_hint"
-                app:boxBackgroundColor="@color/xm_surface"
-                app:boxCornerRadiusBottomEnd="16dp"
-                app:boxCornerRadiusBottomStart="16dp"
-                app:boxCornerRadiusTopEnd="16dp"
-                app:boxCornerRadiusTopStart="16dp"
+                app:boxBackgroundColor="@color/xm_surface_elevated"
+                app:boxCornerRadiusBottomEnd="12dp"
+                app:boxCornerRadiusBottomStart="12dp"
+                app:boxCornerRadiusTopEnd="12dp"
+                app:boxCornerRadiusTopStart="12dp"
                 app:boxStrokeColor="@color/xm_stroke_soft"
                 app:hintTextColor="@color/xm_text_muted">
 
@@ -94,11 +94,11 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="14dp"
                 android:hint="@string/import_host_hint"
-                app:boxBackgroundColor="@color/xm_surface"
-                app:boxCornerRadiusBottomEnd="16dp"
-                app:boxCornerRadiusBottomStart="16dp"
-                app:boxCornerRadiusTopEnd="16dp"
-                app:boxCornerRadiusTopStart="16dp"
+                app:boxBackgroundColor="@color/xm_surface_elevated"
+                app:boxCornerRadiusBottomEnd="12dp"
+                app:boxCornerRadiusBottomStart="12dp"
+                app:boxCornerRadiusTopEnd="12dp"
+                app:boxCornerRadiusTopStart="12dp"
                 app:boxStrokeColor="@color/xm_stroke_soft"
                 app:hintTextColor="@color/xm_text_muted">
 
@@ -116,11 +116,11 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="14dp"
                 android:hint="@string/import_rule_hint"
-                app:boxBackgroundColor="@color/xm_surface"
-                app:boxCornerRadiusBottomEnd="16dp"
-                app:boxCornerRadiusBottomStart="16dp"
-                app:boxCornerRadiusTopEnd="16dp"
-                app:boxCornerRadiusTopStart="16dp"
+                app:boxBackgroundColor="@color/xm_surface_elevated"
+                app:boxCornerRadiusBottomEnd="12dp"
+                app:boxCornerRadiusBottomStart="12dp"
+                app:boxCornerRadiusTopEnd="12dp"
+                app:boxCornerRadiusTopStart="12dp"
                 app:boxStrokeColor="@color/xm_stroke_soft"
                 app:hintTextColor="@color/xm_text_muted">
 

@@ -1,4 +1,4 @@
-var rule = {
+﻿var rule = {
   title: '555电影',
   host: 'https://www.555k7.com',
   url: '/vodshow/fyclass--------fypage---.html',

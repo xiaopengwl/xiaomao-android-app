@@ -4,8 +4,8 @@ import android.view.MotionEvent;
 import android.view.View;
 
 public final class UiEffects {
-    private static final float PRESSED_SCALE = 0.96f;
-    private static final float PRESSED_ALPHA = 0.9f;
+    private static final float PRESSED_SCALE = 0.975f;
+    private static final float PRESSED_ALPHA = 0.94f;
 
     private UiEffects() {
     }
@@ -36,7 +36,7 @@ public final class UiEffects {
                 .scaleX(pressed ? PRESSED_SCALE : 1f)
                 .scaleY(pressed ? PRESSED_SCALE : 1f)
                 .alpha(pressed ? PRESSED_ALPHA : 1f)
-                .setDuration(pressed ? 80L : 140L)
+                .setDuration(pressed ? 70L : 120L)
                 .start();
     }
 

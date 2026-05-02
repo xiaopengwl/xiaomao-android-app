@@ -1,4 +1,4 @@
-var rule = {
+﻿var rule = {
   title: '两个BT',
   host: 'https://www.bttwo.me',
   class_name: '电影&电视剧&动漫&片单',

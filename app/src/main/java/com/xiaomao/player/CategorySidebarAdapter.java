@@ -50,10 +50,10 @@ public class CategorySidebarAdapter extends RecyclerView.Adapter<CategorySidebar
         boolean selected = selectedUrl.equals(category.url);
         holder.labelView.setText(category.name.isEmpty() ? "分类" : category.name);
         holder.labelView.setTextColor(ContextCompat.getColor(holder.labelView.getContext(),
-                selected ? R.color.xm_accent_dark : R.color.xm_text_primary));
+                selected ? R.color.xm_accent : R.color.xm_text_primary));
         holder.labelView.setTypeface(null, selected ? Typeface.BOLD : Typeface.NORMAL);
         holder.itemView.setBackground(buildBackground(holder.itemView, selected));
-        holder.itemView.setElevation(selected ? dp(holder.itemView, 3) : 0f);
+        holder.itemView.setElevation(selected ? dp(holder.itemView, 1) : 0f);
         holder.itemView.setOnClickListener(v -> {
             if (listener != null) {
                 listener.onClick(category);
@@ -69,9 +69,9 @@ public class CategorySidebarAdapter extends RecyclerView.Adapter<CategorySidebar
     private GradientDrawable buildBackground(View view, boolean selected) {
         GradientDrawable drawable = new GradientDrawable();
         drawable.setCornerRadius(12f * view.getResources().getDisplayMetrics().density);
-        drawable.setColor(ContextCompat.getColor(view.getContext(), selected ? R.color.xm_accent : R.color.xm_surface));
+        drawable.setColor(ContextCompat.getColor(view.getContext(), selected ? R.color.xm_info_bg : android.R.color.transparent));
         drawable.setStroke((int) (view.getResources().getDisplayMetrics().density + 0.5f),
-                ContextCompat.getColor(view.getContext(), selected ? R.color.xm_accent : R.color.xm_stroke));
+                ContextCompat.getColor(view.getContext(), selected ? R.color.xm_accent : android.R.color.transparent));
         return drawable;
     }
 

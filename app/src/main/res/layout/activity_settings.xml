@@ -12,10 +12,10 @@
         android:background="@drawable/xm_top_bar_bg"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:paddingStart="18dp"
-        android:paddingTop="18dp"
-        android:paddingEnd="18dp"
-        android:paddingBottom="16dp">
+        android:paddingStart="20dp"
+        android:paddingTop="20dp"
+        android:paddingEnd="20dp"
+        android:paddingBottom="18dp">
 
         <ImageButton
             android:id="@+id/settings_back_button"
@@ -40,7 +40,7 @@
         <com.google.android.material.button.MaterialButton
             android:id="@+id/settings_done_button"
             android:layout_width="wrap_content"
-            android:layout_height="42dp"
+            android:layout_height="44dp"
             android:text="@string/settings_done"
             android:textAllCaps="false"
             android:textColor="@color/xm_accent_dark"
@@ -57,7 +57,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="18dp">
+            android:padding="20dp">
 
             <TextView
                 android:layout_width="match_parent"
@@ -70,7 +70,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="14dp"
-                app:cardBackgroundColor="@color/xm_surface"
+                app:cardBackgroundColor="@color/xm_surface_elevated"
                 app:cardCornerRadius="12dp"
                 app:strokeColor="@color/xm_stroke_soft"
                 app:strokeWidth="1dp">
@@ -269,7 +269,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
-                app:cardBackgroundColor="@color/xm_surface"
+                app:cardBackgroundColor="@color/xm_surface_elevated"
                 app:cardCornerRadius="12dp"
                 app:strokeColor="@color/xm_stroke_soft"
                 app:strokeWidth="1dp">
@@ -374,7 +374,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
-                app:cardBackgroundColor="@color/xm_surface"
+                app:cardBackgroundColor="@color/xm_surface_elevated"
                 app:cardCornerRadius="12dp"
                 app:strokeColor="@color/xm_stroke_soft"
                 app:strokeWidth="1dp">
@@ -429,7 +429,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
-                app:cardBackgroundColor="@color/xm_surface"
+                app:cardBackgroundColor="@color/xm_surface_elevated"
                 app:cardCornerRadius="12dp"
                 app:strokeColor="@color/xm_stroke_soft"
                 app:strokeWidth="1dp">

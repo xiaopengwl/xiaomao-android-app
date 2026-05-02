@@ -1,4 +1,4 @@
-var rule = {
+﻿var rule = {
 title: '影像星球',
 host: 'https://www.yxxq34.cc',
 url: '/top/fyclass-----------.html?page=fypage',

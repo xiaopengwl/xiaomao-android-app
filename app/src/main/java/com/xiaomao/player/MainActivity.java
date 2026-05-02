@@ -1140,12 +1140,12 @@ public class MainActivity extends AppCompatActivity {
         chip.setChipCornerRadius(dp(12));
         chip.setChipStartPadding(dp(12));
         chip.setChipEndPadding(dp(12));
-        int checkedText = ContextCompat.getColor(this, R.color.xm_accent_dark);
+        int checkedText = ContextCompat.getColor(this, R.color.xm_accent);
         int defaultText = ContextCompat.getColor(this, R.color.xm_text_primary);
-        int checkedBg = ContextCompat.getColor(this, R.color.xm_accent);
-        int defaultBg = ContextCompat.getColor(this, R.color.xm_surface);
+        int checkedBg = ContextCompat.getColor(this, R.color.xm_info_bg);
+        int defaultBg = ContextCompat.getColor(this, R.color.xm_surface_elevated);
         int checkedStroke = ContextCompat.getColor(this, R.color.xm_accent);
-        int defaultStroke = ContextCompat.getColor(this, R.color.xm_stroke);
+        int defaultStroke = ContextCompat.getColor(this, R.color.xm_stroke_soft);
         chip.setTextColor(new ColorStateList(
                 new int[][]{new int[]{android.R.attr.state_checked}, new int[]{}},
                 new int[]{checkedText, defaultText}

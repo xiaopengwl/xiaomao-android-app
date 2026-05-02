@@ -1,4 +1,4 @@
-var rule = {
+﻿var rule = {
   title: '吃瓜网',
   host: 'https://band.wyrrqof.com',
   url: '/category/fyclass/fypage/',

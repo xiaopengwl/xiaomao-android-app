@@ -1,4 +1,4 @@
-var rule = {
+﻿var rule = {
     title: '百思派电影网',
     host: 'https://www.bestpipe.cn',
     url: '/vodtype/fyclass-fypage.html',

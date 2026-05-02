@@ -66,7 +66,7 @@ public class RankListAdapter extends RecyclerView.Adapter<RankListAdapter.RankVi
         holder.numberView.setText(String.valueOf(position + 1));
         holder.titleView.setText(item.title.isEmpty() ? "未命名影片" : item.title);
         holder.remarkView.setText(item.remark.isEmpty() ? "当前片源未返回简介，点击进入详情页查看选集。" : item.remark);
-        holder.heatView.setText(String.format(Locale.CHINA, "%d", Math.max(5231, 8450 - (position * 217))));
+        holder.heatView.setText(buildHeatLabel(item, position));
         holder.numberView.setBackground(buildRankBadge(holder.numberView, position));
         PosterLoader.load(holder.posterView, item.poster, item.title);
         holder.itemView.setOnClickListener(v -> {
@@ -118,16 +118,22 @@ public class RankListAdapter extends RecyclerView.Adapter<RankListAdapter.RankVi
         }
         GradientDrawable drawable = new GradientDrawable();
         drawable.setColor(ContextCompat.getColor(view.getContext(), colorRes));
-        drawable.setCornerRadii(new float[]{
-                dp(view, 12), dp(view, 12),
-                dp(view, 0), dp(view, 0),
-                dp(view, 12), dp(view, 12),
-                dp(view, 0), dp(view, 0)
-        });
+        drawable.setCornerRadius(dp(view, 10));
         return drawable;
     }
 
     private float dp(TextView view, int value) {
         return value * view.getResources().getDisplayMetrics().density;
+    }
+
+    private String buildHeatLabel(NativeDrpyEngine.MediaItem item, int position) {
+        if (item != null && item.remark != null && item.remark.startsWith("Douban ")) {
+            int split = item.remark.indexOf(" | ");
+            String rating = split > 7 ? item.remark.substring(7, split) : item.remark.substring(7);
+            if (!rating.trim().isEmpty()) {
+                return rating.trim();
+            }
+        }
+        return String.format(Locale.CHINA, "%d", Math.max(5231, 8450 - (position * 217)));
     }
 }

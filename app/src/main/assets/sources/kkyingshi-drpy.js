@@ -1,4 +1,4 @@
-var rule = {
+﻿var rule = {
   title: '可可影视',
   host: 'https://www.kkys01.com',
   homeUrl: '/show/1------.html',

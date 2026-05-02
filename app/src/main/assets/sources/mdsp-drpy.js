@@ -1,4 +1,4 @@
-var rule = {
+﻿var rule = {
   title: '麻豆视频',
   host: 'https://www.madou8.top/enter',
   url: '/type/fyclass-fypage.html',

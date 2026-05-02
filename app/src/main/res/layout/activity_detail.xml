@@ -20,7 +20,7 @@
 
             <FrameLayout
                 android:layout_width="match_parent"
-                android:layout_height="308dp">
+                android:layout_height="332dp">
 
                 <ImageView
                     android:id="@+id/detail_backdrop"
@@ -37,10 +37,10 @@
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:orientation="vertical"
-                    android:paddingStart="18dp"
-                    android:paddingTop="18dp"
-                    android:paddingEnd="18dp"
-                    android:paddingBottom="18dp">
+                    android:paddingStart="20dp"
+                    android:paddingTop="20dp"
+                    android:paddingEnd="20dp"
+                    android:paddingBottom="20dp">
 
                     <LinearLayout
                         android:layout_width="match_parent"
@@ -50,8 +50,8 @@
 
                         <ImageButton
                             android:id="@+id/detail_back_button"
-                            android:layout_width="42dp"
-                            android:layout_height="42dp"
+                            android:layout_width="44dp"
+                            android:layout_height="44dp"
                             android:background="@drawable/xm_toolbar_button_bg"
                             android:contentDescription="@string/common_back"
                             android:padding="9dp"
@@ -83,11 +83,11 @@
                         android:background="@drawable/xm_hero_panel_bg"
                         android:gravity="bottom"
                         android:orientation="horizontal"
-                        android:padding="16dp">
+                        android:padding="18dp">
 
                         <com.google.android.material.card.MaterialCardView
-                            android:layout_width="104dp"
-                            android:layout_height="148dp"
+                            android:layout_width="110dp"
+                            android:layout_height="165dp"
                             app:cardBackgroundColor="@color/xm_surface_soft"
                             app:cardCornerRadius="12dp"
                             app:cardElevation="0dp"
@@ -115,7 +115,7 @@
                                 android:layout_height="wrap_content"
                                 android:maxLines="2"
                                 android:textColor="@android:color/white"
-                                android:textSize="24sp"
+                                android:textSize="26sp"
                                 android:textStyle="bold" />
 
                             <TextView
@@ -123,6 +123,7 @@
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
                                 android:layout_marginTop="8dp"
+                                android:lineSpacingExtra="2dp"
                                 android:maxLines="2"
                                 android:textColor="#E2E9E4"
                                 android:textSize="14sp" />
@@ -130,7 +131,7 @@
                             <com.google.android.material.button.MaterialButton
                                 android:id="@+id/detail_play_first_button"
                                 android:layout_width="match_parent"
-                                android:layout_height="42dp"
+                                android:layout_height="46dp"
                                 android:layout_marginTop="12dp"
                                 android:text="@string/detail_play_now"
                                 android:textAllCaps="false"
@@ -149,24 +150,24 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:paddingStart="18dp"
-                android:paddingTop="18dp"
-                android:paddingEnd="18dp">
+                android:paddingStart="20dp"
+                android:paddingTop="20dp"
+                android:paddingEnd="20dp">
 
                 <com.google.android.material.card.MaterialCardView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    app:cardBackgroundColor="@color/xm_surface"
+                    app:cardBackgroundColor="@color/xm_surface_elevated"
                     app:cardCornerRadius="12dp"
-                    app:cardElevation="1dp"
-                    app:strokeColor="@color/xm_stroke"
+                    app:cardElevation="0dp"
+                    app:strokeColor="@color/xm_stroke_soft"
                     app:strokeWidth="1dp">
 
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="vertical"
-                        android:padding="18dp">
+                        android:padding="20dp">
 
                         <LinearLayout
                             android:layout_width="match_parent"
@@ -181,7 +182,7 @@
                                 android:layout_weight="1"
                                 android:text="@string/detail_intro_title"
                                 android:textColor="@color/xm_text_primary"
-                                android:textSize="19sp"
+                                android:textSize="20sp"
                                 android:textStyle="bold" />
 
                             <com.google.android.material.button.MaterialButton
@@ -201,7 +202,7 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="12dp"
-                            android:lineSpacingExtra="7dp"
+                            android:lineSpacingExtra="9dp"
                             android:textColor="@color/xm_text_secondary"
                             android:textSize="14sp" />
                     </LinearLayout>
@@ -211,17 +212,17 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="14dp"
-                    app:cardBackgroundColor="@color/xm_surface"
+                    app:cardBackgroundColor="@color/xm_surface_elevated"
                     app:cardCornerRadius="12dp"
-                    app:cardElevation="1dp"
-                    app:strokeColor="@color/xm_stroke"
+                    app:cardElevation="0dp"
+                    app:strokeColor="@color/xm_stroke_soft"
                     app:strokeWidth="1dp">
 
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="vertical"
-                        android:padding="18dp">
+                        android:padding="20dp">
 
                         <TextView
                             android:id="@+id/detail_episode_title"
@@ -229,7 +230,7 @@
                             android:layout_height="wrap_content"
                             android:text="@string/detail_episode_title"
                             android:textColor="@color/xm_text_primary"
-                            android:textSize="19sp"
+                            android:textSize="20sp"
                             android:textStyle="bold" />
 
                         <LinearLayout
