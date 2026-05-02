@@ -212,7 +212,7 @@ public class MainActivity extends AppCompatActivity {
     private void bindViews() {
         swipeRefreshLayout = findViewById(R.id.swipe_refresh);
         bottomNavigationView = findViewById(R.id.bottom_nav);
-        searchPanel = findViewById(R.id.search_panel);
+        searchPanel = null;
         homeScrollView = findViewById(R.id.home_scroll);
         libraryContainer = findViewById(R.id.library_container);
         rankContainer = findViewById(R.id.rank_container);
