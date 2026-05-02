@@ -9,10 +9,13 @@ import android.graphics.Shader;
 import android.graphics.drawable.BitmapDrawable;
 import android.widget.ImageView;
 
+import java.net.URL;
 import java.util.Locale;
 
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.load.engine.DiskCacheStrategy;
+import com.bumptech.glide.load.model.GlideUrl;
+import com.bumptech.glide.load.model.LazyHeaders;
 import com.bumptech.glide.request.RequestOptions;
 
 public final class PosterLoader {
@@ -28,8 +31,9 @@ public final class PosterLoader {
             return;
         }
         BitmapDrawable placeholderDrawable = new BitmapDrawable(imageView.getResources(), placeholder);
+        Object model = buildModel(cacheKey);
         Glide.with(imageView)
-                .load(cacheKey)
+                .load(model)
                 .apply(new RequestOptions()
                         .diskCacheStrategy(DiskCacheStrategy.ALL)
                         .placeholder(placeholderDrawable)
@@ -80,6 +84,34 @@ public final class PosterLoader {
         text.setColor(0xFF9AA8B8);
         canvas.drawText("Poster", width / 2f, 454f, text);
         return bitmap;
+    }
+
+    private static Object buildModel(String url) {
+        String value = url == null ? "" : url.trim();
+        if (value.isEmpty()) {
+            return "";
+        }
+        LazyHeaders.Builder headers = new LazyHeaders.Builder()
+                .addHeader("User-Agent", "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/124 Mobile Safari/537.36")
+                .addHeader("Accept", "image/avif,image/webp,image/apng,image/*,*/*;q=0.8");
+        String referer = buildReferer(value);
+        if (!referer.isEmpty()) {
+            headers.addHeader("Referer", referer);
+        }
+        return new GlideUrl(value, headers.build());
+    }
+
+    private static String buildReferer(String url) {
+        try {
+            URL parsed = new URL(url);
+            String host = parsed.getHost() == null ? "" : parsed.getHost().toLowerCase(Locale.US);
+            if (host.contains("doubanio.com")) {
+                return "https://m.douban.com/";
+            }
+            return parsed.getProtocol() + "://" + parsed.getHost() + "/";
+        } catch (Exception ignored) {
+            return "";
+        }
     }
 
     private static String shorten(String title) {
