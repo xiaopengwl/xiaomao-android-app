@@ -294,7 +294,7 @@ public class MainActivity extends AppCompatActivity {
             currentTab = MainTab.LIBRARY;
             renderCategories();
             loadCategoryPage(category, 1);
-        }));
+        });
 
         rankRecyclerView.setLayoutManager(new LinearLayoutManager(this));
         rankRecyclerView.setAdapter(rankAdapter);
